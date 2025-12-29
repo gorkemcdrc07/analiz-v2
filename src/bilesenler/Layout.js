@@ -50,7 +50,7 @@ export default function Layout() {
         setLoading(true);
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/tmsorders/getall`, {
+            const response = await fetch(`${API_BASE_URL}/tmsorders/getall`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -63,7 +63,21 @@ export default function Layout() {
                 })
             });
 
-            const result = await response.json();
+            const text = await response.text();
+
+            if (!response.ok) {
+                console.error('API Error:', response.status, text);
+                throw new Error(`API ${response.status}`);
+            }
+
+            let result;
+            try {
+                result = JSON.parse(text);
+            } catch (e) {
+                console.error('JSON değil, gelen cevap:', text.slice(0, 200));
+                throw e;
+            }
+
             setData(result.Data || []);
         } catch (error) {
             console.error('❌ API Hatası:', error);
