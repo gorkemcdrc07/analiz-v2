@@ -41,8 +41,8 @@ export default function Layout() {
     }, [location.pathname]);
 
     // API fetch
-    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-    const API_TOKEN = process.env.REACT_APP_API_TOKEN;
+    const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || '').replace(/\/$/, '');
+    const API_TOKEN = process.env.REACT_APP_API_TOKEN || '';
 
     const handleFilter = async () => {
         const startDateTime = formatDate(startDate);
@@ -50,7 +50,7 @@ export default function Layout() {
         setLoading(true);
 
         try {
-            const response = await fetch(`${API_BASE_URL}/tmsorders/getall`, {
+            const response = await fetch(`${API_BASE_URL}/api/tmsorders/getall`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
