@@ -1,25 +1,39 @@
-import logo from './logo.svg';
-import './App.css';
+import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+import Layout from './bilesenler/Layout';
+import Anasayfa from './sayfalar/Anasayfa';
+import TedarikAnaliz from './sayfalar/TedarikAnaliz';
+import SiparisAnaliz from './sayfalar/SiparisAnaliz';
+import ProjeAnaliz from './sayfalar/ProjeAnaliz'; // ✅ EKLENDİ
+
+const theme = createTheme({
+    palette: {
+        background: { default: '#f8fafc' },
+        primary: { main: '#2563eb' },
+    },
+    typography: {
+        fontFamily: '"Inter", "Roboto", "Helvetica", Arial, sans-serif',
+    },
+    shape: { borderRadius: 12 },
+});
+
+export default function App() {
+    return (
+        <ThemeProvider theme={theme}>
+            <CssBaseline />
+            <BrowserRouter>
+                <Routes>
+                    <Route element={<Layout />}>
+                        <Route path="/" element={<Anasayfa />} />
+                        <Route path="/tedarik-analiz" element={<TedarikAnaliz />} />
+                        <Route path="/siparis-analiz" element={<SiparisAnaliz />} />
+                        <Route path="/proje-analiz" element={<ProjeAnaliz />} /> {/* ✅ EKLENDİ */}
+
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                    </Route>
+                </Routes>
+            </BrowserRouter>
+        </ThemeProvider>
+    );
 }
-
-export default App;
