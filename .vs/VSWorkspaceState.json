@@ -5,8 +5,9 @@
     "\\src",
     "\\src\\bilesenler",
     "\\src\\sayfalar",
+    "\\src\\utils",
     "\\src\\yardimcilar"
   ],
-  "SelectedNode": "\\src\\App.js",
+  "SelectedNode": "\\src\\utils\\compareEngine.js",
   "PreviewInSolutionExplorer": false
 }

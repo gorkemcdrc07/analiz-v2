@@ -1,16 +1,46 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from "react";
 import {
-    Table, TableBody, TableCell, TableContainer, TableRow, TableHead,
-    Paper, Typography, Box, Stack, Chip, styled, alpha, Tab, Tabs, Collapse
-} from '@mui/material';
+    Box,
+    Paper,
+    Typography,
+    Stack,
+    Chip,
+    styled,
+    alpha,
+    Tabs,
+    Tab,
+    Collapse,
+    TextField,
+    InputAdornment,
+    Divider,
+    Select,
+    MenuItem,
+    FormControl,
+    Switch,
+    FormControlLabel,
+    Tooltip,
+    IconButton,
+} from "@mui/material";
 import {
-    MdLocalShipping, MdKeyboardArrowDown, MdKeyboardArrowUp,
-    MdPerson, MdHistory, MdOutlineTimer, MdDoubleArrow, MdAssignment,
-    MdPinDrop, MdMonitor
-} from 'react-icons/md';
-import { motion } from 'framer-motion';
+    MdMonitor,
+    MdSearch,
+    MdKeyboardArrowDown,
+    MdKeyboardArrowUp,
+    MdLocalShipping,
+    MdPinDrop,
+    MdHistory,
+    MdOutlineTimer,
+    MdAssignment,
+    MdPerson,
+    MdBolt,
+    MdTrendingUp,
+    MdWarning,
+    MdCancel,
+    MdInfoOutline,
+} from "react-icons/md";
+import { motion, AnimatePresence } from "framer-motion";
 
-// --- STATÜ EŞLEME SÖZLÜĞÜ (OrderStatu Değerleri) ---
+/* ------------------------ yardımcılar ------------------------ */
 const STATUS_MAP = {
     1: { label: "Bekliyor", color: "#64748b" },
     2: { label: "Onaylandı", color: "#0ea5e9" },
@@ -23,178 +53,408 @@ const STATUS_MAP = {
     10: { label: "Eksik Evrak", color: "#ef4444" },
     20: { label: "Teslim Edildi", color: "#059669" },
     30: { label: "Tamamlandı", color: "#0f172a" },
-    40: { label: "Orjinal Evrak Geldi", color: "#6366f1" },
+    40: { label: "Orijinal Evrak Geldi", color: "#6366f1" },
     50: { label: "Evrak Arşivlendi", color: "#475569" },
     80: { label: "Araç Boşaltmada", color: "#f97316" },
     90: { label: "Filo Araç Planlamada", color: "#ec4899" },
-    200: { label: "İptal", color: "#b91c1c" }
+    200: { label: "İptal", color: "#b91c1c" },
 };
 
-// --- YARDIMCI FONKSİYONLAR ---
-const getStatusBadge = (statusId) => {
-    const status = STATUS_MAP[statusId] || { label: "Belirsiz", color: "#94a3b8" };
-    return (
-        <Chip
-            label={status.label.toUpperCase()}
-            size="small"
-            sx={{
-                fontWeight: 900,
-                fontSize: '0.65rem',
-                height: 22,
-                bgcolor: status.color,
-                color: '#fff',
-                borderRadius: '6px',
-                px: 0.5
-            }}
-        />
-    );
+const norm = (s) =>
+    (s ?? "")
+        .toString()
+        .trim()
+        .toLocaleUpperCase("tr-TR")
+        .replace(/\s+/g, " ");
+
+const toBool = (v) => {
+    if (v === true || v === false) return v;
+    if (v === 1 || v === "1") return true;
+    if (v === 0 || v === "0") return false;
+    if (typeof v === "string") {
+        const s = v.trim().toLowerCase();
+        if (s === "true") return true;
+        if (s === "false") return false;
+    }
+    return false;
+};
+
+const toNum = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
 };
 
 const formatDate = (dateStr) => {
     if (!dateStr || dateStr === "---") return "---";
     try {
         const date = new Date(dateStr);
-        return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-    } catch (e) {
-        return dateStr;
+        if (Number.isNaN(date.getTime())) return String(dateStr);
+        return `${String(date.getDate()).padStart(2, "0")}.${String(
+            date.getMonth() + 1
+        ).padStart(2, "0")}.${date.getFullYear()} ${String(
+            date.getHours()
+        ).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+    } catch {
+        return String(dateStr);
     }
 };
 
-const norm = (s) => (s ?? "").toString().trim().toLocaleUpperCase("tr-TR").replace(/\s+/g, " ");
+// dd.mm.yyyy / ISO parse
+const parseTRDateTime = (v) => {
+    if (!v || v === "---") return null;
+    if (v instanceof Date && !Number.isNaN(v.getTime())) return v;
+    const s = String(v).trim();
+    if (!s) return null;
 
-// --- ✅ TARİH FARKI HESAPLAMA (30 saat kuralı) ---
+    const m = s.match(
+        /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/
+    );
+    if (m) {
+        const dd = Number(m[1]);
+        const mm = Number(m[2]);
+        const yyyy = Number(m[3]);
+        const HH = Number(m[4] ?? 0);
+        const MI = Number(m[5] ?? 0);
+        const SS = Number(m[6] ?? 0);
+        const d = new Date(yyyy, mm - 1, dd, HH, MI, SS);
+        return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    const d2 = new Date(s);
+    return Number.isNaN(d2.getTime()) ? null : d2;
+};
+
 const hoursDiff = (a, b) => {
-    if (!a || !b || a === "---" || b === "---") return null;
-
-    const d1 = new Date(a);
-    const d2 = new Date(b);
-
-    if (Number.isNaN(d1.getTime()) || Number.isNaN(d2.getTime())) return null;
-
-    // tarih sırası bazen ters gelebilir diye abs
-    const diffMs = Math.abs(d2.getTime() - d1.getTime());
-    return diffMs / (1000 * 60 * 60); // saat
+    const d1 = parseTRDateTime(a);
+    const d2 = parseTRDateTime(b);
+    if (!d1 || !d2) return null;
+    return Math.abs(d2.getTime() - d1.getTime()) / (1000 * 60 * 60);
 };
 
-const getTimingInfo = (despatchCreated, pickupDate) => {
-    const h = hoursDiff(despatchCreated, pickupDate);
-
-    if (h == null) return { label: "TARİH YOK", color: "#94a3b8", hours: null };
-    if (h < 30) return { label: "ZAMANINDA", color: "#10b981", hours: h };
-    return { label: "GEÇ TESLİMAT", color: "#ef4444", hours: h };
+// sefer_acilis_zamani(TMSDespatchCreatedDate) -> yukleme_tarihi(PickupDate)
+const getTimingInfo = (seferAcilisZamani, yuklemeTarihi) => {
+    const h = hoursDiff(seferAcilisZamani, yuklemeTarihi);
+    if (h == null)
+        return { label: "Tarih yok", color: "#94a3b8", hours: null, level: "none" };
+    if (h < 30)
+        return { label: "Zamanında", color: "#10b981", hours: h, level: "ok" };
+    return { label: "Gecikme", color: "#ef4444", hours: h, level: "late" };
 };
 
-// --- LOJİSTİK TEMA BİLEŞENLERİ ---
-const MainContainer = styled(Box)({
-    padding: '32px',
-    backgroundColor: '#f4f7fa',
-    minHeight: '100vh',
-    backgroundImage: 'radial-gradient(#d1d5db 0.5px, transparent 0.5px)',
-    backgroundSize: '24px 24px'
+const StatusPill = ({ statusIdRaw }) => {
+    const id = toNum(statusIdRaw);
+    const s =
+        id != null && STATUS_MAP[id]
+            ? STATUS_MAP[id]
+            : { label: "Belirsiz", color: "#94a3b8" };
+    return (
+        <Chip
+            size="small"
+            label={s.label}
+            sx={{
+                height: 24,
+                fontWeight: 950,
+                borderRadius: "999px",
+                bgcolor: s.color,
+                color: "#fff",
+                px: 1,
+            }}
+        />
+    );
+};
+
+/* ------------------------ modern UI ------------------------ */
+const Root = styled(Box)({
+    width: "100%",
+    minHeight: "100vh",
+    padding: "clamp(12px, 2vw, 26px)",
+    background:
+        "radial-gradient(1200px 600px at 15% 0%, rgba(59,130,246,0.14), transparent 55%)," +
+        "radial-gradient(900px 520px at 85% 5%, rgba(16,185,129,0.10), transparent 60%)," +
+        "radial-gradient(1000px 650px at 50% 100%, rgba(245,158,11,0.10), transparent 60%)," +
+        "linear-gradient(180deg,#f8fafc, #f6f7fb 60%, #f8fafc)",
 });
 
-const GlassCard = styled(Paper)({
-    borderRadius: '24px',
-    boxShadow: '0 10px 40px rgba(0,0,0,0.06)',
-    background: 'rgba(255, 255, 255, 0.95)',
-    backdropFilter: 'blur(10px)',
-    overflow: 'hidden',
-    border: '1px solid #e2e8f0'
+const Wide = styled(Box)({
+    width: "100%",
+    maxWidth: 30000,
+    marginLeft: "auto",
+    marginRight: "auto",
 });
 
-const StyledTabs = styled(Tabs)({
-    background: '#e2e8f0',
-    padding: '6px',
-    borderRadius: '16px',
-    '& .MuiTabs-indicator': {
-        height: 'calc(100% - 12px)',
-        borderRadius: '12px',
-        backgroundColor: '#ffffff',
-        zIndex: 0,
-        top: '6px',
+const TopBar = styled(Paper)({
+    position: "sticky",
+    top: 14,
+    zIndex: 10,
+    borderRadius: 26,
+    padding: 18,
+    border: "1px solid rgba(226,232,240,0.8)",
+    background: "rgba(255,255,255,0.78)",
+    backdropFilter: "blur(16px)",
+    boxShadow: "0 24px 80px rgba(2,6,23,0.12)",
+});
+
+const Grid = styled(Box)({
+    display: "grid",
+    gridTemplateColumns: "1.2fr 1fr",
+    gap: 16,
+});
+
+const Grid2 = styled(Box)({
+    display: "grid",
+    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+    gap: 14,
+});
+
+const KPI = styled(motion.div)(({ accent = "#3b82f6" }) => ({
+    borderRadius: 22,
+    padding: 16,
+    border: "1px solid rgba(226,232,240,0.9)",
+    background: "rgba(255,255,255,0.88)",
+    backdropFilter: "blur(10px)",
+    boxShadow: "0 18px 55px rgba(2,6,23,0.06)",
+    position: "relative",
+    overflow: "hidden",
+    cursor: "default",
+    "&:before": {
+        content: '""',
+        position: "absolute",
+        inset: 0,
+        background: `radial-gradient(900px 250px at 18% 0%, ${alpha(
+            accent,
+            0.18
+        )}, transparent 55%)`,
+        pointerEvents: "none",
+    },
+}));
+
+const RegionTabs = styled(Tabs)({
+    background: "rgba(15,23,42,0.04)",
+    padding: 6,
+    borderRadius: 18,
+    border: "1px solid rgba(226,232,240,0.9)",
+    "& .MuiTabs-indicator": {
+        height: "calc(100% - 12px)",
+        borderRadius: 14,
+        backgroundColor: "rgba(255,255,255,0.92)",
+        top: 6,
     },
 });
 
-const StyledTab = styled(Tab)({
-    textTransform: 'none',
-    fontWeight: 800,
+const RegionTab = styled(Tab)({
+    textTransform: "none",
+    fontWeight: 950,
     zIndex: 2,
-    color: '#64748b',
-    '&.Mui-selected': { color: '#0f172a' },
+    color: "#64748b",
+    "&.Mui-selected": { color: "#0f172a" },
 });
 
-const ShipmentPaper = styled(motion.div)(({ isprinted }) => ({
-    background: '#ffffff',
-    borderRadius: '20px',
-    padding: '28px',
-    marginBottom: '20px',
-    border: '1px solid #e2e8f0',
-    position: 'relative',
-    overflow: 'hidden',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
-    '&:before': {
-        content: '""',
-        position: 'absolute',
-        top: 0, left: 0, width: '8px', height: '100%',
-        background: isprinted === 'true' ? '#10b981' : '#3b82f6',
-    }
-}));
-
-const DynamicOrderBadge = styled(Box)({
-    position: 'absolute',
-    right: '-30px',
-    top: '20px',
-    background: '#f1f5f9',
-    color: '#94a3b8',
-    fontSize: '0.65rem',
-    fontWeight: 900,
-    padding: '4px 40px',
-    transform: 'rotate(45deg)',
-    textAlign: 'center',
-    minWidth: '120px',
-    letterSpacing: '0.5px'
+const CardList = styled(Box)({
+    marginTop: 16,
+    display: "grid",
+    gap: 12,
 });
 
-const RouteStop = styled(Box)(({ type }) => ({
-    padding: '16px',
-    borderRadius: '16px',
-    background: type === 'pickup' ? alpha('#10b981', 0.05) : alpha('#ef4444', 0.05),
-    border: `1px dashed ${type === 'pickup' ? '#10b981' : '#ef4444'}`,
-    flex: 1,
-    position: 'relative'
+const ProjectCard = styled(motion.div)({
+    borderRadius: 24,
+    border: "1px solid rgba(226,232,240,0.95)",
+    background: "rgba(255,255,255,0.90)",
+    backdropFilter: "blur(12px)",
+    boxShadow: "0 16px 55px rgba(2,6,23,0.07)",
+    overflow: "hidden",
+});
+
+const CardHeader = styled(Box)({
+    padding: 16,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+});
+
+const Accent = styled(Box)(({ color = "#3b82f6" }) => ({
+    width: 10,
+    borderRadius: 999,
+    background: `linear-gradient(180deg, ${color}, ${alpha(color, 0.65)})`,
+    alignSelf: "stretch",
 }));
 
-const TimeBadge = ({ label, value, icon: Icon, color = "#3b82f6" }) => (
-    <Box sx={{ mb: 2 }}>
-        <Typography sx={{ fontSize: '0.55rem', fontWeight: 1000, color: color, mb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5, letterSpacing: '0.5px' }}>
-            {Icon && <Icon size={12} />} {label}
+const Pill = styled(Chip)(({ pillcolor }) => ({
+    height: 26,
+    borderRadius: 999,
+    fontWeight: 950,
+    background: alpha(pillcolor || "#3b82f6", 0.12),
+    color: pillcolor || "#3b82f6",
+    border: `1px solid ${alpha(pillcolor || "#3b82f6", 0.22)}`,
+}));
+
+const MiniStat = ({ label, value, color = "#0f172a" }) => (
+    <Box sx={{ textAlign: "center", minWidth: 92 }}>
+        <Typography
+            sx={{
+                fontSize: "0.62rem",
+                fontWeight: 950,
+                color: "#94a3b8",
+                letterSpacing: "0.6px",
+            }}
+        >
+            {label}
         </Typography>
-        <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, color: '#1e293b' }}>{value}</Typography>
+        <Typography sx={{ fontSize: "1.08rem", fontWeight: 1000, color }}>
+            {value}
+        </Typography>
     </Box>
 );
 
-const StatBox = ({ label, value, color }) => (
-    <Box sx={{ textAlign: 'center' }}>
-        <Typography sx={{ fontSize: '0.6rem', fontWeight: 900, color: '#94a3b8', mb: 0.5 }}>{label}</Typography>
-        <Typography sx={{ fontSize: '1.25rem', fontWeight: 1000, color: color }}>{value}</Typography>
-    </Box>
-);
+const ExpandBtn = styled(Box)(({ open }) => ({
+    width: 40,
+    height: 40,
+    borderRadius: 16,
+    display: "grid",
+    placeItems: "center",
+    background: open ? "#0f172a" : "rgba(15,23,42,0.06)",
+    color: open ? "#fff" : "#64748b",
+    transition: "0.2s",
+}));
 
-// --- PROJE SATIRI BİLEŞENİ ---
-function ProjectRow({ row, allData }) {
-    const [open, setOpen] = useState(false);
+const ShipmentWrap = styled(Box)({
+    padding: 16,
+    background: "rgba(15,23,42,0.02)",
+    borderTop: "1px solid rgba(226,232,240,0.9)",
+});
 
-    const subDetails = useMemo(() => {
-        const seenRequests = new Set();
-        return allData.filter(item => {
+const ShipmentCard = styled(motion.div)(({ printed }) => ({
+    borderRadius: 22,
+    border: "1px solid rgba(226,232,240,0.95)",
+    background: "rgba(255,255,255,0.94)",
+    boxShadow: "0 14px 48px rgba(2,6,23,0.07)",
+    overflow: "hidden",
+    position: "relative",
+    padding: 16,
+    "&:before": {
+        content: '""',
+        position: "absolute",
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: 10,
+        background: printed
+            ? "linear-gradient(180deg,#10b981,#059669)"
+            : "linear-gradient(180deg,#3b82f6,#2563eb)",
+    },
+}));
+
+const RowTabs = styled(Tabs)({
+    minHeight: 34,
+    "& .MuiTabs-indicator": { height: 3, borderRadius: 3 },
+});
+const RowTab = styled(Tab)({
+    minHeight: 34,
+    textTransform: "none",
+    fontWeight: 950,
+    fontSize: "0.85rem",
+});
+
+const RouteBox = styled(Box)(({ t = "pickup" }) => ({
+    flex: 1,
+    borderRadius: 18,
+    padding: 14,
+    border: `1px dashed ${t === "pickup" ? alpha("#10b981", 0.55) : alpha("#ef4444", 0.55)
+        }`,
+    background: t === "pickup" ? alpha("#10b981", 0.06) : alpha("#ef4444", 0.06),
+}));
+
+/* ------------------------ veri kuralları ------------------------ */
+const REGIONS = {
+    TRAKYA: [
+        "BUNGE LÜLEBURGAZ FTL",
+        "BUNGE GEBZE FTL",
+        "BUNGE PALET",
+        "REKA FTL",
+        "EKSUN GIDA FTL",
+        "SARUHAN FTL",
+        "PEPSİ FTL",
+        "PEPSİ FTL ÇORLU",
+        "TEKİRDAĞ UN FTL",
+        "AYDINLI MODA FTL",
+        "ADKOTURK FTL",
+        "ADKOTURK FTL ENERJİ İÇECEĞİ",
+        "SGS FTL",
+        "BSH FTL",
+        "ALTERNA GIDA FTL",
+        "BİLEŞİM KİMYA FTL",
+        "DERYA OFİS FTL",
+        "SAPRO FTL",
+        "MARMARA CAM FTL",
+        "FAKİR FTL",
+        "MODERN KARTON FTL",
+        "KÜÇÜKBAY TRAKYA FTL",
+        "MODERN BOBİN FTL",
+    ],
+    GEBZE: [
+        "HEDEF FTL",
+        "HEDEF DIŞ TEDARİK",
+        "PEPSİ FTL GEBZE",
+        "EBEBEK FTL GEBZE",
+        "FAKİR FTL GEBZE",
+        "MİLHANS FTL",
+        "AYDIN KURUYEMİŞ FTL",
+        "AVANSAS FTL",
+        "AVANSAS SPOT FTL",
+        "DSV ERNAMAŞ FTL",
+        "FLO FTL",
+        "ÇİÇEKÇİ FTL",
+        "ÇİZMECİ GIDA FTL",
+        "OTTONYA (HEDEFTEN AÇILIYOR)",
+        "GALEN ÇOCUK FTL",
+        "ENTAŞ FTL",
+    ],
+    DERİNCE: [
+        "ARKAS PETROL OFİSİ DERİNCE FTL",
+        "ARKAS PETROL OFİSİ DIŞ TERMİNAL FTL",
+    ],
+    İZMİR: [
+        "EURO GIDA FTL",
+        "EBEBEK FTL",
+        "KİPAŞ SÖKE FTL",
+        "CEYSU FTL",
+        "TAT GIDA FTL",
+        "ZER SALÇA",
+        "ANKUTSAN FTL",
+        "PELAGOS GIDA FTL",
+        "KÜÇÜKBAY İZMİR FTL",
+    ],
+    ÇUKUROVA: [
+        "PEKER FTL",
+        "GDP FTL",
+        "ÖZMEN UN FTL",
+        "KİPAŞ MARAŞ FTL",
+        "TÜRK OLUKLU FTL",
+        "İLKON TEKSTİL FTL",
+        "BİM / MERSİN",
+    ],
+    ESKİŞEHİR: [
+        "ES FTL",
+        "ES GLOBAL FRİGO FTL",
+        "KİPAŞ BOZÜYÜK FTL",
+        "2A TÜKETİM FTL",
+        "MODERN HURDA DÖNÜŞ FTL",
+        "MODERN HURDA ZONGULDAK FTL",
+        "ŞİŞECAM FTL",
+        "DENTAŞ FTL",
+    ],
+    "İÇ ANADOLU": ["APAK FTL", "SER DAYANIKLI FTL", "UNIFO FTL", "UNIFO ASKERİ FTL"],
+    AFYON: ["BİM AFYON PLATFORM FTL"],
+};
+
+function buildSubDetails(rowName, allData) {
+    const seen = new Set();
+    const rowNorm = norm(rowName);
+
+    return (allData || [])
+        .filter((item) => {
             const pNorm = norm(item.ProjectName);
-            const rowNorm = norm(row.name);
-
-            // ✅ özel mapping ile oluşturduğumuz proje adları için de eşleştirme yapalım:
-            // item.ProjectName'i pickup il/ilçe ile "finalProjectName" gibi normalize edemiyoruz burada (çünkü ProjectRow'a gelmeden dönüşüyor).
-            // Bu yüzden: hem row.name ile item.ProjectName eşitliği, hem de bilinen özel projeleri pickup'a göre yakalıyoruz.
-
-            const isProjectMatchDirect = pNorm === rowNorm;
+            const isDirect = pNorm === rowNorm;
 
             const isPepsiCorlu =
                 rowNorm === norm("PEPSİ FTL ÇORLU") &&
@@ -224,507 +484,873 @@ function ProjectRow({ row, allData }) {
                 rowNorm === norm("OTTONYA (HEDEFTEN AÇILIYOR)") &&
                 pNorm === norm("OTTONYA");
 
-            // senin mevcut TRAKYA/KÜÇÜKBAY özel eşleştirmen
-            const isKucukbayTrakyaSpecial =
-                (rowNorm.includes("TRAKYA") && pNorm === norm("KÜÇÜKBAY FTL")) &&
-                new Set(["EDİRNE", "KIRKLARELİ", "TEKİRDAĞ"].map(norm)).has(norm(item.PickupCityName));
+            const isKucukbayTrakya =
+                rowNorm.includes("TRAKYA") &&
+                pNorm === norm("KÜÇÜKBAY FTL") &&
+                new Set(["EDİRNE", "KIRKLARELİ", "TEKİRDAĞ"].map(norm)).has(
+                    norm(item.PickupCityName)
+                );
 
-            const isProjectMatch =
-                isProjectMatchDirect ||
-                isPepsiCorlu || isPepsiGebze ||
+            const match =
+                isDirect ||
+                isPepsiCorlu ||
+                isPepsiGebze ||
                 isEbebekGebze ||
                 isFakirGebze ||
                 isOttonya ||
-                isKucukbayTrakyaSpecial;
+                isKucukbayTrakya;
+            if (!match) return false;
 
-            if (isProjectMatch) {
-                const reqNo = item.TMSVehicleRequestDocumentNo;
-                const despNo = item.TMSDespatchDocumentNo || "";
-                const isDespatchValid = !despNo.toUpperCase().startsWith("BOS");
+            const reqNo = item.TMSVehicleRequestDocumentNo;
+            const despNo = (item.TMSDespatchDocumentNo || "").toString();
+            const isValid = !despNo.toUpperCase().startsWith("BOS");
+            const uniq = reqNo || despNo;
 
-                if (reqNo && isDespatchValid && !seenRequests.has(reqNo)) {
-                    seenRequests.add(reqNo);
-                    return true;
-                }
+            if (uniq && isValid && !seen.has(uniq)) {
+                seen.add(uniq);
+                return true;
             }
             return false;
-        }).slice(0, 50);
-    }, [row.name, allData]);
+        })
+        .slice(0, 50);
+}
+
+/* ------------------------ satır bileşeni ------------------------ */
+function ProjectRow({ row, allData }) {
+    const [open, setOpen] = useState(false);
+    const [tab, setTab] = useState(0);
+
+    const subDetails = useMemo(
+        () => buildSubDetails(row.name, allData),
+        [row.name, allData]
+    );
+
+    const accentColor =
+        row.yuzde >= 90 ? "#10b981" : row.yuzde >= 70 ? "#3b82f6" : "#f59e0b";
 
     return (
-        <React.Fragment>
-            <TableRow
-                onClick={() => setOpen(!open)}
-                sx={{ cursor: 'pointer', '&:hover': { bgcolor: alpha('#3b82f6', 0.02) } }}
-            >
-                <TableCell sx={{ pl: 4, py: 3.5 }}>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                        <Box sx={{ width: 36, height: 36, borderRadius: '10px', bgcolor: open ? '#0f172a' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.3s' }}>
-                            {open ? <MdKeyboardArrowUp size={22} color="#fff" /> : <MdKeyboardArrowDown size={22} color="#64748b" />}
-                        </Box>
-                        <Typography sx={{ fontWeight: 1000, color: '#0f172a', fontSize: '1rem' }}>{row.name}</Typography>
+        <ProjectCard
+            layout
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.22 }}
+            whileHover={{ y: -2 }}
+        >
+            <CardHeader onClick={() => setOpen((s) => !s)} style={{ cursor: "pointer" }}>
+                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
+                    <Accent color={accentColor} />
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography
+                            sx={{
+                                fontWeight: 1000,
+                                color: "#0f172a",
+                                fontSize: "1.06rem",
+                                letterSpacing: "-0.5px",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                maxWidth: { xs: 220, md: 560 },
+                            }}
+                        >
+                            {row.name}
+                        </Typography>
+
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.7, flexWrap: "wrap" }}>
+                            <Pill pillcolor="#0ea5e9" label={`Talep: ${row.plan}`} />
+                            <Pill pillcolor="#10b981" label={`Tedarik: ${row.ted}`} />
+                            <Pill pillcolor="#ef4444" label={`Gecikme: ${row.gec}`} />
+                            <Pill pillcolor="#b91c1c" label={`İptal: ${row.iptal}`} />
+                        </Stack>
+                    </Box>
+                </Stack>
+
+                <Stack direction="row" spacing={2} alignItems="center">
+                    <Stack direction="row" spacing={2} sx={{ display: { xs: "none", md: "flex" } }}>
+                        <MiniStat label="SPOT" value={row.spot} color="#3b82f6" />
+                        <MiniStat label="FİLO" value={row.filo} color="#8b5cf6" />
+                        <MiniStat label="Basım" value={row.sho_b} color="#059669" />
+                        <MiniStat
+                            label="Zamanında"
+                            value={`%${row.yuzde}`}
+                            color={row.yuzde >= 90 ? "#10b981" : "#f59e0b"}
+                        />
                     </Stack>
-                </TableCell>
 
-                <TableCell align="center">
-                    <StatBox label="TALEP" value={row.plan} color="#1e293b" />
-                </TableCell>
+                    <ExpandBtn open={open ? 1 : 0}>
+                        {open ? <MdKeyboardArrowUp size={22} /> : <MdKeyboardArrowDown size={22} />}
+                    </ExpandBtn>
+                </Stack>
+            </CardHeader>
 
-                <TableCell align="center">
-                    <Stack direction="row" spacing={3} justifyContent="center">
-                        <StatBox label="TEDARİK EDİLEN" value={row.ted} color="#10b981" />
-                        <StatBox label="TEDARİK EDİLMEYEN" value={row.edilmeyen} color="#f59e0b" />
-                    </Stack>
-                </TableCell>
+            <Collapse in={open} timeout={250} unmountOnExit>
+                <ShipmentWrap>
+                    <RowTabs value={tab} onChange={(e, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
+                        <RowTab label="Genel Bakış" />
+                        <RowTab label="Zaman Çizelgesi" />
+                        <RowTab label="Rota" />
+                    </RowTabs>
 
-                <TableCell align="center">
-                    <Stack direction="row" spacing={3} justifyContent="center">
-                        <StatBox label="SPOT" value={row.spot} color="#3b82f6" />
-                        <StatBox label="FİLO" value={row.filo} color="#8b5cf6" />
-                    </Stack>
-                </TableCell>
+                    <Box sx={{ mt: 1.5, display: "grid", gap: 12 }}>
+                        {subDetails.map((item, idx) => {
+                            const timing = getTimingInfo(item.TMSDespatchCreatedDate, item.PickupDate);
+                            const printed = toBool(item.IsPrint);
 
-                <TableCell align="center">
-                    <Stack direction="row" spacing={3} justifyContent="center">
-                        <StatBox label="SHÖ BASILAN" value={row.sho_b} color="#059669" />
-                        <StatBox label="SHÖ BASILMAYAN" value={row.sho_bm} color="#f97316" />
-                    </Stack>
-                </TableCell>
+                            const seferNo = item.TMSDespatchDocumentNo || "Planlanmadı";
+                            const pickupCity = item.PickupCityName || "-";
+                            const pickupCounty = item.PickupCountyName || "-";
+                            const deliveryCity = item.DeliveryCityName || "-";
+                            const deliveryCounty = item.DeliveryCountyName || "-";
 
-                {/* ✅ BİLGİ (ZAMANINDA / GEÇ) */}
-                <TableCell align="center">
-                    <Stack direction="row" spacing={3} justifyContent="center">
-                        <StatBox label="ZAMANINDA" value={row.zamaninda} color="#10b981" />
-                        <StatBox label="GEÇ" value={row.gec} color="#ef4444" />
-                    </Stack>
-                </TableCell>
+                            return (
+                                <ShipmentCard
+                                    key={`${item.TMSVehicleRequestDocumentNo || idx}`}
+                                    printed={printed ? 1 : 0}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.18 }}
+                                >
+                                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1 }}>
+                                        <Box sx={{ minWidth: 0 }}>
+                                            <Typography
+                                                sx={{
+                                                    fontSize: "0.7rem",
+                                                    fontWeight: 950,
+                                                    color: "#94a3b8",
+                                                    letterSpacing: "0.8px",
+                                                }}
+                                            >
+                                                SEFER
+                                            </Typography>
+                                            <Typography sx={{ fontWeight: 1000, color: "#0f172a", fontSize: "1.05rem" }}>
+                                                {seferNo}
+                                            </Typography>
 
-                <TableCell align="center">
-                    <StatBox label="İPTAL" value={row.iptal} color="#b91c1c" />
-                </TableCell>
+                                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1, flexWrap: "wrap" }}>
+                                                <StatusPill statusIdRaw={item.OrderStatu} />
 
-                {/* ✅ PERFORMANS = zamanında / talep */}
-                <TableCell align="right" sx={{ pr: 4 }}>
-                    <Typography
-                        sx={{
-                            fontSize: '1.6rem',
-                            fontWeight: 1000,
-                            color: row.yuzde >= 90 ? '#10b981' : '#f59e0b',
-                            letterSpacing: '-1px'
-                        }}
-                    >
-                        %{row.yuzde}
-                    </Typography>
-                </TableCell>
-            </TableRow>
+                                                <Chip
+                                                    size="small"
+                                                    label={timing.label}
+                                                    sx={{
+                                                        height: 24,
+                                                        borderRadius: 999,
+                                                        fontWeight: 950,
+                                                        bgcolor: timing.color,
+                                                        color: "#fff",
+                                                    }}
+                                                />
 
-            <TableRow>
-                <TableCell style={{ paddingBottom: 0, paddingTop: 0, border: 0 }} colSpan={8}>
-                    <Collapse in={open} timeout="auto" unmountOnExit>
-                        <Box sx={{ p: 4, bgcolor: '#f8fafc', borderTop: '2px solid #e2e8f0' }}>
-                            {subDetails.map((item, idx) => {
-                                const timing = getTimingInfo(item.TMSDespatchCreatedDate, item.PickupDate);
-
-                                return (
-                                    <ShipmentPaper key={idx} isprinted={item.IsPrint ? 'true' : 'false'}>
-                                        <DynamicOrderBadge>{idx + 1}. SİPARİŞ</DynamicOrderBadge>
-
-                                        <Stack direction="row" spacing={4} alignItems="stretch">
-                                            <Box sx={{ minWidth: '200px' }}>
-                                                <Typography sx={{ fontSize: '0.6rem', fontWeight: 1000, color: '#94a3b8', mb: 0.5, letterSpacing: '1px' }}>
-                                                    SEFER NO
-                                                </Typography>
-
-                                                <Typography sx={{ fontWeight: 1000, color: '#0f172a', fontSize: '1.15rem', mb: 1 }}>
-                                                    {item.TMSDespatchDocumentNo || 'PLANLANMADI'}
-                                                </Typography>
-
-                                                <Box sx={{ mb: 1 }}>
-                                                    {getStatusBadge(item.OrderStatu)}
-                                                </Box>
-
-                                                {/* ✅ 30 saat kuralı: Zamanında / Geç Teslimat */}
-                                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                                                {timing.hours != null && (
                                                     <Chip
-                                                        label={timing.label}
                                                         size="small"
+                                                        label={`${timing.hours.toFixed(1)} saat`}
                                                         sx={{
-                                                            fontWeight: 900,
-                                                            fontSize: '0.65rem',
-                                                            height: 22,
-                                                            bgcolor: timing.color,
-                                                            color: '#fff',
-                                                            borderRadius: '6px',
-                                                            px: 0.5
+                                                            height: 24,
+                                                            borderRadius: 999,
+                                                            fontWeight: 950,
+                                                            bgcolor: alpha(timing.color, 0.12),
+                                                            color: timing.color,
+                                                            border: `1px solid ${alpha(timing.color, 0.22)}`,
                                                         }}
                                                     />
-                                                    {timing.hours != null && (
-                                                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b' }}>
-                                                            ({timing.hours.toFixed(1)} saat)
-                                                        </Typography>
-                                                    )}
-                                                </Stack>
+                                                )}
 
-                                                <TimeBadge
-                                                    label="SEFER AÇILIŞ ZAMANI"
-                                                    value={formatDate(item.TMSDespatchCreatedDate)}
-                                                    icon={MdHistory}
+                                                <Chip
+                                                    size="small"
+                                                    label={printed ? "Basım var" : "Basım yok"}
+                                                    sx={{
+                                                        height: 24,
+                                                        borderRadius: 999,
+                                                        fontWeight: 950,
+                                                        bgcolor: printed ? alpha("#10b981", 0.14) : alpha("#64748b", 0.12),
+                                                        color: printed ? "#059669" : "#64748b",
+                                                        border: `1px solid ${printed ? alpha("#10b981", 0.24) : alpha("#64748b", 0.20)}`,
+                                                    }}
                                                 />
+                                            </Stack>
+                                        </Box>
+
+                                        <Chip
+                                            size="small"
+                                            label={`#${idx + 1}`}
+                                            sx={{
+                                                height: 26,
+                                                borderRadius: 999,
+                                                fontWeight: 1000,
+                                                bgcolor: alpha("#0f172a", 0.06),
+                                                color: "#0f172a",
+                                            }}
+                                        />
+                                    </Stack>
+
+                                    <Divider sx={{ my: 1.2, opacity: 0.6 }} />
+
+                                    {/* TAB CONTENT */}
+                                    {tab === 0 && (
+                                        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="stretch">
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography
+                                                    sx={{
+                                                        fontSize: "0.7rem",
+                                                        fontWeight: 950,
+                                                        color: "#94a3b8",
+                                                        letterSpacing: "0.6px",
+                                                    }}
+                                                >
+                                                    OPERASYON
+                                                </Typography>
+                                                <Stack direction="row" spacing={1.2} alignItems="center" sx={{ mt: 1 }}>
+                                                    <Box
+                                                        sx={{
+                                                            width: 36,
+                                                            height: 36,
+                                                            borderRadius: 999,
+                                                            display: "grid",
+                                                            placeItems: "center",
+                                                            bgcolor: "rgba(15,23,42,0.06)",
+                                                        }}
+                                                    >
+                                                        <MdPerson size={18} color="#64748b" />
+                                                    </Box>
+                                                    <Typography sx={{ fontWeight: 1000, color: "#0f172a" }}>
+                                                        {item.OrderCreatedBy || "-"}
+                                                    </Typography>
+                                                </Stack>
                                             </Box>
 
-                                            <Stack direction="row" sx={{ flexGrow: 1 }} spacing={2} alignItems="center">
-                                                <RouteStop type="pickup">
-                                                    <Typography sx={{ fontSize: '0.6rem', fontWeight: 1000, color: '#10b981', mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                        <MdPinDrop /> YÜKLEME NOKTASI
-                                                    </Typography>
-                                                    <Typography sx={{ fontWeight: 1000, color: '#1e293b' }}>{item.PickupCityName}</Typography>
-                                                    <Typography sx={{ fontSize: '0.8rem', color: '#64748b', mb: 2 }}>{item.PickupCountyName}</Typography>
-
-                                                    <Box sx={{ mt: 'auto' }}>
-                                                        <Typography sx={{ fontSize: '0.65rem', fontWeight: 1000, color: '#475569', bgcolor: '#fff', px: 1, py: 0.2, borderRadius: '4px', border: '1px solid #e2e8f0', width: 'fit-content' }}>
-                                                            KOD: {item.PickupAddressCode}
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography
+                                                    sx={{
+                                                        fontSize: "0.7rem",
+                                                        fontWeight: 950,
+                                                        color: "#94a3b8",
+                                                        letterSpacing: "0.6px",
+                                                    }}
+                                                >
+                                                    ZAMAN BİLGİLERİ
+                                                </Typography>
+                                                <Stack sx={{ mt: 1 }} spacing={0.8}>
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                        <MdHistory color="#64748b" />
+                                                        <Typography sx={{ fontWeight: 900, color: "#0f172a" }}>
+                                                            Sefer açılış: {formatDate(item.TMSDespatchCreatedDate)}
                                                         </Typography>
-                                                        <Box sx={{ mt: 2 }}>
-                                                            <TimeBadge
-                                                                label="PLANLANAN YÜKLEME"
-                                                                value={formatDate(item.PickupDate)}
-                                                                icon={MdOutlineTimer}
-                                                                color="#10b981"
-                                                            />
-                                                        </Box>
-                                                    </Box>
-                                                </RouteStop>
-
-                                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                                    <MdLocalShipping size={24} color="#3b82f6" />
-                                                    <MdDoubleArrow size={20} color="#cbd5e1" />
-                                                </Box>
-
-                                                <RouteStop type="delivery">
-                                                    <Typography sx={{ fontSize: '0.6rem', fontWeight: 1000, color: '#ef4444', mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                        <MdPinDrop /> TESLİMAT NOKTASI
-                                                    </Typography>
-                                                    <Typography sx={{ fontWeight: 1000, color: '#1e293b' }}>{item.DeliveryCityName}</Typography>
-                                                    <Typography sx={{ fontSize: '0.8rem', color: '#64748b', mb: 2 }}>{item.DeliveryCountyName}</Typography>
-                                                    <Typography sx={{ fontSize: '0.65rem', fontWeight: 1000, color: '#475569', bgcolor: '#fff', px: 1, py: 0.2, borderRadius: '4px', border: '1px solid #e2e8f0', width: 'fit-content' }}>
-                                                        KOD: {item.DeliveryAddressCode}
-                                                    </Typography>
-                                                </RouteStop>
-                                            </Stack>
-
-                                            <Box sx={{ minWidth: '220px', pl: 3, borderLeft: '1px dashed #cbd5e1' }}>
-                                                <Stack spacing={2}>
-                                                    <Box>
-                                                        <Typography sx={{ fontSize: '0.6rem', fontWeight: 1000, color: '#94a3b8', mb: 1 }}>
-                                                            OPERASYON SORUMLUSU
+                                                    </Stack>
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                        <MdOutlineTimer color="#10b981" />
+                                                        <Typography sx={{ fontWeight: 900, color: "#0f172a" }}>
+                                                            Yükleme: {formatDate(item.PickupDate)}
                                                         </Typography>
-                                                        <Stack direction="row" spacing={1.5} alignItems="center">
-                                                            <Box sx={{ width: 32, height: 32, borderRadius: '50%', bgcolor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                <MdPerson size={18} color="#64748b" />
-                                                            </Box>
-                                                            <Typography sx={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b' }}>
-                                                                {item.OrderCreatedBy}
-                                                            </Typography>
-                                                        </Stack>
-                                                    </Box>
-                                                    <TimeBadge
-                                                        label="SİPARİŞ GİRİŞ ZAMANI"
-                                                        value={formatDate(item.OrderCreatedDate)}
-                                                        icon={MdAssignment}
-                                                        color="#64748b"
-                                                    />
+                                                    </Stack>
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                        <MdAssignment color="#64748b" />
+                                                        <Typography sx={{ fontWeight: 900, color: "#0f172a" }}>
+                                                            Sipariş: {formatDate(item.OrderCreatedDate)}
+                                                        </Typography>
+                                                    </Stack>
+                                                </Stack>
+                                            </Box>
+
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography
+                                                    sx={{
+                                                        fontSize: "0.7rem",
+                                                        fontWeight: 950,
+                                                        color: "#94a3b8",
+                                                        letterSpacing: "0.6px",
+                                                    }}
+                                                >
+                                                    ROTA ÖZETİ
+                                                </Typography>
+                                                <Stack direction="row" spacing={1.2} alignItems="center" sx={{ mt: 1 }}>
+                                                    <MdPinDrop color="#10b981" />
+                                                    <Typography sx={{ fontWeight: 1000, color: "#0f172a" }}>
+                                                        {pickupCity} / {pickupCounty}
+                                                    </Typography>
+                                                </Stack>
+                                                <Stack direction="row" spacing={1.2} alignItems="center" sx={{ mt: 0.6 }}>
+                                                    <MdLocalShipping color="#3b82f6" />
+                                                    <Typography sx={{ fontWeight: 1000, color: "#0f172a" }}>
+                                                        {deliveryCity} / {deliveryCounty}
+                                                    </Typography>
                                                 </Stack>
                                             </Box>
                                         </Stack>
-                                    </ShipmentPaper>
-                                );
-                            })}
-                        </Box>
-                    </Collapse>
-                </TableCell>
-            </TableRow>
-        </React.Fragment>
+                                    )}
+
+                                    {tab === 1 && (
+                                        <Box>
+                                            <Typography
+                                                sx={{
+                                                    fontSize: "0.72rem",
+                                                    fontWeight: 950,
+                                                    color: "#94a3b8",
+                                                    letterSpacing: "0.6px",
+                                                }}
+                                            >
+                                                SEFER AÇILIŞ → YÜKLEME (30 saat kuralı)
+                                            </Typography>
+
+                                            <Stack direction="row" spacing={1.2} alignItems="center" sx={{ mt: 1.2, flexWrap: "wrap" }}>
+                                                <Chip
+                                                    icon={<MdHistory />}
+                                                    label={formatDate(item.TMSDespatchCreatedDate)}
+                                                    size="small"
+                                                    sx={{
+                                                        borderRadius: 999,
+                                                        fontWeight: 950,
+                                                        bgcolor: alpha("#0f172a", 0.06),
+                                                    }}
+                                                />
+                                                <Chip
+                                                    icon={<MdBolt />}
+                                                    label={timing.hours == null ? "---" : `${timing.hours.toFixed(1)} saat`}
+                                                    size="small"
+                                                    sx={{
+                                                        borderRadius: 999,
+                                                        fontWeight: 1000,
+                                                        bgcolor: alpha(timing.color, 0.14),
+                                                        color: timing.color,
+                                                        border: `1px solid ${alpha(timing.color, 0.22)}`,
+                                                    }}
+                                                />
+                                                <Chip
+                                                    icon={<MdOutlineTimer />}
+                                                    label={formatDate(item.PickupDate)}
+                                                    size="small"
+                                                    sx={{
+                                                        borderRadius: 999,
+                                                        fontWeight: 950,
+                                                        bgcolor: alpha("#10b981", 0.10),
+                                                        color: "#0f172a",
+                                                    }}
+                                                />
+                                            </Stack>
+
+                                            <Box
+                                                sx={{
+                                                    mt: 2,
+                                                    p: 2,
+                                                    borderRadius: 20,
+                                                    border: "1px solid rgba(226,232,240,0.9)",
+                                                    bgcolor: alpha(timing.color, 0.08),
+                                                }}
+                                            >
+                                                <Typography sx={{ fontWeight: 1000, color: "#0f172a", fontSize: "1rem" }}>
+                                                    {timing.level === "ok"
+                                                        ? "✅ Zamanında"
+                                                        : timing.level === "late"
+                                                            ? "⚠️ Gecikme var"
+                                                            : "ℹ️ Tarih eksik"}
+                                                </Typography>
+                                                <Typography sx={{ fontWeight: 800, color: "#64748b", mt: 0.4 }}>
+                                                    Kural: Sefer açılıştan itibaren 30 saat altında yükleme yapılırsa “zamanında” sayılır.
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    )}
+
+                                    {tab === 2 && (
+                                        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="stretch">
+                                            <RouteBox t="pickup">
+                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                    <MdPinDrop color="#10b981" />
+                                                    <Typography sx={{ fontWeight: 1000, color: "#0f172a" }}>Yükleme Noktası</Typography>
+                                                </Stack>
+                                                <Typography sx={{ mt: 0.8, fontWeight: 1000, color: "#0f172a" }}>
+                                                    {pickupCity}
+                                                </Typography>
+                                                <Typography sx={{ fontWeight: 900, color: "#64748b" }}>{pickupCounty}</Typography>
+                                                <Chip
+                                                    size="small"
+                                                    label={`Kod: ${item.PickupAddressCode || "-"}`}
+                                                    sx={{
+                                                        mt: 1.2,
+                                                        borderRadius: 999,
+                                                        fontWeight: 950,
+                                                        bgcolor: "#fff",
+                                                        border: "1px solid rgba(226,232,240,0.9)",
+                                                    }}
+                                                />
+                                            </RouteBox>
+
+                                            <Box sx={{ display: "grid", placeItems: "center", px: 1 }}>
+                                                <MdLocalShipping size={28} color="#3b82f6" />
+                                            </Box>
+
+                                            <RouteBox t="delivery">
+                                                <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
+                                                    <Typography sx={{ fontWeight: 1000, color: "#0f172a" }}>Teslimat Noktası</Typography>
+                                                    <MdPinDrop color="#ef4444" />
+                                                </Stack>
+                                                <Typography
+                                                    sx={{
+                                                        mt: 0.8,
+                                                        fontWeight: 1000,
+                                                        color: "#0f172a",
+                                                        textAlign: "right",
+                                                    }}
+                                                >
+                                                    {deliveryCity}
+                                                </Typography>
+                                                <Typography sx={{ fontWeight: 900, color: "#64748b", textAlign: "right" }}>
+                                                    {deliveryCounty}
+                                                </Typography>
+                                                <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                                                    <Chip
+                                                        size="small"
+                                                        label={`Kod: ${item.DeliveryAddressCode || "-"}`}
+                                                        sx={{
+                                                            mt: 1.2,
+                                                            borderRadius: 999,
+                                                            fontWeight: 950,
+                                                            bgcolor: "#fff",
+                                                            border: "1px solid rgba(226,232,240,0.9)",
+                                                        }}
+                                                    />
+                                                </Box>
+                                            </RouteBox>
+                                        </Stack>
+                                    )}
+                                </ShipmentCard>
+                            );
+                        })}
+                    </Box>
+                </ShipmentWrap>
+            </Collapse>
+        </ProjectCard>
     );
 }
 
-// --- ANA PANEL BİLEŞENİ ---
+/* ------------------------ ana bileşen ------------------------ */
 export default function UltraProjeTablosu({ data }) {
-    const [selectedRegion, setSelectedRegion] = useState('GEBZE');
+    const [selectedRegion, setSelectedRegion] = useState("GEBZE");
+    const [query, setQuery] = useState("");
+    const [sortBy, setSortBy] = useState("perf"); // perf | plan | late
+    const [onlyLate, setOnlyLate] = useState(false);
 
     const processedData = useMemo(() => {
-        if (!data) return {};
+        const src = Array.isArray(data) ? data : [];
         const stats = {};
 
-        data.forEach(item => {
+        src.forEach((item) => {
             let finalProjectName = item.ProjectName;
-
             const pNorm = norm(item.ProjectName);
 
-            // ✅ KÜÇÜKBAY özel kuralı (mevcut)
+            // KÜÇÜKBAY
             if (pNorm === norm("KÜÇÜKBAY FTL")) {
-                const TRAKYA_CITIES = new Set(["EDİRNE", "KIRKLARELİ", "TEKİRDAĞ"].map(norm));
-                if (TRAKYA_CITIES.has(norm(item.PickupCityName))) finalProjectName = "KÜÇÜKBAY TRAKYA FTL";
+                const TRAKYA = new Set(["EDİRNE", "KIRKLARELİ", "TEKİRDAĞ"].map(norm));
+                if (TRAKYA.has(norm(item.PickupCityName))) finalProjectName = "KÜÇÜKBAY TRAKYA FTL";
                 else if (norm(item.PickupCityName) === norm("İZMİR")) finalProjectName = "KÜÇÜKBAY İZMİR FTL";
                 else return;
             }
 
-            // ✅ PEPSİ FTL -> ÇORLU / GEBZE kırılımı
+            // PEPSİ
             if (pNorm === norm("PEPSİ FTL")) {
                 const c = norm(item.PickupCityName);
                 const d = norm(item.PickupCountyName);
-
                 if (c === norm("TEKİRDAĞ") && d === norm("ÇORLU")) finalProjectName = "PEPSİ FTL ÇORLU";
                 else if (c === norm("KOCAELİ") && d === norm("GEBZE")) finalProjectName = "PEPSİ FTL GEBZE";
             }
 
-            // ✅ EBEBEK FTL -> GEBZE kırılımı
+            // EBEBEK
             if (pNorm === norm("EBEBEK FTL")) {
                 const c = norm(item.PickupCityName);
                 const d = norm(item.PickupCountyName);
                 if (c === norm("KOCAELİ") && d === norm("GEBZE")) finalProjectName = "EBEBEK FTL GEBZE";
             }
 
-            // ✅ FAKİR FTL -> GEBZE kırılımı
+            // FAKİR
             if (pNorm === norm("FAKİR FTL")) {
                 const c = norm(item.PickupCityName);
                 const d = norm(item.PickupCountyName);
                 if (c === norm("KOCAELİ") && d === norm("GEBZE")) finalProjectName = "FAKİR FTL GEBZE";
             }
 
-            // ✅ OTTONYA isimlendirme
-            if (pNorm === norm("OTTONYA")) {
-                finalProjectName = "OTTONYA (HEDEFTEN AÇILIYOR)";
-            }
+            // OTTONYA
+            if (pNorm === norm("OTTONYA")) finalProjectName = "OTTONYA (HEDEFTEN AÇILIYOR)";
 
-            if (!stats[finalProjectName]) {
-                stats[finalProjectName] = {
-                    plan: new Set(),     // talep (VP...)
-                    ted: new Set(),      // tedarik edilen (SFR...)
-                    iptal: new Set(),    // iptal edilen (SFR + statu 200)
+            const key = norm(finalProjectName);
+
+            if (!stats[key]) {
+                stats[key] = {
+                    plan: new Set(),
+                    ted: new Set(),
+                    iptal: new Set(),
                     filo: new Set(),
                     spot: new Set(),
                     sho_b: new Set(),
                     sho_bm: new Set(),
-
-                    // ✅ zamanında/geç performansı REQUEST bazında
-                    ontime_req: new Set(), // TMSVehicleRequestDocumentNo
-                    late_req: new Set()    // TMSVehicleRequestDocumentNo
+                    ontime_req: new Set(),
+                    late_req: new Set(),
                 };
             }
 
-            const s = stats[finalProjectName];
+            const s = stats[key];
+            const service = norm(item.ServiceName);
+            const inScope =
+                service === norm("YURTİÇİ FTL HİZMETLERİ") || service === norm("FİLO DIŞ YÜK YÖNETİMİ");
+            if (!inScope) return;
 
-            if (["YURTİÇİ FTL HİZMETLERİ", "FİLO DIŞ YÜK YÖNETİMİ"].includes(item.ServiceName)) {
-                const reqNo = item.TMSVehicleRequestDocumentNo || "";
+            const reqNo = (item.TMSVehicleRequestDocumentNo || "").toString();
+            if (reqNo && !reqNo.startsWith("BOS")) s.plan.add(reqNo);
 
-                // TALEP
-                if (reqNo && !reqNo.startsWith("BOS")) {
-                    s.plan.add(reqNo);
-                }
+            const despNo = (item.TMSDespatchDocumentNo || "").toString();
+            const isSfr = despNo.startsWith("SFR") && !despNo.toUpperCase().startsWith("BOS");
+            if (!isSfr) return;
 
-                // SEVKİYAT (SFR) + İPTAL AYRIMI
-                const despNo = item.TMSDespatchDocumentNo || "";
-                if (despNo.startsWith("SFR") && !despNo.startsWith("BOS")) {
-                    if (item.OrderStatu === 200) {
-                        s.iptal.add(despNo);
-                    } else {
-                        s.ted.add(despNo);
-
-                        // ✅ zamanında / geç (30 saat kuralı) -> REQUEST bazında say
-                        const timing = getTimingInfo(item.TMSDespatchCreatedDate, item.PickupDate);
-                        if (timing.hours != null && reqNo) {
-                            if (timing.hours < 30) s.ontime_req.add(reqNo);
-                            else s.late_req.add(reqNo);
-                        }
-
-                        // filo / spot
-                        if (["FİLO", "ÖZMAL", "MODERN AMBALAJ FİLO"].includes(item.VehicleWorkingName)) {
-                            s.filo.add(despNo);
-                        } else {
-                            s.spot.add(despNo);
-                        }
-
-                        // shö basılan / basılmayan
-                        if (item.IsPrint) s.sho_b.add(despNo);
-                        else s.sho_bm.add(despNo);
-                    }
-                }
+            const statu = toNum(item.OrderStatu);
+            if (statu === 200) {
+                s.iptal.add(despNo);
+                return;
             }
+
+            s.ted.add(despNo);
+
+            // timing: sefer açılış - yükleme
+            const timing = getTimingInfo(item.TMSDespatchCreatedDate, item.PickupDate);
+            if (timing.hours != null && reqNo) {
+                if (timing.hours < 30) s.ontime_req.add(reqNo);
+                else s.late_req.add(reqNo);
+            }
+
+            const vw = norm(item.VehicleWorkingName);
+            const isFilo = vw === norm("FİLO") || vw === norm("ÖZMAL") || vw === norm("MODERN AMBALAJ FİLO");
+            if (isFilo) s.filo.add(despNo);
+            else s.spot.add(despNo);
+
+            if (toBool(item.IsPrint)) s.sho_b.add(despNo);
+            else s.sho_bm.add(despNo);
         });
 
         return stats;
     }, [data]);
 
-    const REGIONS = {
-        TRAKYA: [
-            "BUNGE LÜLEBURGAZ FTL",
-            "BUNGE GEBZE FTL",
-            "BUNGE PALET",
-            "REKA FTL",
-            "EKSUN GIDA FTL",
-            "SARUHAN FTL",
-            "PEPSİ FTL",
-            "PEPSİ FTL ÇORLU",
-            "TEKİRDAĞ UN FTL",
-            "AYDINLI MODA FTL",
-            "ADKOTURK FTL",
-            "ADKOTURK FTL ENERJİ İÇECEĞİ",
-            "SGS FTL",
-            "BSH FTL",
-            "ALTERNA GIDA FTL",
-            "BİLEŞİM KİMYA FTL",
-            "DERYA OFİS FTL",
-            "SAPRO FTL",
-            "MARMARA CAM FTL",
-            "FAKİR FTL",
-            "MODERN KARTON FTL",
-            "KÜÇÜKBAY TRAKYA FTL",
-            "MODERN BOBİN FTL"
-        ],
-        GEBZE: [
-            "HEDEF FTL",
-            "HEDEF DIŞ TEDARİK",
+    const rows = useMemo(() => {
+        const q = norm(query);
+        const regionList = REGIONS[selectedRegion] || [];
 
-            "PEPSİ FTL GEBZE",
-            "EBEBEK FTL GEBZE",
-            "FAKİR FTL GEBZE",
+        const base = regionList
+            .map((pName) => {
+                const s = processedData[norm(pName)] || {
+                    plan: new Set(),
+                    ted: new Set(),
+                    iptal: new Set(),
+                    filo: new Set(),
+                    spot: new Set(),
+                    sho_b: new Set(),
+                    sho_bm: new Set(),
+                    ontime_req: new Set(),
+                    late_req: new Set(),
+                };
 
-            "MİLHANS FTL",
-            "AYDIN KURUYEMİŞ FTL",
-            "AVANSAS FTL",
-            "AVANSAS SPOT FTL",
-            "DSV ERNAMAŞ FTL",
+                const plan = s.plan.size;
+                const ted = s.ted.size;
+                const iptal = s.iptal.size;
+                const edilmeyen = Math.max(0, plan - (ted + iptal));
+                const zamaninda = s.ontime_req.size;
+                const gec = s.late_req.size;
+                const yuzde = plan > 0 ? Math.round((zamaninda / plan) * 100) : 0;
 
-            "FLO FTL",
-            "ÇİÇEKÇİ FTL",
-            "ÇİZMECİ GIDA FTL",
-            "OTTONYA (HEDEFTEN AÇILIYOR)",
-            "GALEN ÇOCUK FTL",
-            "ENTAŞ FTL"
-        ],
-        DERİNCE: [
-            "ARKAS PETROL OFİSİ DERİNCE FTL",
-            "ARKAS PETROL OFİSİ DIŞ TERMİNAL FTL"
-        ],
-        İZMİR: [
-            "EURO GIDA FTL",
-            "EBEBEK FTL",
-            "KİPAŞ SÖKE FTL",
-            "CEYSU FTL",
-            "TAT GIDA FTL",
-            "ZER SALÇA",
-            "ANKUTSAN FTL",
-            "PELAGOS GIDA FTL",
-            "KÜÇÜKBAY İZMİR FTL"
-        ],
-        ÇUKUROVA: [
-            "PEKER FTL",
-            "GDP FTL",
-            "ÖZMEN UN FTL",
-            "KİPAŞ MARAŞ FTL",
-            "TÜRK OLUKLU FTL",
-            "İLKON TEKSTİL FTL",
-            "BİM / MERSİN"
-        ],
-        ESKİŞEHİR: [
-            "ES FTL",
-            "ES GLOBAL FRİGO FTL",
-            "KİPAŞ BOZÜYÜK FTL",
-            "2A TÜKETİM FTL",
-            "MODERN HURDA DÖNÜŞ FTL",
-            "MODERN HURDA ZONGULDAK FTL",
-            "ŞİŞECAM FTL",
-            "DENTAŞ FTL"
-        ],
-        "İÇ ANADOLU": ["APAK FTL", "SER DAYANIKLI FTL", "UNIFO FTL", "UNIFO ASKERİ FTL"],
-        AFYON: ["BİM AFYON PLATFORM FTL"]
-    };
+                return {
+                    name: pName,
+                    plan,
+                    ted,
+                    edilmeyen,
+                    iptal,
+                    spot: s.spot.size,
+                    filo: s.filo.size,
+                    sho_b: s.sho_b.size,
+                    sho_bm: s.sho_bm.size,
+                    zamaninda,
+                    gec,
+                    yuzde,
+                };
+            })
+            .filter((r) => r.plan > 0)
+            .filter((r) => (q ? norm(r.name).includes(q) : true))
+            .filter((r) => (onlyLate ? r.gec > 0 : true));
 
-    const currentRows = useMemo(() => {
-        return (REGIONS[selectedRegion] || []).map(pName => {
-            const s = processedData[pName] || {
-                plan: new Set(),
-                ted: new Set(),
-                iptal: new Set(),
-                filo: new Set(),
-                spot: new Set(),
-                sho_b: new Set(),
-                sho_bm: new Set(),
-                ontime_req: new Set(),
-                late_req: new Set()
-            };
+        const sorted = [...base].sort((a, b) => {
+            if (sortBy === "plan") return b.plan - a.plan;
+            if (sortBy === "late") return b.gec - a.gec;
+            return b.yuzde - a.yuzde; // performans
+        });
 
-            const plan = s.plan.size;
-            const ted = s.ted.size;
-            const iptal = s.iptal.size;
-            const edilmeyen = Math.max(0, plan - (ted + iptal));
+        return sorted;
+    }, [selectedRegion, processedData, query, sortBy, onlyLate]);
 
-            const zamaninda = s.ontime_req.size;
-            const gec = s.late_req.size;
-
-            // ✅ PERFORMANS = (ZAMANINDA / TALEP) * 100
-            const yuzde = plan > 0 ? Math.round((zamaninda / plan) * 100) : 0;
-
-            return {
-                name: pName,
-                plan,
-                ted,
-                edilmeyen,
-                iptal,
-                spot: s.spot.size,
-                filo: s.filo.size,
-                sho_b: s.sho_b.size,
-                sho_bm: s.sho_bm.size,
-                zamaninda,
-                gec,
-                yuzde
-            };
-        }).filter(r => r.plan > 0);
-    }, [selectedRegion, processedData]);
+    const kpi = useMemo(() => {
+        const sum = rows.reduce(
+            (acc, r) => {
+                acc.plan += r.plan;
+                acc.ted += r.ted;
+                acc.gec += r.gec;
+                acc.iptal += r.iptal;
+                acc.zamaninda += r.zamaninda;
+                return acc;
+            },
+            { plan: 0, ted: 0, gec: 0, iptal: 0, zamaninda: 0 }
+        );
+        sum.perf = sum.plan ? Math.round((sum.zamaninda / sum.plan) * 100) : 0;
+        return sum;
+    }, [rows]);
 
     return (
-        <MainContainer>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
-                <Box>
-                    <Stack direction="row" spacing={1.5} alignItems="center">
-                        <Box sx={{ p: 1, bgcolor: '#0f172a', borderRadius: '12px' }}>
-                            <MdMonitor color="#fff" size={28} />
-                        </Box>
-                    </Stack>
-                    <Typography sx={{ color: '#64748b', fontSize: '0.9rem', fontWeight: 600, mt: 0.5 }}>
-                        Real-time Lojistik ve Sevkiyat Takip Sistemi
-                    </Typography>
-                </Box>
+        <Box sx={{ width: "100%" }}>
+            <Root>
+                <Wide>
+                    <TopBar elevation={0}>
+                        <Grid>
+                            {/* Sol: Başlık + KPI */}
+                            <Stack spacing={1.2}>
+                                <Stack direction="row" spacing={1.2} alignItems="center">
+                                    <Box
+                                        sx={{
+                                            width: 46,
+                                            height: 46,
+                                            borderRadius: 18,
+                                            bgcolor: "#0f172a",
+                                            display: "grid",
+                                            placeItems: "center",
+                                            boxShadow: "0 18px 45px rgba(2,6,23,0.22)",
+                                        }}
+                                    >
+                                        <MdMonitor size={24} color="#fff" />
+                                    </Box>
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography
+                                            sx={{
+                                                fontWeight: 1000,
+                                                color: "#0f172a",
+                                                fontSize: "1.25rem",
+                                                letterSpacing: "-0.7px",
+                                            }}
+                                        >
+                                            ANALİZ PANELİ
+                                        </Typography>
+                                        <Typography sx={{ fontWeight: 800, color: "#64748b" }}>
+                                            Kart görünümü • Filtreleme • Zaman analizi • Rota
+                                        </Typography>
+                                    </Box>
 
-                <StyledTabs value={selectedRegion} onChange={(e, v) => setSelectedRegion(v)}>
-                    {Object.keys(REGIONS).map(reg => <StyledTab key={reg} label={reg} value={reg} />)}
-                </StyledTabs>
-            </Stack>
+                                    <Tooltip title="Bu panel, sefer açılışından yüklemeye kadar geçen süreyi (30 saat kuralı) baz alır.">
+                                        <IconButton size="small" sx={{ ml: "auto", bgcolor: alpha("#0f172a", 0.05) }}>
+                                            <MdInfoOutline />
+                                        </IconButton>
+                                    </Tooltip>
+                                </Stack>
 
-            <GlassCard elevation={0}>
-                <TableContainer>
-                    <Table>
-                        <TableHead sx={{ bgcolor: '#f8fafc' }}>
-                            <TableRow>
-                                <TableCell sx={{ fontWeight: 900, color: '#64748b', pl: 4, py: 2.5 }}>MÜŞTERİ / PROJE ODAĞI</TableCell>
-                                <TableCell align="center" sx={{ fontWeight: 900, color: '#64748b' }}>TALEP</TableCell>
-                                <TableCell align="center" sx={{ fontWeight: 900, color: '#64748b' }}>TEDARİK</TableCell>
-                                <TableCell align="center" sx={{ fontWeight: 900, color: '#64748b' }}>KAYNAK</TableCell>
-                                <TableCell align="center" sx={{ fontWeight: 900, color: '#64748b' }}>SHÖ</TableCell>
-                                <TableCell align="center" sx={{ fontWeight: 900, color: '#64748b' }}>BİLGİ</TableCell>
-                                <TableCell align="center" sx={{ fontWeight: 900, color: '#64748b' }}>İPTAL</TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 900, color: '#64748b', pr: 4 }}>PERFORMANS</TableCell>
-                            </TableRow>
-                        </TableHead>
+                                <Grid2>
+                                    <KPI accent="#0ea5e9" whileHover={{ scale: 1.01 }}>
+                                        <Typography sx={{ fontSize: "0.62rem", fontWeight: 950, color: "#94a3b8", letterSpacing: "0.8px" }}>
+                                            TOPLAM TALEP
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "1.55rem", fontWeight: 1000, color: "#0f172a" }}>
+                                            {kpi.plan}
+                                        </Typography>
+                                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                                            <MdTrendingUp color="#0ea5e9" />
+                                            <Typography sx={{ fontWeight: 900, color: "#64748b" }}>
+                                                Bölge: {selectedRegion}
+                                            </Typography>
+                                        </Stack>
+                                    </KPI>
 
-                        <TableBody>
-                            {currentRows.map((row) => (
+                                    <KPI accent="#10b981" whileHover={{ scale: 1.01 }}>
+                                        <Typography sx={{ fontSize: "0.62rem", fontWeight: 950, color: "#94a3b8", letterSpacing: "0.8px" }}>
+                                            TEDARİK EDİLEN
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "1.55rem", fontWeight: 1000, color: "#10b981" }}>
+                                            {kpi.ted}
+                                        </Typography>
+                                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                                            <MdBolt color="#10b981" />
+                                            <Typography sx={{ fontWeight: 900, color: "#64748b" }}>
+                                                Aktif seferler
+                                            </Typography>
+                                        </Stack>
+                                    </KPI>
+
+                                    <KPI accent={kpi.perf >= 90 ? "#10b981" : "#f59e0b"} whileHover={{ scale: 1.01 }}>
+                                        <Typography sx={{ fontSize: "0.62rem", fontWeight: 950, color: "#94a3b8", letterSpacing: "0.8px" }}>
+                                            ZAMANINDA ORANI
+                                        </Typography>
+                                        <Typography
+                                            sx={{
+                                                fontSize: "1.55rem",
+                                                fontWeight: 1000,
+                                                color: kpi.perf >= 90 ? "#10b981" : "#f59e0b",
+                                            }}
+                                        >
+                                            %{kpi.perf}
+                                        </Typography>
+                                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                                            <MdWarning color={kpi.perf >= 90 ? "#10b981" : "#f59e0b"} />
+                                            <Typography sx={{ fontWeight: 900, color: "#64748b" }}>
+                                                30 saat kuralı
+                                            </Typography>
+                                        </Stack>
+                                    </KPI>
+
+                                    <KPI accent="#ef4444" whileHover={{ scale: 1.01 }}>
+                                        <Typography sx={{ fontSize: "0.62rem", fontWeight: 950, color: "#94a3b8", letterSpacing: "0.8px" }}>
+                                            RİSK: GECİKME / İPTAL
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "1.15rem", fontWeight: 1000, color: "#0f172a" }}>
+                                            <span style={{ color: "#ef4444" }}>{kpi.gec}</span> /{" "}
+                                            <span style={{ color: "#b91c1c" }}>{kpi.iptal}</span>
+                                        </Typography>
+                                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                                            <MdCancel color="#ef4444" />
+                                            <Typography sx={{ fontWeight: 900, color: "#64748b" }}>
+                                                Takip alanı
+                                            </Typography>
+                                        </Stack>
+                                    </KPI>
+                                </Grid2>
+                            </Stack>
+
+                            {/* Sağ: Kontroller */}
+                            <Stack spacing={1.5} alignItems="stretch" justifyContent="space-between">
+                                <RegionTabs
+                                    value={selectedRegion}
+                                    onChange={(e, v) => setSelectedRegion(v)}
+                                    variant="scrollable"
+                                    scrollButtons="auto"
+                                >
+                                    {Object.keys(REGIONS).map((r) => (
+                                        <RegionTab
+                                            key={r}
+                                            value={r}
+                                            label={
+                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                    <span>{r}</span>
+                                                    <Chip
+                                                        size="small"
+                                                        label={REGIONS[r].length}
+                                                        sx={{
+                                                            height: 18,
+                                                            fontWeight: 1000,
+                                                            bgcolor: alpha("#0f172a", 0.08),
+                                                            color: "#0f172a",
+                                                        }}
+                                                    />
+                                                </Stack>
+                                            }
+                                        />
+                                    ))}
+                                </RegionTabs>
+
+                                <Stack direction={{ xs: "column", md: "row" }} spacing={1.2} alignItems="center">
+                                    <TextField
+                                        value={query}
+                                        onChange={(e) => setQuery(e.target.value)}
+                                        placeholder="Proje adıyla ara…"
+                                        size="small"
+                                        fullWidth
+                                        sx={{
+                                            "& .MuiOutlinedInput-root": {
+                                                borderRadius: 18,
+                                                bgcolor: "rgba(255,255,255,0.95)",
+                                            },
+                                        }}
+                                        InputProps={{
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <MdSearch />
+                                                </InputAdornment>
+                                            ),
+                                        }}
+                                    />
+
+                                    <FormControl size="small" sx={{ minWidth: 200 }}>
+                                        <Select
+                                            value={sortBy}
+                                            onChange={(e) => setSortBy(e.target.value)}
+                                            sx={{ borderRadius: 18, bgcolor: "rgba(255,255,255,0.95)" }}
+                                        >
+                                            <MenuItem value="perf">Sırala: Performans</MenuItem>
+                                            <MenuItem value="plan">Sırala: Talep (yüksek)</MenuItem>
+                                            <MenuItem value="late">Sırala: Gecikme (yüksek)</MenuItem>
+                                        </Select>
+                                    </FormControl>
+
+                                    <Tooltip title="Sadece gecikmesi olan projeleri göster">
+                                        <FormControlLabel
+                                            sx={{
+                                                m: 0,
+                                                px: 1.2,
+                                                py: 0.3,
+                                                borderRadius: 18,
+                                                bgcolor: "rgba(255,255,255,0.95)",
+                                                border: "1px solid rgba(226,232,240,0.9)",
+                                            }}
+                                            control={
+                                                <Switch
+                                                    checked={onlyLate}
+                                                    onChange={(e) => setOnlyLate(e.target.checked)}
+                                                />
+                                            }
+                                            label={
+                                                <Typography sx={{ fontWeight: 950, color: "#0f172a" }}>
+                                                    Sadece gecikenler
+                                                </Typography>
+                                            }
+                                        />
+                                    </Tooltip>
+                                </Stack>
+
+                                <Box
+                                    sx={{
+                                        p: 2,
+                                        borderRadius: 22,
+                                        border: "1px solid rgba(226,232,240,0.9)",
+                                        bgcolor: "rgba(255,255,255,0.85)",
+                                    }}
+                                >
+                                    <Typography sx={{ fontWeight: 1000, color: "#0f172a", letterSpacing: "-0.4px" }}>
+                                        Liste: {rows.length} proje
+                                    </Typography>
+                                    <Typography sx={{ fontWeight: 800, color: "#64748b", mt: 0.4 }}>
+                                        Detay için kartlara tıkla (sefer listesi, zaman çizelgesi ve rota).
+                                    </Typography>
+                                </Box>
+                            </Stack>
+                        </Grid>
+                    </TopBar>
+
+                    {/* İçerik */}
+                    <CardList>
+                        <AnimatePresence initial={false}>
+                            {rows.map((row) => (
                                 <ProjectRow key={row.name} row={row} allData={data} />
                             ))}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-            </GlassCard>
-        </MainContainer>
+                        </AnimatePresence>
+
+                        {rows.length === 0 && (
+                            <Paper
+                                elevation={0}
+                                sx={{
+                                    borderRadius: 26,
+                                    border: "1px solid rgba(226,232,240,0.9)",
+                                    background: "rgba(255,255,255,0.85)",
+                                    p: 6,
+                                    textAlign: "center",
+                                    boxShadow: "0 16px 55px rgba(2,6,23,0.07)",
+                                }}
+                            >
+                                <Typography sx={{ fontWeight: 1000, color: "#0f172a", fontSize: "1.2rem" }}>
+                                    Sonuç bulunamadı
+                                </Typography>
+                                <Typography sx={{ fontWeight: 800, color: "#64748b", mt: 0.6 }}>
+                                    Arama kriterini değiştir veya “Sadece gecikenler” filtresini kapat.
+                                </Typography>
+                            </Paper>
+                        )}
+                    </CardList>
+                </Wide>
+            </Root>
+        </Box>
     );
 }

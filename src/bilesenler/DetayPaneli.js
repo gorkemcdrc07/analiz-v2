@@ -1,283 +1,189 @@
-﻿import React from 'react';
+﻿import React from "react";
 import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    IconButton,
-    Typography,
-    Box,
-    Card,
-    Stack,
-    Chip,
-    Divider,
-    Slide,
-    useTheme,
-    useMediaQuery,
-    alpha
-} from '@mui/material';
-import {
-    MdClose,
-    MdLocationOn,
-    MdDateRange,
-    MdAssignmentInd,
-    MdLocalShipping,
-    MdInfoOutline
-} from 'react-icons/md';
-import { formatDateTR } from '../yardimcilar/tarihIslemleri';
+    Dialog, DialogTitle, DialogContent, IconButton, Typography,
+    Box, Card, Stack, Chip, Divider, Slide, useTheme,
+    useMediaQuery, alpha, styled
+} from "@mui/material";
+import { MdClose, MdLocationOn, MdDateRange, MdAssignmentInd, MdLocalShipping, MdInfoOutline, MdHistory } from "react-icons/md";
+import { formatDateTR } from "../yardimcilar/tarihIslemleri";
 
 const Transition = React.forwardRef(function Transition(props, ref) {
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
+// --- MODERN STYLED COMPONENTS ---
+
+const StyledDialog = styled(Dialog)(({ theme }) => ({
+    '& .MuiPaper-root': {
+        borderRadius: '24px',
+        backgroundColor: '#f8fafc',
+        backgroundImage: 'none',
+        maxHeight: '85vh',
+        boxShadow: '0 20px 50px rgba(0,0,0,0.1)',
+    }
+}));
+
+const DetailCard = styled(Card)(({ theme }) => ({
+    borderRadius: '20px',
+    border: '1px solid rgba(0,0,0,0.05)',
+    background: '#ffffff',
+    padding: '16px',
+    transition: 'all 0.2s ease-in-out',
+    '&:hover': {
+        transform: 'translateY(-3px)',
+        boxShadow: '0 12px 24px rgba(0,0,0,0.04)',
+        borderColor: '#2563eb',
+    }
+}));
+
+const LocationLabel = styled(Typography)({
+    fontSize: '0.65rem',
+    fontWeight: 800,
+    color: '#94a3b8',
+    letterSpacing: '0.5px',
+    textTransform: 'uppercase',
+    marginBottom: '2px'
+});
+
+// --- HELPER FUNCTIONS (Parse & Diff unchanged) ---
+const parseTRDateTime = (v) => {
+    if (!v) return null;
+    if (v instanceof Date && !isNaN(v.getTime())) return v;
+    const s = String(v).trim();
+    const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+    if (m) {
+        return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), Number(m[4] ?? 0), Number(m[5] ?? 0), Number(m[6] ?? 0));
+    }
+    const d2 = new Date(s);
+    return isNaN(d2.getTime()) ? null : d2;
+};
+
+const diffHuman = (from, to) => {
+    const a = parseTRDateTime(from);
+    const b = parseTRDateTime(to);
+    if (!a || !b) return null;
+    const ms = b.getTime() - a.getTime();
+    const abs = Math.abs(ms);
+    const totalMinutes = Math.floor(abs / 60000);
+    const days = Math.floor(totalMinutes / (60 * 24));
+    const hours = Math.floor((totalMinutes - days * 60 * 24) / 60);
+    const mins = totalMinutes % 60;
+    const sign = ms < 0 ? "-" : "";
+    if (days > 0) return `${sign}${days}g ${hours}s`;
+    if (hours > 0) return `${sign}${hours}s ${mins}dk`;
+    return `${sign}${mins}dk`;
+};
+
+const pickField = (item, candidates) => {
+    for (const k of candidates) {
+        const v = item?.[k];
+        if (v !== undefined && v !== null && String(v).trim() !== "") return v;
+    }
+    return null;
+};
+
 export default function DetayPaneli({ type, data, onClose }) {
     const theme = useTheme();
-    const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
+    const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
 
-    let title = '';
-    let filtered = [];
+    // Veri Filtreleme (Kısa versiyon)
+    const getFilteredData = () => {
+        switch (type) {
+            case "spot": return { title: "Spot Araç Planlama", list: data.filter(o => Number(o.OrderStatu) === 3) };
+            case "filo": return { title: "Filo Araç Planlama", list: data.filter(o => Number(o.OrderStatu) === 90) };
+            case "tedarik": return { title: "Tedarik Edilenler", list: data.filter(o => o.TMSDespatchDocumentNo?.startsWith("SFR")) };
+            case "tedarik_edilmeyen": return { title: "Bekleyen Talepler", list: data.filter(o => !o.TMSDespatchDocumentNo && o.TMSVehicleRequestDocumentNo?.startsWith("VP")) };
+            default: return { title: "Detay Listesi", list: [] };
+        }
+    };
 
-    // Veri Filtreleme Mantığı (Orijinal mantık korundu)
-    switch (type) {
-        case 'spot':
-            title = 'Spot Araç Planlamada';
-            filtered = data.filter(o => o.OrderStatu === 3);
-            break;
-        case 'filo':
-            title = 'Filo Araç Planlamada';
-            filtered = data.filter(o => o.OrderStatu === 90);
-            break;
-        case 'planlanan':
-            title = 'Talep / Planlanan Listesi';
-            filtered = data.filter(o =>
-                o.TMSVehicleRequestDocumentNo &&
-                !o.TMSVehicleRequestDocumentNo.startsWith("BOS") &&
-                ["YURTİÇİ FTL HİZMETLERİ", "FİLO DIŞ YÜK YÖNETİMİ"].includes(o.ServiceName) &&
-                ["FTL HİZMETİ", "FİLO DIŞ YÜK YÖNETİMİ"].includes(o.SubServiceName)
-            );
-            break;
-        case 'tedarik':
-            title = 'Tedarik Edilen Sevkiyatlar';
-            filtered = data.filter(o =>
-                o.TMSDespatchDocumentNo &&
-                o.TMSDespatchDocumentNo.startsWith("SFR") &&
-                o.TMSVehicleRequestDocumentNo &&
-                !o.TMSVehicleRequestDocumentNo.startsWith("BOS")
-            );
-            break;
-        case 'tedarik_edilmeyen':
-            title = 'Tedarik Edilmeyen Talepler';
-            filtered = data.filter(o =>
-                !o.TMSDespatchDocumentNo &&
-                o.TMSVehicleRequestDocumentNo?.startsWith("VP")
-            );
-            break;
-        case 'sho_basilan':
-            title = 'SHÖ Basılan Kayıtlar';
-            filtered = data.filter(o => o.IsPrint === true && o.TMSDespatchDocumentNo?.startsWith("SFR"));
-            break;
-        case 'sho_basilmayan':
-            title = 'SHÖ Basılmayan Kayıtlar';
-            filtered = data.filter(o => o.IsPrint === false && o.TMSDespatchDocumentNo?.startsWith("SFR"));
-            break;
-        default:
-            title = 'Detay Bilgisi';
-            filtered = [];
-    }
+    const { title, list: filtered } = getFilteredData();
 
     return (
-        <Dialog
-            open={true}
-            onClose={onClose}
-            fullScreen={fullScreen}
-            maxWidth="xl" // Genişlik "xl" yapılarak tablodaki ferahlık buraya da taşındı
-            fullWidth
-            TransitionComponent={Transition}
-            PaperProps={{
-                sx: {
-                    borderRadius: fullScreen ? 0 : '28px', // Daha yumuşak köşeler
-                    background: '#f8fafc', // Tablo arka planıyla aynı
-                    maxHeight: '85vh',
-                    boxShadow: '0 25px 60px rgba(0,0,0,0.2)'
-                }
-            }}
-        >
-            {/* Üst Başlık Alanı - Ultra Modern */}
-            <DialogTitle sx={{
-                m: 0, p: 4,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                background: '#fff',
-                borderBottom: '1px solid #e2e8f0'
-            }}>
-                <Box>
-                    <Stack direction="row" spacing={1.5} alignItems="center">
-                        <Box sx={{ p: 1, bgcolor: '#2563eb', color: '#white', borderRadius: '10px', display: 'flex', color: 'white' }}>
-                            <MdInfoOutline size={24} />
-                        </Box>
-                        <Typography variant="h5" sx={{ fontWeight: 950, color: '#0f172a', letterSpacing: '-0.8px' }}>
-                            {title}
-                        </Typography>
-                    </Stack>
-                    <Typography variant="body1" sx={{ color: '#64748b', fontWeight: 600, mt: 0.5, ml: 5 }}>
-                        Toplam {filtered.length} Kayıt Listeleniyor
-                    </Typography>
-                </Box>
-                <IconButton
-                    onClick={onClose}
-                    sx={{
-                        color: '#64748b',
-                        bgcolor: '#f1f5f9',
-                        padding: '12px',
-                        '&:hover': { bgcolor: '#fee2e2', color: '#ef4444' }
-                    }}
-                >
-                    <MdClose size={24} />
+        <StyledDialog open={true} onClose={onClose} fullScreen={fullScreen} maxWidth="lg" fullWidth TransitionComponent={Transition}>
+            <DialogTitle sx={{ p: '20px 32px', bgcolor: '#fff', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Stack direction="row" spacing={2} alignItems="center">
+                    <Box sx={{ p: 1, bgcolor: alpha("#2563eb", 0.1), borderRadius: '12px', color: '#2563eb', display: 'flex' }}>
+                        <MdInfoOutline size={22} />
+                    </Box>
+                    <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>{title}</Typography>
+                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>{filtered.length} Kayıt Bulundu</Typography>
+                    </Box>
+                </Stack>
+                <IconButton onClick={onClose} sx={{ bgcolor: '#f1f5f9', '&:hover': { bgcolor: '#fee2e2', color: '#ef4444' } }}>
+                    <MdClose size={20} />
                 </IconButton>
             </DialogTitle>
 
-            {/* Liste İçeriği - Daha Geniş Izgara Yapısı */}
-            <DialogContent sx={{ p: 4 }}>
-                <Box sx={{
-                    display: 'grid',
-                    gridTemplateColumns: {
-                        xs: '1fr',
-                        md: filtered.length > 1 ? '1fr 1fr' : '1fr' // 2'li yan yana dizilim ile alanı doldurur
-                    },
-                    gap: 3
-                }}>
+            <DialogContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
                     {filtered.length > 0 ? (
-                        filtered.map((item, idx) => (
-                            <Card
-                                key={idx}
-                                elevation={0}
-                                sx={{
-                                    p: 3,
-                                    borderRadius: '24px',
-                                    border: '1px solid #e2e8f0',
-                                    backgroundColor: '#ffffff',
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    '&:hover': {
-                                        boxShadow: '0 15px 35px rgba(37, 99, 235, 0.1)',
-                                        transform: 'translateY(-5px)',
-                                        borderColor: '#2563eb'
-                                    }
-                                }}
-                            >
-                                {/* Kart Header: Hesap Bilgisi */}
-                                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
-                                    <Stack direction="row" spacing={2} alignItems="center">
-                                        <Box sx={{
-                                            p: 1.5,
-                                            bgcolor: alpha('#2563eb', 0.08),
-                                            borderRadius: '14px',
-                                            color: '#2563eb',
-                                            display: 'flex'
-                                        }}>
-                                            <MdAssignmentInd size={26} />
-                                        </Box>
+                        filtered.map((item, idx) => {
+                            const diff = diffHuman(
+                                pickField(item, ["sefer_acilis_zamani", "SeferAcilisZamani", "OrderCreatedDate"]),
+                                pickField(item, ["yukleme_tarihi", "YuklemeTarihi", "PickupDate"])
+                            );
+
+                            return (
+                                <DetailCard key={idx} elevation={0}>
+                                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                                        <Stack direction="row" spacing={1.5} alignItems="center">
+                                            <Box sx={{ width: 36, height: 36, bgcolor: '#f8fafc', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', border: '1px solid #e2e8f0' }}>
+                                                <MdAssignmentInd size={20} />
+                                            </Box>
+                                            <Box>
+                                                <Typography sx={{ fontWeight: 800, color: '#1e293b', fontSize: '0.9rem' }}>
+                                                    {item.CurrentAccountTitle?.substring(0, 30) || "Müşteri Belirtilmemiş"}...
+                                                </Typography>
+                                                <Typography sx={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: 600 }}>
+                                                    {item.ProjectName || "Genel Proje"}
+                                                </Typography>
+                                            </Box>
+                                        </Stack>
+                                        <Chip
+                                            label={item.TMSDespatchDocumentNo || "BEKLEMEDE"}
+                                            size="small"
+                                            sx={{ fontWeight: 700, fontSize: '0.65rem', borderRadius: '8px', bgcolor: item.TMSDespatchDocumentNo ? '#dcfce7' : '#fff7ed', color: item.TMSDespatchDocumentNo ? '#15803d' : '#c2410c' }}
+                                        />
+                                    </Stack>
+
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', bgcolor: '#f8fafc', p: 1.5, borderRadius: '12px', mb: 1.5 }}>
                                         <Box>
-                                            <Typography sx={{ fontWeight: 900, color: '#1e293b', fontSize: '1.1rem', lineHeight: 1.2 }}>
-                                                {item.CurrentAccountTitle}
-                                            </Typography>
-                                            <Typography sx={{ color: '#64748b', fontWeight: 700, fontSize: '0.85rem' }}>
-                                                {item.ProjectName}
-                                            </Typography>
+                                            <LocationLabel>YÜKLEME</LocationLabel>
+                                            <Typography sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#334155' }}>{item.PickupCityName || "-"}</Typography>
                                         </Box>
-                                    </Stack>
-                                    <Chip
-                                        label={item.TMSDespatchDocumentNo || 'PLANLAMA'}
-                                        sx={{
-                                            fontWeight: 900,
-                                            borderRadius: '10px',
-                                            height: 32,
-                                            bgcolor: item.TMSDespatchDocumentNo ? '#dcfce7' : alpha('#f59e0b', 0.1),
-                                            color: item.TMSDespatchDocumentNo ? '#166534' : '#f59e0b',
-                                            border: '1px solid',
-                                            borderColor: item.TMSDespatchDocumentNo ? '#bbf7d0' : alpha('#f59e0b', 0.2)
-                                        }}
-                                    />
-                                </Stack>
-
-                                <Divider sx={{ my: 2.5, opacity: 0.6 }} />
-
-                                {/* Lokasyonlar - Daha Okunabilir Fontlar */}
-                                <Stack direction="row" spacing={2} justifyContent="space-between">
-                                    <Box sx={{ flex: 1 }}>
-                                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                                            <MdLocationOn size={20} color="#ef4444" />
-                                            <Typography sx={{ fontWeight: 800, color: '#94a3b8', fontSize: '0.75rem', letterSpacing: '0.5px' }}>
-                                                YÜKLEME
-                                            </Typography>
-                                        </Stack>
-                                        <Typography sx={{ fontWeight: 800, color: '#334155', fontSize: '0.95rem' }}>
-                                            {item.PickupCityName}
-                                        </Typography>
-                                        <Typography sx={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>
-                                            {item.PickupCountyName}
-                                        </Typography>
-                                    </Box>
-
-                                    <Box sx={{ display: 'flex', alignItems: 'center', px: 2 }}>
-                                        <Box sx={{ width: 40, height: 1, bgcolor: '#e2e8f0', position: 'relative' }}>
-                                            <MdLocalShipping style={{ position: 'absolute', top: -10, left: 10, color: '#cbd5e1' }} />
+                                        <Box sx={{ display: 'flex', alignItems: 'center', color: '#cbd5e1' }}><MdLocalShipping size={16} /></Box>
+                                        <Box sx={{ textAlign: 'right' }}>
+                                            <LocationLabel>TESLİMAT</LocationLabel>
+                                            <Typography sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#334155' }}>{item.DeliveryCityName || "-"}</Typography>
                                         </Box>
                                     </Box>
 
-                                    <Box sx={{ flex: 1, textAlign: 'right' }}>
-                                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end" sx={{ mb: 1 }}>
-                                            <Typography sx={{ fontWeight: 800, color: '#94a3b8', fontSize: '0.75rem', letterSpacing: '0.5px' }}>
-                                                TESLİMAT
+                                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                        <Stack direction="row" spacing={1} alignItems="center" sx={{ color: '#64748b' }}>
+                                            <MdDateRange size={14} />
+                                            <Typography sx={{ fontSize: '0.75rem', fontWeight: 600 }}>
+                                                {formatDateTR(item.OrderDate || item.PickupDate)}
                                             </Typography>
-                                            <MdLocalShipping size={20} color="#22c55e" />
                                         </Stack>
-                                        <Typography sx={{ fontWeight: 800, color: '#334155', fontSize: '0.95rem' }}>
-                                            {item.DeliveryCityName}
-                                        </Typography>
-                                        <Typography sx={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>
-                                            {item.DeliveryCountyName}
-                                        </Typography>
-                                    </Box>
-                                </Stack>
-
-                                {/* Tarih ve Bilgi Alt Barı */}
-                                <Box sx={{
-                                    mt: 3, p: 2,
-                                    bgcolor: '#f8fafc',
-                                    borderRadius: '16px',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center'
-                                }}>
-                                    <Stack direction="row" spacing={1} alignItems="center" sx={{ color: '#64748b' }}>
-                                        <MdDateRange size={18} />
-                                        <Typography sx={{ fontWeight: 700, fontSize: '0.8rem' }}>
-                                            {formatDateTR(item.OrderDate)}
-                                        </Typography>
+                                        {diff && (
+                                            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: '#2563eb', bgcolor: alpha('#2563eb', 0.08), px: 1, py: 0.2, borderRadius: '6px' }}>
+                                                <MdHistory size={12} />
+                                                <Typography sx={{ fontSize: '0.7rem', fontWeight: 800 }}>{diff}</Typography>
+                                            </Stack>
+                                        )}
                                     </Stack>
-                                    <Typography sx={{ fontWeight: 800, color: '#2563eb', fontSize: '0.75rem' }}>
-                                        ID: #{idx + 101}
-                                    </Typography>
-                                </Box>
-                            </Card>
-                        ))
+                                </DetailCard>
+                            );
+                        })
                     ) : (
-                        <Box sx={{
-                            gridColumn: '1 / -1',
-                            textAlign: 'center',
-                            py: 12,
-                            bgcolor: '#fff',
-                            borderRadius: '32px',
-                            border: '3px dashed #e2e8f0'
-                        }}>
-                            <MdAssignmentInd size={60} color="#cbd5e1" />
-                            <Typography variant="h6" sx={{ color: '#94a3b8', mt: 2, fontWeight: 700 }}>
-                                Bu kategoriye ait kayıt bulunamadı.
-                            </Typography>
+                        <Box sx={{ gridColumn: '1/-1', textAlign: 'center', py: 8 }}>
+                            <Typography sx={{ color: '#94a3b8', fontWeight: 600 }}>Kayıt bulunamadı.</Typography>
                         </Box>
                     )}
                 </Box>
             </DialogContent>
-        </Dialog>
+        </StyledDialog>
     );
 }

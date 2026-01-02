@@ -1,91 +1,130 @@
 import React from 'react';
-import { Box, Typography, CircularProgress, Backdrop } from '@mui/material';
+import { Box, Typography, CircularProgress, Backdrop, styled, keyframes } from '@mui/material';
+
+// --- ANIMASYONLAR ---
+const float = keyframes`
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+`;
+
+const pulse = keyframes`
+  0%, 100% { opacity: 0.4; transform: scale(0.98); }
+  50% { opacity: 1; transform: scale(1); }
+`;
+
+// --- STYLED COMPONENTS ---
+const GlassContainer = styled(Box)(({ theme }) => ({
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: theme.spacing(3),
+    padding: theme.spacing(6),
+    borderRadius: '40px',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backdropFilter: 'blur(20px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+    border: '1px solid rgba(255, 255, 255, 0.4)',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.08)',
+    animation: `${float} 3s ease-in-out infinite`,
+}));
+
+const SpinnerWrapper = styled(Box)({
+    position: 'relative',
+    display: 'inline-flex',
+    '&::after': {
+        content: '""',
+        position: 'absolute',
+        top: -10,
+        left: -10,
+        right: -10,
+        bottom: -10,
+        borderRadius: '50%',
+        border: '2px dashed rgba(37, 99, 235, 0.1)',
+        animation: 'spin 10s linear infinite',
+    },
+    '@keyframes spin': {
+        '100%': { transform: 'rotate(360deg)' }
+    }
+});
 
 export default function YukleniyorEkrani() {
     return (
         <Backdrop
             open={true}
             sx={{
-                zIndex: (theme) => theme.zIndex.drawer + 1,
-                // Yarı saydam cam efekti (Glassmorphism)
-                background: 'rgba(255, 255, 255, 0.7)',
-                backdropFilter: 'blur(12px)',
-                display: 'flex',
-                flexDirection: 'column',
+                zIndex: (theme) => theme.zIndex.drawer + 999,
+                background: 'radial-gradient(circle at center, rgba(248, 250, 252, 0.8) 0%, rgba(226, 232, 240, 0.6) 100%)',
+                backdropFilter: 'blur(8px)',
             }}
         >
-            <Box
-                sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 3,
-                    p: 5,
-                    borderRadius: '32px',
-                    // Hafif beyaz gölge ile derinlik
-                    bgcolor: 'rgba(255, 255, 255, 0.4)',
-                    boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.07)',
-                    border: '1px solid rgba(255, 255, 255, 0.18)',
-                }}
-            >
-                {/* Modern Yükleme Çemberi */}
-                <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-                    {/* Arka plandaki statik gri çember */}
+            <GlassContainer>
+                <SpinnerWrapper>
+                    {/* Arka plandaki yumuşak halka */}
                     <CircularProgress
                         variant="determinate"
                         value={100}
-                        size={60}
-                        thickness={4}
-                        sx={{ color: '#e2e8f0' }}
+                        size={70}
+                        thickness={4.5}
+                        sx={{ color: 'rgba(37, 99, 235, 0.08)' }}
                     />
-                    {/* Hareketli ana çember */}
+                    {/* Ana hareketli halka */}
                     <CircularProgress
                         variant="indeterminate"
                         disableShrink
-                        size={60}
-                        thickness={4}
+                        size={70}
+                        thickness={4.5}
                         sx={{
                             color: '#2563eb',
-                            animationDuration: '600ms',
+                            animationDuration: '800ms',
                             position: 'absolute',
                             left: 0,
                             [`& .MuiCircularProgress-circle`]: {
                                 strokeLinecap: 'round',
+                                strokeDasharray: '120px, 200px !important', // Daha uzun ve zarif bir kuyruk
                             },
                         }}
                     />
-                </Box>
+                </SpinnerWrapper>
 
                 <Box sx={{ textAlign: 'center' }}>
                     <Typography
                         variant="h6"
                         sx={{
-                            fontWeight: 800,
-                            color: '#1e293b',
-                            letterSpacing: '-0.5px',
-                            mb: 0.5,
+                            fontWeight: 900,
+                            color: '#0f172a',
+                            letterSpacing: '-1px',
+                            mb: 1,
                         }}
                     >
-                        Sistem Hazırlanıyor
+                        Veriler Senkronize Ediliyor
                     </Typography>
-                    <Typography
-                        variant="body2"
-                        sx={{
-                            color: '#64748b',
-                            fontWeight: 500,
-                            // Yanıp sönen animasyon efekti
-                            animation: 'pulse 2s infinite ease-in-out',
-                            '@keyframes pulse': {
-                                '0%': { opacity: 0.5 },
-                                '50%': { opacity: 1 },
-                                '100%': { opacity: 0.5 },
-                            },
-                        }}
-                    >
-                        Lütfen bekleyiniz, veriler analiz ediliyor...
-                    </Typography>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                        <Box
+                            sx={{
+                                width: 8, height: 8, bgcolor: '#2563eb', borderRadius: '50%',
+                                animation: `${pulse} 1.5s infinite 0s`
+                            }}
+                        />
+                        <Typography
+                            variant="body2"
+                            sx={{
+                                color: '#64748b',
+                                fontWeight: 600,
+                                letterSpacing: '0.2px'
+                            }}
+                        >
+                            Lütfen bekleyiniz...
+                        </Typography>
+                        <Box
+                            sx={{
+                                width: 8, height: 8, bgcolor: '#2563eb', borderRadius: '50%',
+                                animation: `${pulse} 1.5s infinite 0.5s`
+                            }}
+                        />
+                    </Box>
                 </Box>
-            </Box>
+            </GlassContainer>
         </Backdrop>
     );
 }

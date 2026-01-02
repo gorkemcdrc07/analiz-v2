@@ -1,34 +1,46 @@
 ﻿// yardimcilar/tarihIslemleri.js
 
+// Supabase filtreleri için güvenli ISO üretimi
+// - start: gün başı 00:00:00
+// - end: gün sonu 23:59:59
+// Not: toISOString() UTC döner. Eğer Supabase tarafında timestamptz kullanıyorsan en problemsiz seçenek budur.
 export function formatDate(date, end = false) {
+    if (!date) return null;
+
     const d = new Date(date);
-    if (end) {
-        d.setHours(23, 59, 59);
-    } else {
-        d.setHours(0, 0, 0);
-    }
+    if (Number.isNaN(d.getTime())) return null;
 
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const seconds = String(d.getSeconds()).padStart(2, '0');
+    if (end) d.setHours(23, 59, 59, 999);
+    else d.setHours(0, 0, 0, 0);
 
-    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+    // UTC ISO string (Supabase timestamptz ile uyumlu)
+    return d.toISOString();
 }
 
 export function formatDateTR(dateString) {
     if (!dateString) return '-';
+
     const d = new Date(dateString);
+    if (Number.isNaN(d.getTime())) return '-';
+
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
+
     return `${day}.${month}.${year}`;
 }
 
+// TR büyük harf dönüşümü + null safe + özel isim eşleştirme
 export function normalizeName(name) {
-    if (name.toLowerCase() === "alper ulu") return "ALPER ULU";
-    if (name.toLowerCase() === "mert ulutaş") return "MERT ULUTAŞ";
-    return name.toUpperCase();
+    if (!name) return '';
+
+    const raw = name.toString().trim();
+    if (!raw) return '';
+
+    const lowered = raw.toLocaleLowerCase('tr-TR');
+
+    if (lowered === 'alper ulu') return 'ALPER ULU';
+    if (lowered === 'mert ulutaş') return 'MERT ULUTAŞ';
+
+    return raw.toLocaleUpperCase('tr-TR');
 }

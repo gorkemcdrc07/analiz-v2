@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useMemo } from 'react';
+﻿import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
     Box, Container, AppBar, Toolbar, Typography, Drawer, List, ListItemButton,
     ListItemIcon, ListItemText, Divider, IconButton
@@ -9,13 +9,82 @@ import MenuIcon from '@mui/icons-material/Menu';
 import HomeIcon from '@mui/icons-material/Home';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
-import AssessmentIcon from '@mui/icons-material/Assessment'; // ✅ EKLENDİ
+import AssessmentIcon from '@mui/icons-material/Assessment';
 
-import { formatDate } from '../yardimcilar/tarihIslemleri';
 import YukleniyorEkrani from './YukleniyorEkrani';
 import DetayPaneli from './DetayPaneli';
 
+import { supabase } from '../supabaseClient';
+
 const DRAWER_WIDTH = 260;
+const PAGE_SIZE = 1000;
+
+async function fetchAllRows({ startIso, endIso }) {
+    let all = [];
+    let from = 0;
+
+    while (true) {
+        const to = from + PAGE_SIZE - 1;
+
+        const { data: page, error } = await supabase
+            .from('siparisler_raw_v')
+            .select(`
+        proje,
+        hizmet_tipi,
+        arac_calisma_tipi,
+        pozisyon_no,
+        sefer_no,
+        siparis_durumu,
+        yukleme_ili,
+        yukleme_ilcesi,
+        teslim_ili,
+        teslim_ilcesi,
+        yukleme_noktasi,
+        teslim_noktasi,
+        sipras_acan,
+        siparis_acilis_zamani,
+        sefer_acilis_zamani,
+        sefer_hesap_ozeti,
+        yukleme_tarihi,
+        yukleme_ts
+      `)
+            .gte('yukleme_ts', startIso)
+            .lte('yukleme_ts', endIso)
+            .order('yukleme_ts', { ascending: false })
+            .range(from, to);
+
+        if (error) throw error;
+
+        all = all.concat(page || []);
+
+        // son sayfa
+        if (!page || page.length < PAGE_SIZE) break;
+
+        from += PAGE_SIZE;
+    }
+
+    return all;
+}
+
+
+// "Teslim Edildi" gibi text status -> eski koddaki numeric OrderStatu (opsiyonel)
+const STATUS_TEXT_TO_CODE = {
+    "Bekliyor": 1,
+    "Onaylandı": 2,
+    "Spot Araç Planlamada": 3,
+    "Araç Atandı": 4,
+    "Araç Yüklendi": 5,
+    "Araç Yolda": 6,
+    "Teslim Edildi": 7,
+    "Tamamlandı": 8,
+    "Eksik Evrak": 10,
+    "Araç Boşaltmada": 80,
+    "Filo Araç Planlamada": 90,
+    "İptal": 200,
+};
+
+const normalizeTR = (s) =>
+    (s ?? '').toString().trim().toLocaleUpperCase('tr-TR');
 
 export default function Layout() {
     const location = useLocation();
@@ -23,72 +92,109 @@ export default function Layout() {
 
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // default bugün
     const [startDate, setStartDate] = useState(new Date());
     const [endDate, setEndDate] = useState(new Date());
 
     const [detailType, setDetailType] = useState(null);
     const [detailOpen, setDetailOpen] = useState(false);
-
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
-    // Sayfaya göre başlık
     const screenTitle = useMemo(() => {
         if (location.pathname === '/') return 'Anasayfa';
         if (location.pathname.startsWith('/tedarik-analiz')) return 'Tedarik Analiz';
         if (location.pathname.startsWith('/siparis-analiz')) return 'Sipariş Analiz';
-        if (location.pathname.startsWith('/proje-analiz')) return 'Proje Analiz'; // ✅ EKLENDİ
+        if (location.pathname.startsWith('/proje-analiz')) return 'Proje Analiz';
         return '';
     }, [location.pathname]);
 
-    // API fetch
-    const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || '').replace(/\/$/, '');
-    const API_TOKEN = process.env.REACT_APP_API_TOKEN || '';
+    const handleFilter = useCallback(async () => {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
 
-    const handleFilter = async () => {
-        const startDateTime = formatDate(startDate);
-        const endDateTime = formatDate(endDate, true);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+
+        console.log('🚀 handleFilter başladı', {
+            start: start.toISOString(),
+            end: end.toISOString(),
+        });
+
         setLoading(true);
 
         try {
-            const response = await fetch(`${API_BASE_URL}/tmsorders/getall`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${API_TOKEN}`
-                },
-                body: JSON.stringify({
-                    startDate: startDateTime,
-                    endDate: endDateTime,
-                    userId: 1
-                })
+            const rows = await fetchAllRows({
+                startIso: start.toISOString(),
+                endIso: end.toISOString(),
             });
 
-            const text = await response.text();
+            console.log('🟩 supabase result (ALL)', { rowsLength: rows?.length ?? 0 });
 
-            if (!response.ok) {
-                console.error('API Error:', response.status, text);
-                throw new Error(`API ${response.status}`);
-            }
+            // ✅ ESKİ UI alanlarına mapping
+            const mapped = (rows || []).map((r) => {
+                const orderStatusText = (r.siparis_durumu ?? '').toString().trim();
+                const orderStatusCode =
+                    STATUS_TEXT_TO_CODE[orderStatusText] ?? orderStatusText; // bulamazsa text bırak
 
-            let result;
-            try {
-                result = JSON.parse(text);
-            } catch (e) {
-                console.error('JSON değil, gelen cevap:', text.slice(0, 200));
-                throw e;
-            }
+                const isPrintBool =
+                    normalizeTR(r.sefer_hesap_ozeti) === 'CHECKED' ||
+                    normalizeTR(r.sefer_hesap_ozeti) === 'TRUE' ||
+                    r.sefer_hesap_ozeti === true;
 
-            setData(result.Data || []);
-        } catch (error) {
-            console.error('❌ API Hatası:', error);
+                return {
+                    // ✅ eski kodların beklediği isimler
+                    ProjectName: r.proje,
+                    ServiceName: r.hizmet_tipi,              // ÖNEMLİ: hizmet_tipi
+                    SubServiceName: r.hizmet_tipi ?? '',     // tablon yoksa aynı kalsın
+
+                    TMSVehicleRequestDocumentNo: r.pozisyon_no,
+                    TMSDespatchDocumentNo: r.sefer_no,
+
+                    OrderStatu: orderStatusCode,             // numericse numeric, değilse text kalır
+
+                    PickupCityName: r.yukleme_ili,
+                    PickupCountyName: r.yukleme_ilcesi,
+                    DeliveryCityName: r.teslim_ili,
+                    DeliveryCountyName: r.teslim_ilcesi,
+
+                    VehicleWorkingName: r.arac_calisma_tipi, // SPOT/FİLO vs
+
+                    IsPrint: isPrintBool,                    // boolean olmalı
+
+                    // Tarihler
+                    TMSDespatchCreatedDate: r.sefer_acilis_zamani,
+                    PickupDate: r.yukleme_tarihi,
+                    OrderDate: r.yukleme_tarihi,
+                    OrderCreatedDate: r.siparis_acilis_zamani,
+
+                    PickupAddressCode: r.yukleme_noktasi,
+                    DeliveryAddressCode: r.teslim_noktasi,
+
+                    OrderCreatedBy: r.sipras_acan,
+                    CurrentAccountTitle: r.sipras_acan ?? '-',
+
+                    _raw: r
+                };
+            });
+
+            console.log('✅ mapped length:', mapped.length);
+            console.log('🔎 sample mapped[0]:', mapped[0]);
+
+            setData(mapped);
+        } catch (err) {
+            console.error('❌ Veri çekme hatası:', err);
+            setData([]);
         } finally {
             setLoading(false);
+            console.log('🏁 handleFilter bitti');
         }
-    };
+    }, [startDate, endDate]);
 
-    useEffect(() => { handleFilter(); }, []);
+    useEffect(() => {
+        handleFilter();
+    }, [handleFilter]);
 
-    // Outlet’e ortak props aktaracağız
     const outletContext = {
         data,
         loading,
@@ -104,7 +210,6 @@ export default function Layout() {
         <>
             {loading && <YukleniyorEkrani />}
 
-            {/* NAVBAR */}
             <AppBar
                 position="sticky"
                 elevation={0}
@@ -116,7 +221,7 @@ export default function Layout() {
                     zIndex: (t) => t.zIndex.drawer + 1
                 }}
             >
-                <Container maxWidth="xl">
+                <Container maxWidth={false} disableGutters sx={{ px: 2 }}>
                     <Toolbar variant="dense" sx={{ justifyContent: 'space-between', height: 64 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                             <IconButton onClick={() => setSidebarOpen(p => !p)} size="small" sx={{ color: '#1e293b' }}>
@@ -161,7 +266,6 @@ export default function Layout() {
                 </Container>
             </AppBar>
 
-            {/* SIDEBAR */}
             <Drawer
                 variant="persistent"
                 open={sidebarOpen}
@@ -219,7 +323,6 @@ export default function Layout() {
                         <ListItemText primary="Sipariş Analiz" primaryTypographyProps={{ fontWeight: 800, color: '#0f172a' }} />
                     </ListItemButton>
 
-                    {/* ✅ YENİ: PROJE ANALİZ */}
                     <ListItemButton
                         selected={location.pathname.startsWith('/proje-analiz')}
                         onClick={() => navigate('/proje-analiz')}
@@ -233,9 +336,14 @@ export default function Layout() {
                 </List>
             </Drawer>
 
-            {/* CONTENT */}
-            <Box sx={{ ml: sidebarOpen ? `${DRAWER_WIDTH}px` : 0, transition: 'margin-left 0.2s ease' }}>
-                <Container maxWidth="xl" sx={{ mt: 3, mb: 4 }}>
+            <Box
+                sx={{
+                    ml: sidebarOpen ? `${DRAWER_WIDTH}px` : 0,
+                    transition: "margin-left 0.2s ease",
+                    width: sidebarOpen ? `calc(100% - ${DRAWER_WIDTH}px)` : "100%", // ✅ önemli
+                }}
+            >
+                <Container maxWidth={false} disableGutters sx={{ mt: 3, mb: 4, px: 2 }}>
                     <Outlet context={outletContext} />
                 </Container>
             </Box>

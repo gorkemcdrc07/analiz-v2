@@ -5,7 +5,9 @@ import Layout from './bilesenler/Layout';
 import Anasayfa from './sayfalar/Anasayfa';
 import TedarikAnaliz from './sayfalar/TedarikAnaliz';
 import SiparisAnaliz from './sayfalar/SiparisAnaliz';
-import ProjeAnaliz from './sayfalar/ProjeAnaliz'; // ✅ EKLENDİ
+import ProjeAnaliz from './sayfalar/ProjeAnaliz';
+
+import VeriAktarim from './sayfalar/VeriAktarim';
 
 const theme = createTheme({
     palette: {
@@ -28,7 +30,9 @@ export default function App() {
                         <Route path="/" element={<Anasayfa />} />
                         <Route path="/tedarik-analiz" element={<TedarikAnaliz />} />
                         <Route path="/siparis-analiz" element={<SiparisAnaliz />} />
-                        <Route path="/proje-analiz" element={<ProjeAnaliz />} /> {/* ✅ EKLENDİ */}
+                        <Route path="/proje-analiz" element={<ProjeAnaliz />} />
+
+                        <Route path="/veri-aktarim" element={<VeriAktarim />} />
 
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Route>
