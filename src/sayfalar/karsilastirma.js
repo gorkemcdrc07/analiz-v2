@@ -40,6 +40,10 @@ import CompressRoundedIcon from "@mui/icons-material/CompressRounded";
 import ExpandRoundedIcon from "@mui/icons-material/ExpandRounded";
 import MenuIcon from "@mui/icons-material/Menu";
 
+// ✅ Excel export
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+
 import { supabase } from "../supabaseClient";
 import { calcKpi } from "../utils/compareEngine";
 
@@ -373,7 +377,7 @@ function useShellStyles() {
 /* ------------------------ Small UI bits ------------------------ */
 function KpiCard({ title, value, sub, tone = "neutral" }) {
     const theme = useTheme();
-    const { isDark, border, glass } = useShellStyles();
+    const { isDark, glass } = useShellStyles();
 
     const toneCfg =
         tone === "good"
@@ -407,7 +411,6 @@ function KpiCard({ title, value, sub, tone = "neutral" }) {
 }
 
 function TrendChip({ pct }) {
-    const theme = useTheme();
     const { isDark } = useShellStyles();
     if (pct == null || !Number.isFinite(pct) || pct === 0) return null;
 
@@ -462,6 +465,47 @@ function TedMatrixTablePretty({ title, subtitle, columns, rows, totals }) {
         }
         return arr;
     }, [filteredRows, sortMode]);
+
+    // ✅ Excel Export: ekranda görünen (visibleCols + sortedRows) tabloyu indirir
+    const exportToExcel = () => {
+        const cols = visibleCols;
+        const dataRows = sortedRows;
+
+        const aoa = [
+            ["Proje", ...cols.map((c) => `${c.label}${c.sub ? " • " + c.sub : ""}`)],
+        ];
+
+        dataRows.forEach((r) => {
+            aoa.push([
+                r.project,
+                ...cols.map((c) => {
+                    const v = r.values?.[c.key];
+                    return v == null ? "" : Number(v);
+                }),
+            ]);
+        });
+
+        aoa.push([
+            "BÖLGE TOPLAM",
+            ...cols.map((c) => Number(totals?.[c.key] ?? 0)),
+        ]);
+
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        ws["!cols"] = [{ wch: 42 }, ...cols.map(() => ({ wch: 16 }))];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Ongoru");
+
+        const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+
+        const safeTitle = (title || "tablo")
+            .toString()
+            .replace(/[\\/:*?"<>|]/g, "-")
+            .slice(0, 120);
+
+        const fileName = `${safeTitle}.xlsx`;
+        saveAs(new Blob([out], { type: "application/octet-stream" }), fileName);
+    };
 
     const shellBg = isDark ? alpha("#0b1220", 0.72) : alpha("#ffffff", 0.78);
     const stickyBg = isDark ? alpha("#0b1220", 0.78) : alpha("#f8fafc", 0.86);
@@ -543,6 +587,15 @@ function TedMatrixTablePretty({ title, subtitle, columns, rows, totals }) {
                         }}
                     >
                         {showHistory ? "Detayı Gizle" : "Detay (Geçmiş)"}
+                    </Button>
+
+                    {/* ✅ Excel’e Aktar */}
+                    <Button
+                        variant="outlined"
+                        onClick={exportToExcel}
+                        sx={{ borderRadius: 3, fontWeight: 1100, textTransform: "none" }}
+                    >
+                        Excel’e Aktar
                     </Button>
                 </Stack>
             </Stack>
