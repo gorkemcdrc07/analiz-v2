@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     Box,
     Paper,
@@ -10,15 +10,13 @@ import {
     LinearProgress,
     Container,
     IconButton,
-    Tooltip,
-} from "@mui/material";
+    Tooltip} from "@mui/material";
 import {
     CloudUpload as UploadIcon,
     FileDownload as DownloadIcon,
     InfoOutlined as InfoIcon,
     CheckCircleOutline as SuccessIcon,
-    ErrorOutline as ErrorIcon,
-} from "@mui/icons-material";
+    ErrorOutline as ErrorIcon} from "@mui/icons-material";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { supabase } from "../supabaseClient";
@@ -37,7 +35,7 @@ const normalizeHeader = (h) => {
     return String(h).trim().toLowerCase()
         .replace(/[ıİ]/g, "i").replace(/[şŞ]/g, "s").replace(/[ğĞ]/g, "g")
         .replace(/[üÜ]/g, "u").replace(/[öÖ]/g, "o").replace(/[çÇ]/g, "c")
-        .replace(/[\s\-]+/g, "_").replace(/_+/g, "_");
+        .replace(/[\s-]+/g, "_").replace(/_+/g, "_");
 };
 
 const formatDateTR = (d) => `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
@@ -147,8 +145,7 @@ export default function VeriAktarim() {
                                 border: "1px solid #e2e8f0",
                                 background: "#fff",
                                 color: "#0f172a",
-                                "&:hover": { borderColor: "#2563eb", color: "#2563eb", background: "#fff" },
-                            }}
+                                "&:hover": { borderColor: "#2563eb", color: "#2563eb", background: "#fff" }}}
                         >
                             Şablon İndir
                         </Button>
@@ -162,8 +159,7 @@ export default function VeriAktarim() {
                                 borderRadius: "14px",
                                 textTransform: "none",
                                 fontWeight: 800,
-                                boxShadow: "0 10px 20px -6px rgba(37, 99, 235, 0.35)",
-                            }}
+                                boxShadow: "0 10px 20px -6px rgba(37, 99, 235, 0.35)"}}
                         >
                             {busy ? "Yükleniyor…" : "Dosya Seç"}
                             <input
@@ -185,8 +181,7 @@ export default function VeriAktarim() {
                         p: 5,
                         borderRadius: 6,
                         border: "1px solid #e2e8f0",
-                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                    }}
+                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"}}
                 >
                     {/* Alert / Progress */}
                     {loadingCols && <LinearProgress sx={{ mb: 3, borderRadius: 2 }} />}
@@ -210,8 +205,7 @@ export default function VeriAktarim() {
                                 borderRadius: 3,
                                 bgcolor: "#f0fdf4",
                                 color: "#166534",
-                                border: "1px solid #bbf7d0",
-                            }}
+                                border: "1px solid #bbf7d0"}}
                         >
                             İşlem tamamlandı! <strong>{result.fileRows}</strong> satır işlendi,{" "}
                             <strong>{result.affected}</strong> kayıt güncellendi.
@@ -250,8 +244,7 @@ export default function VeriAktarim() {
                             textAlign: "center",
                             bgcolor: "#fcfdfe",
                             transition: "all 0.2s",
-                            "&:hover": { borderColor: "#3b82f6", bgcolor: "#eff6ff" },
-                        }}
+                            "&:hover": { borderColor: "#3b82f6", bgcolor: "#eff6ff" }}}
                     >
                         <UploadIcon sx={{ fontSize: 46, color: "#3b82f6", mb: 1.5 }} />
                         <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.6 }}>
@@ -274,8 +267,7 @@ export default function VeriAktarim() {
                                 fontSize: "0.9rem",
                                 display: "flex",
                                 alignItems: "center",
-                                gap: 1,
-                            }}
+                                gap: 1}}
                         >
                             <InfoIcon sx={{ fontSize: 18 }} /> Bilgilendirme
                         </Typography>
@@ -291,3 +283,4 @@ export default function VeriAktarim() {
         </Box>
     );
 }
+

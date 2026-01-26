@@ -9,7 +9,6 @@ import {
     Chip,
     TextField,
     InputAdornment,
-    Divider,
     Select,
     MenuItem,
     FormControl,
@@ -17,10 +16,9 @@ import {
     FormControlLabel,
     Tooltip,
     IconButton,
-    alpha,
-} from "@mui/material";
+    alpha} from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { MdMonitor, MdSearch, MdTrendingUp, MdWarning, MdCancel, MdBolt, MdInfoOutline } from "react-icons/md";
 
 // local imports
@@ -54,8 +52,7 @@ export default function ProjeTablosu({ data }) {
         importTimesFromExcel({
             setExcelSyncLoading,
             setExcelImportInfo,
-            setExcelTimesBySefer,
-        });
+            setExcelTimesBySefer});
     };
 
     const processedData = useMemo(() => {
@@ -126,7 +123,7 @@ export default function ProjeTablosu({ data }) {
             const m = up.match(/SFR\s*\d+/);
             if (m) return m[0].replace(/\s+/g, "");
 
-            if (/^\d{8,}$/.test(up)) return `SFR${up}`;
+            if (/^\d{8}$/.test(up)) return `SFR${up}`;
 
             return up.split(/\s+/)[0];
         };
@@ -180,8 +177,7 @@ export default function ProjeTablosu({ data }) {
                     sho_b: new Set(),
                     sho_bm: new Set(),
                     ontime_req: new Set(),
-                    late_req: new Set(),
-                };
+                    late_req: new Set()};
             }
 
             const s = stats[key];
@@ -258,8 +254,7 @@ export default function ProjeTablosu({ data }) {
                     sho_b: new Set(),
                     sho_bm: new Set(),
                     ontime_req: new Set(),
-                    late_req: new Set(),
-                };
+                    late_req: new Set()};
 
                 const plan = s.plan.size;
                 const ted = s.ted.size;
@@ -281,8 +276,7 @@ export default function ProjeTablosu({ data }) {
                     sho_bm: s.sho_bm.size,
                     zamaninda,
                     gec,
-                    yuzde,
-                };
+                    yuzde};
             })
             .filter((r) => r.plan > 0)
             .filter((r) => (q ? norm(r.name).includes(q) : true))
@@ -331,8 +325,7 @@ export default function ProjeTablosu({ data }) {
                                             display: "grid",
                                             placeItems: "center",
                                             boxShadow: isDark ? "0 18px 45px rgba(0,0,0,0.55)" : "0 18px 45px rgba(2,6,23,0.22)",
-                                            border: isDark ? `1px solid ${alpha("#ffffff", 0.12)}` : "none",
-                                        }}
+                                            border: isDark ? `1px solid ${alpha("#ffffff", 0.12)}` : "none"}}
                                     >
                                         <MdMonitor size={24} color={isDark ? "#e2e8f0" : "#fff"} />
                                     </Box>
@@ -343,8 +336,7 @@ export default function ProjeTablosu({ data }) {
                                                 fontWeight: 1000,
                                                 color: theme.palette.text.primary,
                                                 fontSize: "1.25rem",
-                                                letterSpacing: "-0.7px",
-                                            }}
+                                                letterSpacing: "-0.7px"}}
                                         >
                                             ANALİZ PANELİ
                                         </Typography>
@@ -360,8 +352,7 @@ export default function ProjeTablosu({ data }) {
                                                 ml: "auto",
                                                 bgcolor: isDark ? alpha("#ffffff", 0.06) : alpha("#0f172a", 0.05),
                                                 border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "none",
-                                                color: theme.palette.text.primary,
-                                            }}
+                                                color: theme.palette.text.primary}}
                                         >
                                             <MdInfoOutline />
                                         </IconButton>
@@ -439,8 +430,7 @@ export default function ProjeTablosu({ data }) {
                                                             fontWeight: 1000,
                                                             bgcolor: isDark ? alpha("#ffffff", 0.1) : alpha("#0f172a", 0.08),
                                                             color: theme.palette.text.primary,
-                                                            border: isDark ? `1px solid ${alpha("#ffffff", 0.12)}` : "none",
-                                                        }}
+                                                            border: isDark ? `1px solid ${alpha("#ffffff", 0.12)}` : "none"}}
                                                     />
                                                 </Stack>
                                             }
@@ -460,19 +450,15 @@ export default function ProjeTablosu({ data }) {
                                                 borderRadius: 18,
                                                 bgcolor: isDark ? alpha("#ffffff", 0.06) : "rgba(255,255,255,0.95)",
                                                 color: theme.palette.text.primary,
-                                                border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "none",
-                                            },
+                                                border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "none"},
                                             "& .MuiOutlinedInput-notchedOutline": {
-                                                borderColor: isDark ? alpha("#ffffff", 0.12) : alpha("#0f172a", 0.12),
-                                            },
-                                        }}
+                                                borderColor: isDark ? alpha("#ffffff", 0.12) : alpha("#0f172a", 0.12)}}}
                                         InputProps={{
                                             startAdornment: (
                                                 <InputAdornment position="start">
                                                     <MdSearch />
                                                 </InputAdornment>
-                                            ),
-                                        }}
+                                            )}}
                                     />
 
                                     <FormControl size="small" sx={{ minWidth: 200 }}>
@@ -484,9 +470,7 @@ export default function ProjeTablosu({ data }) {
                                                 bgcolor: isDark ? alpha("#ffffff", 0.06) : "rgba(255,255,255,0.95)",
                                                 color: theme.palette.text.primary,
                                                 "& .MuiOutlinedInput-notchedOutline": {
-                                                    borderColor: isDark ? alpha("#ffffff", 0.12) : alpha("#0f172a", 0.12),
-                                                },
-                                            }}
+                                                    borderColor: isDark ? alpha("#ffffff", 0.12) : alpha("#0f172a", 0.12)}}}
                                         >
                                             <MenuItem value="perf">Sırala: Performans</MenuItem>
                                             <MenuItem value="plan">Sırala: Talep (yüksek)</MenuItem>
@@ -502,8 +486,7 @@ export default function ProjeTablosu({ data }) {
                                                 py: 0.3,
                                                 borderRadius: 18,
                                                 bgcolor: isDark ? alpha("#ffffff", 0.06) : "rgba(255,255,255,0.95)",
-                                                border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.9)",
-                                            }}
+                                                border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.9)"}}
                                             control={<Switch checked={onlyLate} onChange={(e) => setOnlyLate(e.target.checked)} />}
                                             label={<Typography sx={{ fontWeight: 950, color: theme.palette.text.primary }}>Sadece gecikenler</Typography>}
                                         />
@@ -526,8 +509,7 @@ export default function ProjeTablosu({ data }) {
                                                 display: "flex",
                                                 alignItems: "center",
                                                 gap: 0.8,
-                                                whiteSpace: "nowrap",
-                                            }}
+                                                whiteSpace: "nowrap"}}
                                         >
                                             {excelSyncLoading ? "Excel okunuyor..." : "Reel Tarihler"}
                                         </Box>
@@ -550,8 +532,7 @@ export default function ProjeTablosu({ data }) {
                                                 display: "flex",
                                                 alignItems: "center",
                                                 gap: 0.8,
-                                                whiteSpace: "nowrap",
-                                            }}
+                                                whiteSpace: "nowrap"}}
                                         >
                                             {excelSyncLoading ? "Excel okunuyor..." : "FTS Tarihler"}
                                         </Box>
@@ -576,8 +557,7 @@ export default function ProjeTablosu({ data }) {
                                                 gap: 0.8,
                                                 "&:hover": { transform: "translateY(-1px)" },
                                                 transition: "0.15s",
-                                                whiteSpace: "nowrap",
-                                            }}
+                                                whiteSpace: "nowrap"}}
                                         >
                                             Excel’e Aktar
                                         </Box>
@@ -589,8 +569,7 @@ export default function ProjeTablosu({ data }) {
                                         p: 2,
                                         borderRadius: 22,
                                         border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.9)",
-                                        bgcolor: isDark ? alpha("#0b1220", 0.7) : "rgba(255,255,255,0.85)",
-                                    }}
+                                        bgcolor: isDark ? alpha("#0b1220", 0.7) : "rgba(255,255,255,0.85)"}}
                                 >
                                     <Typography sx={{ fontWeight: 1000, color: theme.palette.text.primary, letterSpacing: "-0.4px" }}>
                                         Liste: {rows.length} proje
@@ -631,8 +610,7 @@ export default function ProjeTablosu({ data }) {
                                     background: isDark ? alpha("#0b1220", 0.72) : "rgba(255,255,255,0.85)",
                                     p: 6,
                                     textAlign: "center",
-                                    boxShadow: isDark ? "0 18px 65px rgba(0,0,0,0.55)" : "0 16px 55px rgba(2,6,23,0.07)",
-                                }}
+                                    boxShadow: isDark ? "0 18px 65px rgba(0,0,0,0.55)" : "0 16px 55px rgba(2,6,23,0.07)"}}
                             >
                                 <Typography sx={{ fontWeight: 1000, color: theme.palette.text.primary, fontSize: "1.2rem" }}>
                                     Sonuç bulunamadı
@@ -648,3 +626,8 @@ export default function ProjeTablosu({ data }) {
         </Box>
     );
 }
+
+
+
+
+

@@ -50,10 +50,6 @@ import { saveAs } from "file-saver";
 const BASE_URL =
     process.env.REACT_APP_API_URL || "https://tedarik-analiz-backend-clean.onrender.com";
 
-function isObject(v) {
-    return v !== null && typeof v === "object";
-}
-
 // Backend şu formatı döndürüyor: { rid, ok, data } veya { rid, ok, items }
 function extractItems(payload) {
     if (!payload) return [];
@@ -2022,3 +2018,4 @@ export default function AnalizPaneliBackend() {
         </Box>
     );
 }
+
