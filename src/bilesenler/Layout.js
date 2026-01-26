@@ -24,6 +24,10 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 
+// ✅ yeni ikonlar
+import StorageIcon from '@mui/icons-material/Storage';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+
 import { useTheme } from '@mui/material/styles';
 
 import YukleniyorEkrani from './YukleniyorEkrani';
@@ -119,6 +123,7 @@ export default function Layout({ mode, setMode }) {
         if (location.pathname.startsWith('/siparis-analiz')) return 'Sipariş Analiz';
         if (location.pathname.startsWith('/proje-analiz')) return 'Proje Analiz';
         if (location.pathname.startsWith('/veri-aktarim')) return 'Veri Aktarım';
+        if (location.pathname.startsWith('/backend-veri')) return 'Backend Veri'; // ✅ eklendi
         return '';
     }, [location.pathname]);
 
@@ -395,6 +400,40 @@ export default function Layout({ mode, setMode }) {
                         </ListItemIcon>
                         <ListItemText
                             primary="Proje Analiz"
+                            primaryTypographyProps={{ fontWeight: 800, color: textMain }}
+                        />
+                    </ListItemButton>
+
+                    {/* ✅ Veri Aktarım (menüde yoktu, route var) */}
+                    <ListItemButton
+                        selected={location.pathname.startsWith('/veri-aktarim')}
+                        onClick={() => navigate('/veri-aktarim')}
+                        sx={menuItemSx}
+                    >
+                        <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
+                            <UploadFileIcon
+                                color={location.pathname.startsWith('/veri-aktarim') ? 'primary' : 'inherit'}
+                            />
+                        </ListItemIcon>
+                        <ListItemText
+                            primary="Veri Aktarım"
+                            primaryTypographyProps={{ fontWeight: 800, color: textMain }}
+                        />
+                    </ListItemButton>
+
+                    {/* ✅ Backend Veri */}
+                    <ListItemButton
+                        selected={location.pathname.startsWith('/backend-veri')}
+                        onClick={() => navigate('/backend-veri')}
+                        sx={menuItemSx}
+                    >
+                        <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
+                            <StorageIcon
+                                color={location.pathname.startsWith('/backend-veri') ? 'primary' : 'inherit'}
+                            />
+                        </ListItemIcon>
+                        <ListItemText
+                            primary="Backend Veri"
                             primaryTypographyProps={{ fontWeight: 800, color: textMain }}
                         />
                     </ListItemButton>

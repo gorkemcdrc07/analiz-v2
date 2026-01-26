@@ -3,6 +3,62 @@
   "WorkspaceRootPath": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\VeriAktarim.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\sayfalar\\VeriAktarim.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\excel.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\components\\ProjeTablosu\\excel.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\constants.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\components\\ProjeTablosu\\constants.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\ProjectRow.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\components\\ProjeTablosu\\ProjectRow.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\utils.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\components\\ProjeTablosu\\utils.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\StatusPill.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\components\\ProjeTablosu\\StatusPill.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\styles.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\components\\ProjeTablosu\\styles.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\ProjeAnaliz.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\sayfalar\\ProjeAnaliz.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\utils\\compareEngine.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\utils\\compareEngine.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\yardimcilar\\tarihIslemleri.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\yardimcilar\\tarihIslemleri.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\Anasayfa.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\sayfalar\\Anasayfa.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\App.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\App.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\UseProcessedData.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\components\\ProjeTablosu\\UseProcessedData.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\ProjeTablosu.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\components\\ProjeTablosu\\ProjeTablosu.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\ProjeTablosu.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\bilesenler\\ProjeTablosu.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
     },
@@ -39,24 +95,8 @@
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\bilesenler\\Layout.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\App.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\App.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\Anasayfa.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\sayfalar\\Anasayfa.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\utils\\compareEngine.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\utils\\compareEngine.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\TedarikAnaliz.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\sayfalar\\TedarikAnaliz.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\yardimcilar\\tarihIslemleri.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\yardimcilar\\tarihIslemleri.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\supabaseClient.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
@@ -74,7 +114,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 8,
+          "SelectedChildIndex": 3,
           "Children": [
             {
               "$type": "Bookmark",
@@ -90,27 +130,124 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "SiparisAnaliz.js",
-              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\SiparisAnaliz.js",
-              "RelativeDocumentMoniker": "src\\sayfalar\\SiparisAnaliz.js",
-              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\SiparisAnaliz.js",
-              "RelativeToolTip": "src\\sayfalar\\SiparisAnaliz.js",
-              "ViewState": "AgIAAF4CAAAAAAAAAAAcwJwCAAAAAAAAAAAAAA==",
+              "DocumentIndex": 0,
+              "Title": "VeriAktarim.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\VeriAktarim.js",
+              "RelativeDocumentMoniker": "src\\sayfalar\\VeriAktarim.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\VeriAktarim.js",
+              "RelativeToolTip": "src\\sayfalar\\VeriAktarim.js",
+              "ViewState": "AgIAAOMAAAAAAAAAAAAUwCQBAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
-              "WhenOpened": "2026-01-05T09:55:22.111Z"
+              "WhenOpened": "2026-01-21T01:13:32.914Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "StatusPill.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\StatusPill.js",
+              "RelativeDocumentMoniker": "src\\components\\ProjeTablosu\\StatusPill.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\StatusPill.js",
+              "RelativeToolTip": "src\\components\\ProjeTablosu\\StatusPill.js",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAB0AAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2026-01-21T00:55:26.019Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "ProjeAnaliz.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\ProjeAnaliz.js",
+              "RelativeDocumentMoniker": "src\\sayfalar\\ProjeAnaliz.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\ProjeAnaliz.js",
+              "RelativeToolTip": "src\\sayfalar\\ProjeAnaliz.js",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABoAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2026-01-21T00:48:41.503Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "excel.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\excel.js",
+              "RelativeDocumentMoniker": "src\\components\\ProjeTablosu\\excel.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\excel.js",
+              "RelativeToolTip": "src\\components\\ProjeTablosu\\excel.js",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAANkAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2026-01-21T00:37:45.746Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 12,
+              "Title": "UseProcessedData.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\UseProcessedData.js",
+              "RelativeDocumentMoniker": "src\\components\\ProjeTablosu\\UseProcessedData.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\UseProcessedData.js",
+              "RelativeToolTip": "src\\components\\ProjeTablosu\\UseProcessedData.js",
+              "ViewState": "AgIAAIAAAAAAAAAAAAAAANcAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2026-01-21T00:37:37.466Z"
             },
             {
               "$type": "Document",
               "DocumentIndex": 4,
-              "Title": "ProjeAnalizTablosu.js",
-              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\ProjeAnalizTablosu.js",
-              "RelativeDocumentMoniker": "src\\bilesenler\\ProjeAnalizTablosu.js",
-              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\ProjeAnalizTablosu.js",
-              "RelativeToolTip": "src\\bilesenler\\ProjeAnalizTablosu.js",
-              "ViewState": "AgIAAD0CAAAAAAAAAAAcwIwCAAAAAAAAAAAAAA==",
+              "Title": "utils.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\utils.js",
+              "RelativeDocumentMoniker": "src\\components\\ProjeTablosu\\utils.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\utils.js",
+              "RelativeToolTip": "src\\components\\ProjeTablosu\\utils.js",
+              "ViewState": "AgIAAEoAAAAAAAAAAAAuwKEAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
-              "WhenOpened": "2026-01-05T09:41:49.527Z"
+              "WhenOpened": "2026-01-21T00:37:21.235Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "constants.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\constants.js",
+              "RelativeDocumentMoniker": "src\\components\\ProjeTablosu\\constants.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\constants.js",
+              "RelativeToolTip": "src\\components\\ProjeTablosu\\constants.js",
+              "ViewState": "AgIAAB0AAAAAAAAAAAAAAHQAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2026-01-21T00:37:14.059Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "styles.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\styles.js",
+              "RelativeDocumentMoniker": "src\\components\\ProjeTablosu\\styles.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\styles.js",
+              "RelativeToolTip": "src\\components\\ProjeTablosu\\styles.js",
+              "ViewState": "AgIAAJQAAAAAAAAAAAAAAOsAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2026-01-21T00:36:59.911Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "ProjectRow.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\ProjectRow.js",
+              "RelativeDocumentMoniker": "src\\components\\ProjeTablosu\\ProjectRow.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\ProjectRow.js",
+              "RelativeToolTip": "src\\components\\ProjeTablosu\\ProjectRow.js",
+              "ViewState": "AgIAANgBAAAAAAAAAAAAAC8CAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2026-01-21T00:36:50.676Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 13,
+              "Title": "ProjeTablosu.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\ProjeTablosu.js",
+              "RelativeDocumentMoniker": "src\\components\\ProjeTablosu\\ProjeTablosu.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\components\\ProjeTablosu\\ProjeTablosu.js",
+              "RelativeToolTip": "src\\components\\ProjeTablosu\\ProjeTablosu.js",
+              "ViewState": "AgIAADMCAAAAAAAAAAAAAIoCAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2026-01-21T00:36:38.445Z"
             },
             {
               "$type": "Document",
@@ -126,56 +263,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "karsilastirma.js",
-              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\karsilastirma.js",
-              "RelativeDocumentMoniker": "src\\sayfalar\\karsilastirma.js",
-              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\karsilastirma.js",
-              "RelativeToolTip": "src\\sayfalar\\karsilastirma.js",
-              "ViewState": "AgIAAPgEAAAAAAAAAAAmwDoFAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
-              "WhenOpened": "2025-12-30T06:38:19.987Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 12,
-              "Title": "TedarikAnaliz.js",
-              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\TedarikAnaliz.js",
-              "RelativeDocumentMoniker": "src\\sayfalar\\TedarikAnaliz.js",
-              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\TedarikAnaliz.js",
-              "RelativeToolTip": "src\\sayfalar\\TedarikAnaliz.js",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABsAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
-              "WhenOpened": "2025-12-29T10:12:44.753Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "ProjeTablosu.js",
-              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\ProjeTablosu.js",
-              "RelativeDocumentMoniker": "src\\bilesenler\\ProjeTablosu.js",
-              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\ProjeTablosu.js",
-              "RelativeToolTip": "src\\bilesenler\\ProjeTablosu.js",
-              "ViewState": "AgIAAFUHAAAAAAAAAAAowJYHAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
-              "WhenOpened": "2025-12-29T09:12:00.209Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 8,
-              "Title": "Layout.js",
-              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\Layout.js",
-              "RelativeDocumentMoniker": "src\\bilesenler\\Layout.js",
-              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\Layout.js",
-              "RelativeToolTip": "src\\bilesenler\\Layout.js",
-              "ViewState": "AgIAAFYBAAAAAAAAAAAcwKUBAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
-              "WhenOpened": "2025-12-29T08:51:01.986Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 11,
               "Title": "App.js",
               "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\App.js",
               "RelativeDocumentMoniker": "src\\App.js",
@@ -187,67 +275,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
-              "Title": "BilgiPanelleri.js",
-              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\BilgiPanelleri.js",
-              "RelativeDocumentMoniker": "src\\bilesenler\\BilgiPanelleri.js",
-              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\BilgiPanelleri.js",
-              "RelativeToolTip": "src\\bilesenler\\BilgiPanelleri.js",
-              "ViewState": "AgIAAAEBAAAAAAAAAAAcwFABAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
-              "WhenOpened": "2025-12-29T08:50:59.196Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 6,
-              "Title": "DetayPaneli.js",
-              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\DetayPaneli.js",
-              "RelativeDocumentMoniker": "src\\bilesenler\\DetayPaneli.js",
-              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\DetayPaneli.js",
-              "RelativeToolTip": "src\\bilesenler\\DetayPaneli.js",
-              "ViewState": "AgIAAEMBAAAAAAAAAAAcwJIBAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
-              "WhenOpened": "2025-12-29T09:02:58.536Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "YukleniyorEkrani.js",
-              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\YukleniyorEkrani.js",
-              "RelativeDocumentMoniker": "src\\bilesenler\\YukleniyorEkrani.js",
-              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\YukleniyorEkrani.js",
-              "RelativeToolTip": "src\\bilesenler\\YukleniyorEkrani.js",
-              "ViewState": "AgIAAHMAAAAAAAAAAAAcwMIAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
-              "WhenOpened": "2025-12-29T14:21:46.926Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 11,
-              "Title": "compareEngine.js",
-              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\utils\\compareEngine.js",
-              "RelativeDocumentMoniker": "src\\utils\\compareEngine.js",
-              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\utils\\compareEngine.js",
-              "RelativeToolTip": "src\\utils\\compareEngine.js",
-              "ViewState": "AgIAAEgAAAAAAAAAAAAawGYAAABRAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
-              "WhenOpened": "2025-12-30T06:56:09.382Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": "IstatistikKarti.js",
-              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\IstatistikKarti.js",
-              "RelativeDocumentMoniker": "src\\bilesenler\\IstatistikKarti.js",
-              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\IstatistikKarti.js",
-              "RelativeToolTip": "src\\bilesenler\\IstatistikKarti.js",
-              "ViewState": "AgIAAFYAAAAAAAAAAAAcwKQAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
-              "WhenOpened": "2025-12-29T09:11:18.345Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 9,
               "Title": "tarihIslemleri.js",
               "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\yardimcilar\\tarihIslemleri.js",
               "RelativeDocumentMoniker": "src\\yardimcilar\\tarihIslemleri.js",
@@ -259,7 +287,139 @@
             },
             {
               "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "compareEngine.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\utils\\compareEngine.js",
+              "RelativeDocumentMoniker": "src\\utils\\compareEngine.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\utils\\compareEngine.js",
+              "RelativeToolTip": "src\\utils\\compareEngine.js",
+              "ViewState": "AgIAAOEAAAAAAAAAAAAAAGYAAABRAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2025-12-30T06:56:09.382Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 18,
+              "Title": "ProjeAnalizTablosu.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\ProjeAnalizTablosu.js",
+              "RelativeDocumentMoniker": "src\\bilesenler\\ProjeAnalizTablosu.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\ProjeAnalizTablosu.js",
+              "RelativeToolTip": "src\\bilesenler\\ProjeAnalizTablosu.js",
+              "ViewState": "AgIAAD0CAAAAAAAAAAAcwIwCAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2026-01-05T09:41:49.527Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 16,
+              "Title": "SiparisAnaliz.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\SiparisAnaliz.js",
+              "RelativeDocumentMoniker": "src\\sayfalar\\SiparisAnaliz.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\SiparisAnaliz.js",
+              "RelativeToolTip": "src\\sayfalar\\SiparisAnaliz.js",
+              "ViewState": "AgIAAF4CAAAAAAAAAAAcwJwCAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2026-01-05T09:55:22.111Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 15,
+              "Title": "karsilastirma.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\karsilastirma.js",
+              "RelativeDocumentMoniker": "src\\sayfalar\\karsilastirma.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\karsilastirma.js",
+              "RelativeToolTip": "src\\sayfalar\\karsilastirma.js",
+              "ViewState": "AgIAAG0DAAAAAAAAAAAQwJQDAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2025-12-30T06:38:19.987Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 23,
+              "Title": "TedarikAnaliz.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\TedarikAnaliz.js",
+              "RelativeDocumentMoniker": "src\\sayfalar\\TedarikAnaliz.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\TedarikAnaliz.js",
+              "RelativeToolTip": "src\\sayfalar\\TedarikAnaliz.js",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABsAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2025-12-29T10:12:44.753Z"
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 14,
+              "Title": "ProjeTablosu.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\ProjeTablosu.js",
+              "RelativeDocumentMoniker": "src\\bilesenler\\ProjeTablosu.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\ProjeTablosu.js",
+              "RelativeToolTip": "src\\bilesenler\\ProjeTablosu.js",
+              "ViewState": "AgIAAFMHAAAAAAAAAAAAAKoHAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2025-12-29T09:12:00.209Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 22,
+              "Title": "Layout.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\Layout.js",
+              "RelativeDocumentMoniker": "src\\bilesenler\\Layout.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\Layout.js",
+              "RelativeToolTip": "src\\bilesenler\\Layout.js",
+              "ViewState": "AgIAAFYBAAAAAAAAAAAcwKUBAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2025-12-29T08:51:01.986Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 21,
+              "Title": "BilgiPanelleri.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\BilgiPanelleri.js",
+              "RelativeDocumentMoniker": "src\\bilesenler\\BilgiPanelleri.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\BilgiPanelleri.js",
+              "RelativeToolTip": "src\\bilesenler\\BilgiPanelleri.js",
+              "ViewState": "AgIAAAEBAAAAAAAAAAAcwFABAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2025-12-29T08:50:59.196Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 20,
+              "Title": "DetayPaneli.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\DetayPaneli.js",
+              "RelativeDocumentMoniker": "src\\bilesenler\\DetayPaneli.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\DetayPaneli.js",
+              "RelativeToolTip": "src\\bilesenler\\DetayPaneli.js",
+              "ViewState": "AgIAAEMBAAAAAAAAAAAcwJIBAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2025-12-29T09:02:58.536Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 17,
+              "Title": "YukleniyorEkrani.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\YukleniyorEkrani.js",
+              "RelativeDocumentMoniker": "src\\bilesenler\\YukleniyorEkrani.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\YukleniyorEkrani.js",
+              "RelativeToolTip": "src\\bilesenler\\YukleniyorEkrani.js",
+              "ViewState": "AgIAAHMAAAAAAAAAAAAcwMIAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2025-12-29T14:21:46.926Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 19,
+              "Title": "IstatistikKarti.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\IstatistikKarti.js",
+              "RelativeDocumentMoniker": "src\\bilesenler\\IstatistikKarti.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\bilesenler\\IstatistikKarti.js",
+              "RelativeToolTip": "src\\bilesenler\\IstatistikKarti.js",
+              "ViewState": "AgIAAFYAAAAAAAAAAAAcwKQAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2025-12-29T09:11:18.345Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 24,
               "Title": "supabaseClient.js",
               "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\supabaseClient.js",
               "RelativeDocumentMoniker": "src\\supabaseClient.js",
@@ -271,7 +431,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 15,
+              "DocumentIndex": 25,
               "Title": ".env",
               "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\.env",
               "RelativeDocumentMoniker": ".env",

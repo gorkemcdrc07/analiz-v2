@@ -4,9 +4,12 @@
     "\\public",
     "\\src",
     "\\src\\bilesenler",
+    "\\src\\components",
+    "\\src\\components\\ProjeTablosu",
     "\\src\\sayfalar",
     "\\src\\utils",
     "\\src\\yardimcilar"
   ],
+  "SelectedNode": "\\src\\sayfalar\\SiparisAnaliz.js",
   "PreviewInSolutionExplorer": false
 }

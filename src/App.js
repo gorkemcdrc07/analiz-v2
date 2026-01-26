@@ -8,6 +8,7 @@ import TedarikAnaliz from './sayfalar/TedarikAnaliz';
 import SiparisAnaliz from './sayfalar/SiparisAnaliz';
 import ProjeAnaliz from './sayfalar/ProjeAnaliz';
 import VeriAktarim from './sayfalar/VeriAktarim';
+import BackendVeriEkrani from './sayfalar/BackendVeriEkrani';
 
 export default function App() {
     const [mode, setMode] = useState('light');
@@ -44,6 +45,7 @@ export default function App() {
                         <Route path="/siparis-analiz" element={<SiparisAnaliz />} />
                         <Route path="/proje-analiz" element={<ProjeAnaliz />} />
                         <Route path="/veri-aktarim" element={<VeriAktarim />} />
+                        <Route path="/backend-veri" element={<BackendVeriEkrani />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Route>
                 </Routes>

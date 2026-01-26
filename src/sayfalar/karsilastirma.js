@@ -134,9 +134,7 @@ function SectionTitle({ icon, title, sub }) {
                 {icon}
             </Box>
             <Box>
-                <Typography sx={{ fontWeight: 1200, letterSpacing: "-0.35px", lineHeight: 1.1 }}>
-                    {title}
-                </Typography>
+                <Typography sx={{ fontWeight: 1200, letterSpacing: "-0.35px", lineHeight: 1.1 }}>{title}</Typography>
                 {sub ? (
                     <Typography sx={{ fontWeight: 850, color: theme.palette.text.secondary, fontSize: "0.82rem", mt: 0.2 }}>
                         {sub}
@@ -217,24 +215,14 @@ function mapRawToEngineRow(r) {
 }
 
 /* ------------------------ Date helpers ------------------------ */
-function startOfWeekMonday(d) {
-    const x = new Date(d);
-    x.setHours(0, 0, 0, 0);
-    const day = x.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    x.setDate(x.getDate() + diff);
-    return x;
-}
-function endOfWeekSunday(d) {
-    const s = startOfWeekMonday(d);
-    const e = new Date(s);
-    e.setDate(e.getDate() + 6);
-    e.setHours(23, 59, 59, 999);
-    return e;
-}
 function addMonths(d, m) {
     const x = new Date(d);
     x.setMonth(x.getMonth() + m);
+    return x;
+}
+function addDays(d, n) {
+    const x = new Date(d);
+    x.setDate(x.getDate() + n);
     return x;
 }
 function startOfMonth(d) {
@@ -265,26 +253,55 @@ function fmtRangeTR(start, end) {
         return "";
     }
 }
-function addDays(d, n) {
-    const x = new Date(d);
-    x.setDate(x.getDate() + n);
-    return x;
-}
-function prevMonthWindows(now = new Date()) {
-    const prev = startOfMonth(addMonths(now, -1));
-    const prevEnd = endOfMonth(prev);
-    const w1End = addDays(prev, 6);
-    const w2End = addDays(prev, 13);
-    const w3End = addDays(prev, 20);
 
-    return {
-        prevStart: prev,
-        prevEnd,
-        w1: { start: prev, end: new Date(Math.min(w1End.getTime(), prevEnd.getTime())) },
-        w2: { start: prev, end: new Date(Math.min(w2End.getTime(), prevEnd.getTime())) },
-        w3: { start: prev, end: new Date(Math.min(w3End.getTime(), prevEnd.getTime())) },
-    };
+/**
+ * ✅ Ay haftalarını 7'şer gün olarak böler:
+ * W1: 1-7, W2: 8-14, W3: 15-21, W4: 22-28, W5: 29-... (ay sonu)
+ */
+function monthWeeks7(d) {
+    const ms = startOfMonth(d);
+    const me = endOfMonth(d);
+    const weeks = [];
+    let cursor = new Date(ms);
+
+    let idx = 1;
+    while (cursor.getTime() <= me.getTime()) {
+        const wStart = new Date(cursor);
+        // ✅ Hafta başlangıcı 07:00
+        wStart.setHours(7, 0, 0, 0);
+
+        const wEnd = addDays(wStart, 6);
+
+        // ✅ Ay sonunu geçiyorsa ay sonuna kırp
+        const cappedEnd = new Date(Math.min(wEnd.getTime(), me.getTime()));
+
+        // ✅ Hafta bitişi 23:55
+        cappedEnd.setHours(23, 55, 0, 0);
+
+        weeks.push({
+            key: `W${idx}`,
+            idx,
+            start: wStart,
+            end: cappedEnd,
+            rangeText: fmtRangeTR(wStart, cappedEnd),
+        });
+
+        idx += 1;
+
+        // ✅ bir sonraki hafta 7 gün sonra (yine 07:00’ı yukarıda setliyoruz)
+        cursor = addDays(new Date(cursor), 7);
+        cursor.setHours(0, 0, 0, 0); // sadece tarih kaydırma için
+    }
+
+    // ✅ Ay başlangıcı da 07:00 olsun (toplam hesaplar için)
+    const monthStart = new Date(ms);
+    monthStart.setHours(7, 0, 0, 0);
+
+    // ✅ Ay sonu olduğu gibi kalsın (sadece hafta bitişlerini 23:55 yaptık)
+    return { monthStart, monthEnd: me, weeks };
 }
+
+/* ------------------------ Forecast helpers ------------------------ */
 function clamp01(x) {
     const n = Number(x);
     if (!Number.isFinite(n)) return 0;
@@ -305,19 +322,18 @@ function forecastNextMonthTotal(monthTotalsOldestToNewest) {
     const blended = (avg3 + last + trendPoint) / 3;
     return Math.max(0, Math.round(blended));
 }
-function forecastWeekSplitsFromPrevMonth(prevW1, prevW2, prevW3, prevFull, nextMonthTotal) {
+
+/**
+ * ✅ Önceki ayın haftalık dağılım oranlarını alıp,
+ * gelecek ay tahmin toplamını aynı oranlarla haftalara böler.
+ * prevWeeksTotals: [W1, W2, ...] toplamları
+ */
+function forecastWeekSplitsFromPrevMonth(prevWeeksTotals, prevFull, nextMonthTotal) {
     const full = Number(prevFull ?? 0);
-    if (!full) return { fW1: null, fW2: null, fW3: null };
+    if (!full) return [];
 
-    const r1 = clamp01((prevW1 ?? 0) / full);
-    const r2 = clamp01((prevW2 ?? 0) / full);
-    const r3 = clamp01((prevW3 ?? 0) / full);
-
-    return {
-        fW1: Math.round(nextMonthTotal * r1),
-        fW2: Math.round(nextMonthTotal * r2),
-        fW3: Math.round(nextMonthTotal * r3),
-    };
+    const ratios = (prevWeeksTotals || []).map((v) => clamp01(Number(v ?? 0) / full));
+    return ratios.map((r) => Math.round(nextMonthTotal * r));
 }
 
 /* ------------------------ Aesthetic tokens ------------------------ */
@@ -402,9 +418,7 @@ function KpiCard({ title, value, sub, tone = "neutral" }) {
                 {value}
             </Typography>
             {sub ? (
-                <Typography sx={{ fontWeight: 800, color: theme.palette.text.secondary, fontSize: "0.78rem", mt: 0.45 }}>
-                    {sub}
-                </Typography>
+                <Typography sx={{ fontWeight: 800, color: theme.palette.text.secondary, fontSize: "0.78rem", mt: 0.45 }}>{sub}</Typography>
             ) : null}
         </Paper>
     );
@@ -416,7 +430,7 @@ function TrendChip({ pct }) {
 
     const up = pct > 0;
     const bg = up ? alpha("#10b981", isDark ? 0.22 : 0.14) : alpha("#ef4444", isDark ? 0.22 : 0.14);
-    const bd = up ? alpha("#10b981", isDark ? 0.30 : 0.22) : alpha("#ef4444", isDark ? 0.30 : 0.22);
+    const bd = up ? alpha("#10b981", isDark ? 0.3 : 0.22) : alpha("#ef4444", isDark ? 0.3 : 0.22);
     const fg = up ? (isDark ? "#86efac" : "#065f46") : (isDark ? "#fca5a5" : "#991b1b");
 
     return (
@@ -471,24 +485,13 @@ function TedMatrixTablePretty({ title, subtitle, columns, rows, totals }) {
         const cols = visibleCols;
         const dataRows = sortedRows;
 
-        const aoa = [
-            ["Proje", ...cols.map((c) => `${c.label}${c.sub ? " • " + c.sub : ""}`)],
-        ];
+        const aoa = [["Proje", ...cols.map((c) => `${c.label}${c.sub ? " • " + c.sub : ""}`)]];
 
         dataRows.forEach((r) => {
-            aoa.push([
-                r.project,
-                ...cols.map((c) => {
-                    const v = r.values?.[c.key];
-                    return v == null ? "" : Number(v);
-                }),
-            ]);
+            aoa.push([r.project, ...cols.map((c) => (r.values?.[c.key] == null ? "" : Number(r.values?.[c.key])))]);
         });
 
-        aoa.push([
-            "BÖLGE TOPLAM",
-            ...cols.map((c) => Number(totals?.[c.key] ?? 0)),
-        ]);
+        aoa.push(["BÖLGE TOPLAM", ...cols.map((c) => Number(totals?.[c.key] ?? 0))]);
 
         const ws = XLSX.utils.aoa_to_sheet(aoa);
         ws["!cols"] = [{ wch: 42 }, ...cols.map(() => ({ wch: 16 }))];
@@ -498,11 +501,7 @@ function TedMatrixTablePretty({ title, subtitle, columns, rows, totals }) {
 
         const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
 
-        const safeTitle = (title || "tablo")
-            .toString()
-            .replace(/[\\/:*?"<>|]/g, "-")
-            .slice(0, 120);
-
+        const safeTitle = (title || "tablo").toString().replace(/[\\/:*?"<>|]/g, "-").slice(0, 120);
         const fileName = `${safeTitle}.xlsx`;
         saveAs(new Blob([out], { type: "application/octet-stream" }), fileName);
     };
@@ -511,6 +510,13 @@ function TedMatrixTablePretty({ title, subtitle, columns, rows, totals }) {
     const stickyBg = isDark ? alpha("#0b1220", 0.78) : alpha("#f8fafc", 0.86);
     const rowOddBg = isDark ? alpha("#ffffff", 0.03) : alpha("#0f172a", 0.025);
     const rowHoverBg = isDark ? alpha("#ffffff", 0.06) : alpha("#0f172a", 0.055);
+
+    // ✅ Tahmin kolonlarına karşılık gerçek değerler (tablo içinde küçük satır olarak göstermek için)
+    const realKeyForForecast = (k) => {
+        if (k === "F_NEXT") return "REAL_CM";
+        if (String(k).startsWith("F_W")) return `REAL_${String(k).slice(2)}`; // F_W1 -> REAL_W1
+        return null;
+    };
 
     return (
         <Paper elevation={0} sx={{ p: 1.6, borderRadius: 6, ...glass(0.62) }}>
@@ -590,11 +596,7 @@ function TedMatrixTablePretty({ title, subtitle, columns, rows, totals }) {
                     </Button>
 
                     {/* ✅ Excel’e Aktar */}
-                    <Button
-                        variant="outlined"
-                        onClick={exportToExcel}
-                        sx={{ borderRadius: 3, fontWeight: 1100, textTransform: "none" }}
-                    >
+                    <Button variant="outlined" onClick={exportToExcel} sx={{ borderRadius: 3, fontWeight: 1100, textTransform: "none" }}>
                         Excel’e Aktar
                     </Button>
                 </Stack>
@@ -649,7 +651,7 @@ function TedMatrixTablePretty({ title, subtitle, columns, rows, totals }) {
                                     sx={{
                                         display: "grid",
                                         gridTemplateColumns: `${leftW}px repeat(${visibleCols.length}, ${colW}px)`,
-                                        borderBottom: `1px solid ${alpha(theme.palette.divider, isDark ? 0.45 : 0.70)}`,
+                                        borderBottom: `1px solid ${alpha(theme.palette.divider, isDark ? 0.45 : 0.7)}`,
                                         bgcolor: idx % 2 === 0 ? rowOddBg : "transparent",
                                         "&:hover": { bgcolor: rowHoverBg },
                                         transition: "background 160ms ease",
@@ -670,7 +672,7 @@ function TedMatrixTablePretty({ title, subtitle, columns, rows, totals }) {
                                             borderRight: border,
                                         }}
                                     >
-                                        <Typography sx={{ fontWeight: 1200, fontSize: density === "compact" ? "0.90rem" : "0.94rem", letterSpacing: "-0.15px" }}>
+                                        <Typography sx={{ fontWeight: 1200, fontSize: density === "compact" ? "0.9rem" : "0.94rem", letterSpacing: "-0.15px" }}>
                                             {r.project}
                                         </Typography>
                                         <Typography sx={{ fontWeight: 850, fontSize: "0.76rem", color: theme.palette.text.secondary, mt: 0.15, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 0.6 }}>
@@ -686,6 +688,9 @@ function TedMatrixTablePretty({ title, subtitle, columns, rows, totals }) {
                                         const isForecast = String(c.key).startsWith("F_");
                                         const trendPct = isForecast ? r.trendMeta?.[c.key] : null;
 
+                                        const realKey = isForecast ? realKeyForForecast(c.key) : null;
+                                        const realVal = realKey ? r.values?.[realKey] : null;
+
                                         return (
                                             <Box key={c.key} sx={{ height: dims.rowH, display: "grid", placeItems: "center", px: 1 }}>
                                                 <Tooltip
@@ -696,15 +701,23 @@ function TedMatrixTablePretty({ title, subtitle, columns, rows, totals }) {
                                                     }
                                                     disableHoverListener={!isForecast || trendPct == null}
                                                 >
-                                                    <Typography
-                                                        sx={{
-                                                            fontWeight: isForecast ? 1250 : 1050,
-                                                            fontSize: density === "compact" ? "0.94rem" : "1.00rem",
-                                                            letterSpacing: "-0.15px",
-                                                        }}
-                                                    >
-                                                        {v == null ? "-" : fmtInt(v)}
-                                                    </Typography>
+                                                    <Box sx={{ textAlign: "center", lineHeight: 1.15 }}>
+                                                        <Typography
+                                                            sx={{
+                                                                fontWeight: isForecast ? 1250 : 1050,
+                                                                fontSize: density === "compact" ? "0.94rem" : "1.0rem",
+                                                                letterSpacing: "-0.15px",
+                                                            }}
+                                                        >
+                                                            {v == null ? "-" : fmtInt(v)}
+                                                        </Typography>
+
+                                                        {isForecast && realVal != null && (
+                                                            <Typography sx={{ fontSize: "0.72rem", fontWeight: 900, opacity: 0.75, mt: 0.2 }}>
+                                                                Ger: {fmtInt(realVal)}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
                                                 </Tooltip>
                                             </Box>
                                         );
@@ -868,7 +881,7 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
 
         const now = new Date();
         const minStart = startOfMonth(addMonths(now, -6));
-        const maxEnd = toNow ? now : endOfWeekSunday(now);
+        const maxEnd = toNow ? now : endOfMonth(now);
 
         const startISO = minStart.toISOString();
         const endISO = maxEnd.toISOString();
@@ -894,8 +907,14 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
 
             const engineData = (raw || []).map(mapRawToEngineRow);
 
-            const weekStart = startOfWeekMonday(now);
-            const weekEnd = toNow ? now : endOfWeekSunday(now);
+            // Haftalık KPI (mevcut: Pazartesi bazlı değil; istersen ayrıca değiştiririz)
+            // Şimdilik "son 7 gün" gibi değil; senin eski mantığın gibi bırakıyorum: haftalık özet istersen ayrıca 1-7,8-14'e bağlarız.
+            const cmInfo = monthWeeks7(now);
+            const currentWeek = cmInfo.weeks.find(w => now >= w.start && now <= w.end) || cmInfo.weeks[0];
+
+            const weekStart = currentWeek.start;
+            const weekEnd = toNow ? now : currentWeek.end;
+
             const allowedTotal = new Set(selectedProjects.map((p) => normalizeTR(p).replace(/\s+/g, " ")));
             const weekKpi = calcKpi({
                 data: engineData,
@@ -923,7 +942,10 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
         if (!result?._engineData?.length || !result?.projects?.length) return null;
 
         const now = new Date();
-        const pm = prevMonthWindows(now);
+
+        // ✅ 7'şer gün haftalar: 1-7, 8-14, ...
+        const pmInfo = monthWeeks7(addMonths(now, -1));
+        const cmInfo = monthWeeks7(now);
 
         const forecastMonthStart = startOfMonth(now);
         const forecastMonthLabel = monthLabelTR(forecastMonthStart);
@@ -932,19 +954,6 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
             const ms = startOfMonth(addMonths(now, -n));
             return { start: ms, end: endOfMonth(ms) };
         });
-
-        const columns = [
-            { key: "F_NEXT", label: "Tahmin", sub: forecastMonthLabel, rangeText: "" },
-            { key: "F_W1", label: "Tahmin", sub: "İlk 1 Hafta", rangeText: "" },
-            { key: "F_W2", label: "Tahmin", sub: "İlk 2 Hafta", rangeText: "" },
-            { key: "F_W3", label: "Tahmin", sub: "İlk 3 Hafta", rangeText: "" },
-
-            { key: "AVG_3M", label: "Son 3 Ay", sub: "Ortalama", rangeText: "" },
-            { key: "PM_W1", label: "Önceki Ay", sub: "İlk 1 Hafta", rangeText: fmtRangeTR(pm.w1.start, pm.w1.end) },
-            { key: "PM_W2", label: "Önceki Ay", sub: "İlk 2 Hafta", rangeText: fmtRangeTR(pm.w2.start, pm.w2.end) },
-            { key: "PM_W3", label: "Önceki Ay", sub: "İlk 3 Hafta", rangeText: fmtRangeTR(pm.w3.start, pm.w3.end) },
-            { key: "PM_FULL", label: "Önceki Ay", sub: "Toplam", rangeText: fmtRangeTR(pm.prevStart, pm.prevEnd) },
-        ];
 
         const engineData = result._engineData;
 
@@ -959,44 +968,74 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
             return Number(kpi?.ted ?? 0);
         };
 
+        const clampToNow = (d) => (toNow ? new Date(Math.min(d.getTime(), now.getTime())) : d);
+
+        // ✅ Dinamik hafta kolonları (W1..W4/W5)
+        const weekKeys = cmInfo.weeks.map((w) => w.key); // W1..Wn
+
+        const columns = [
+            { key: "F_NEXT", label: "Tahmin", sub: forecastMonthLabel, rangeText: "" },
+            ...weekKeys.map((wk, i) => ({ key: `F_${wk}`, label: "Tahmin", sub: `${i + 1}. Hafta`, rangeText: cmInfo.weeks[i]?.rangeText || "" })),
+
+            { key: "AVG_3M", label: "Son 3 Ay", sub: "Ortalama", rangeText: "" },
+
+            ...weekKeys.map((wk, i) => ({ key: `PM_${wk}`, label: "Önceki Ay", sub: `${i + 1}. Hafta`, rangeText: pmInfo.weeks[i]?.rangeText || "" })),
+            { key: "PM_FULL", label: "Önceki Ay", sub: "Toplam", rangeText: fmtRangeTR(pmInfo.monthStart, pmInfo.monthEnd) },
+        ];
+
         const rows = result.projects.map((proj) => {
             const allowed = new Set([normalizeTR(proj).replace(/\s+/g, " ")]);
 
-            const pmW1 = calcTed(allowed, pm.w1.start, pm.w1.end);
-            const pmW2 = calcTed(allowed, pm.w2.start, pm.w2.end);
-            const pmW3 = calcTed(allowed, pm.w3.start, pm.w3.end);
-            const pmFull = calcTed(allowed, pm.prevStart, pm.prevEnd);
+            // ✅ Önceki ay haftaları (1-7,8-14,...)
+            const pmWeekTotals = weekKeys.map((wk, idx) => {
+                const w = pmInfo.weeks[idx];
+                if (!w) return 0;
+                return calcTed(allowed, w.start, w.end);
+            });
+            const pmFull = calcTed(allowed, pmInfo.monthStart, pmInfo.monthEnd);
 
+            // ✅ Bu ay gerçek (1-7,8-14,... ay sonu)
+            const realThisMonth = calcTed(allowed, cmInfo.monthStart, toNow ? now : cmInfo.monthEnd);
+            const realWeekTotals = weekKeys.map((wk, idx) => {
+                const w = cmInfo.weeks[idx];
+                if (!w) return 0;
+                const end = clampToNow(w.end);
+                return calcTed(allowed, w.start, end);
+            });
+
+            // ✅ 6 aylık seri
             const series6 = monthsBack.map((mr) => calcTed(allowed, mr.start, mr.end)); // oldest->newest
             const last3 = series6.slice(-3);
 
             const avg3mRaw = last3.length ? last3.reduce((a, b) => a + b, 0) / last3.length : 0;
             const avg3m = Math.round(avg3mRaw);
 
+            // ✅ Tahmin
             const nextTotal = forecastNextMonthTotal(series6);
-            const splits = forecastWeekSplitsFromPrevMonth(pmW1, pmW2, pmW3, pmFull, nextTotal);
+            const splits = forecastWeekSplitsFromPrevMonth(pmWeekTotals, pmFull, nextTotal); // [W1..Wn]
 
-            return {
-                project: proj,
-                values: {
-                    PM_W1: pmW1,
-                    PM_W2: pmW2,
-                    PM_W3: pmW3,
-                    PM_FULL: pmFull,
-                    AVG_3M: avg3m,
-
-                    F_NEXT: nextTotal,
-                    F_W1: splits.fW1,
-                    F_W2: splits.fW2,
-                    F_W3: splits.fW3,
-                },
-                trendMeta: {
-                    F_NEXT: pctChange(nextTotal, avg3mRaw, { minBase: 5 }),
-                    F_W1: pctChange(splits.fW1, pmW1, { minBase: 5 }),
-                    F_W2: pctChange(splits.fW2, pmW2, { minBase: 5 }),
-                    F_W3: pctChange(splits.fW3, pmW3, { minBase: 5 }),
-                },
+            const values = {
+                REAL_CM: realThisMonth,
+                AVG_3M: avg3m,
+                PM_FULL: pmFull,
+                F_NEXT: nextTotal,
             };
+
+            // W1..Wn setleri
+            weekKeys.forEach((wk, idx) => {
+                values[`REAL_${wk}`] = realWeekTotals[idx] ?? 0;
+                values[`PM_${wk}`] = pmWeekTotals[idx] ?? 0;
+                values[`F_${wk}`] = splits[idx] ?? null;
+            });
+
+            const trendMeta = {
+                F_NEXT: pctChange(nextTotal, avg3mRaw, { minBase: 5 }),
+            };
+            weekKeys.forEach((wk, idx) => {
+                trendMeta[`F_${wk}`] = pctChange(splits[idx], pmWeekTotals[idx], { minBase: 5 });
+            });
+
+            return { project: proj, values, trendMeta };
         });
 
         const totals = {};
@@ -1005,7 +1044,7 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
         });
 
         return { columns, rows, totals, forecastMonthLabel };
-    }, [result]);
+    }, [result, engineDateField, toNow]);
 
     const selectionBadge = useMemo(() => {
         const r = region || "Tüm projeler";
@@ -1055,15 +1094,7 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
                         value={projects}
                         onChange={(_, newValue) => setProjects(newValue)}
                         disableCloseOnSelect
-                        renderInput={(params) => (
-                            <TextField
-                                {...params}
-                                size="small"
-                                label="Projeler"
-                                placeholder="Yazıp ara…"
-                                sx={softInput}
-                            />
-                        )}
+                        renderInput={(params) => <TextField {...params} size="small" label="Projeler" placeholder="Yazıp ara…" sx={softInput} />}
                         renderTags={(value, getTagProps) =>
                             value.slice(0, 3).map((option, index) => (
                                 <Chip
@@ -1074,7 +1105,7 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
                                     sx={{
                                         borderRadius: 2,
                                         fontWeight: 900,
-                                        bgcolor: alpha(theme.palette.text.primary, isDark ? 0.10 : 0.06),
+                                        bgcolor: alpha(theme.palette.text.primary, isDark ? 0.1 : 0.06),
                                         border: `1px solid ${alpha(theme.palette.divider, isDark ? 0.55 : 1)}`,
                                     }}
                                 />
@@ -1142,13 +1173,16 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
                 sx={{
                     zIndex: 10,
                     borderBottom: `1px solid ${alpha(theme.palette.divider, isDark ? 0.55 : 1)}`,
-                    bgcolor: isDark ? alpha("#0b1220", 0.55) : alpha("#ffffff", 0.60),
+                    bgcolor: isDark ? alpha("#0b1220", 0.55) : alpha("#ffffff", 0.6),
                     backdropFilter: "blur(18px)",
                 }}
             >
                 <Toolbar sx={{ gap: 1 }}>
                     {!isMdUp ? (
-                        <IconButton onClick={() => setMobileDrawerOpen(true)} sx={{ bgcolor: alpha(theme.palette.text.primary, isDark ? 0.10 : 0.05), border: `1px solid ${alpha(theme.palette.divider, isDark ? 0.55 : 1)}` }}>
+                        <IconButton
+                            onClick={() => setMobileDrawerOpen(true)}
+                            sx={{ bgcolor: alpha(theme.palette.text.primary, isDark ? 0.1 : 0.05), border: `1px solid ${alpha(theme.palette.divider, isDark ? 0.55 : 1)}` }}
+                        >
                             <MenuIcon />
                         </IconButton>
                     ) : null}
@@ -1158,7 +1192,7 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
                             Tedarik Öngörü Paneli
                         </Typography>
                         <Typography sx={{ fontWeight: 850, color: theme.palette.text.secondary, fontSize: "0.78rem", mt: 0.15 }}>
-                            Sade ama premium • Filtre → Getir → Özet + Tablo
+                            1-7 / 8-14 / 15-21 / ... ay sonu • Filtre → Getir → Özet + Tablo
                         </Typography>
                     </Stack>
 
@@ -1169,7 +1203,7 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
                             height: 26,
                             borderRadius: 999,
                             fontWeight: 1100,
-                            bgcolor: alpha(theme.palette.text.primary, isDark ? 0.10 : 0.06),
+                            bgcolor: alpha(theme.palette.text.primary, isDark ? 0.1 : 0.06),
                             border: `1px solid ${alpha(theme.palette.divider, isDark ? 0.55 : 1)}`,
                             backdropFilter: "blur(10px)",
                         }}
@@ -1183,7 +1217,7 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
                                 height: 26,
                                 borderRadius: 999,
                                 fontWeight: 1100,
-                                bgcolor: alpha("#10b981", isDark ? 0.18 : 0.10),
+                                bgcolor: alpha("#10b981", isDark ? 0.18 : 0.1),
                                 border: `1px solid ${alpha("#10b981", isDark ? 0.26 : 0.16)}`,
                                 color: isDark ? "#86efac" : "#065f46",
                             }}
@@ -1191,12 +1225,7 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
                     ) : null}
 
                     <Tooltip title="Gelişmiş">
-                        <Button
-                            variant="outlined"
-                            onClick={() => setShowAdvanced((v) => !v)}
-                            startIcon={<TuneRoundedIcon />}
-                            sx={outlineBtn}
-                        >
+                        <Button variant="outlined" onClick={() => setShowAdvanced((v) => !v)} startIcon={<TuneRoundedIcon />} sx={outlineBtn}>
                             Ayarlar
                         </Button>
                     </Tooltip>
@@ -1212,7 +1241,7 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
                     <IconButton
                         onClick={onClose}
                         sx={{
-                            bgcolor: alpha(theme.palette.text.primary, isDark ? 0.10 : 0.05),
+                            bgcolor: alpha(theme.palette.text.primary, isDark ? 0.1 : 0.05),
                             border: `1px solid ${alpha(theme.palette.divider, isDark ? 0.55 : 1)}`,
                         }}
                     >
@@ -1242,16 +1271,7 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
 
             {/* Left sidebar (desktop) */}
             {isMdUp ? (
-                <Box
-                    sx={{
-                        width: 420,
-                        flex: "0 0 420px",
-                        pt: "86px",
-                        position: "relative",
-                        zIndex: 2,
-                        overflow: "auto",
-                    }}
-                >
+                <Box sx={{ width: 420, flex: "0 0 420px", pt: "86px", position: "relative", zIndex: 2, overflow: "auto" }}>
                     {FiltersPanel}
                 </Box>
             ) : (
@@ -1284,9 +1304,10 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
                             <Box sx={{ mt: 1.4, p: 1.6, borderRadius: 5, border, bgcolor: alpha(theme.palette.text.primary, isDark ? 0.06 : 0.03) }}>
                                 <Typography sx={{ fontWeight: 1100 }}>İpuçları</Typography>
                                 <Typography sx={{ fontWeight: 850, color: theme.palette.text.secondary, mt: 0.55, lineHeight: 1.6 }}>
+                                    • Haftalar artık <b>1-7, 8-14, 15-21, 22-28, 29-ay sonu</b> şeklinde hesaplanır <br />
                                     • İlk ekranda sadece <b>Tahmin</b> kolonları görünür <br />
-                                    • “Detay (Geçmiş)” ile geçmiş kolonlar açılır <br />
-                                    • Trend yüzdeleri proje satırında rozet olarak görünür
+                                    • “Detay (Geçmiş)” ile önceki ay haftaları açılır <br />
+                                    • Tahmin kolonlarında altta <b>Ger</b> gerçekleşen değeri görünür
                                 </Typography>
                             </Box>
                         </Paper>
@@ -1296,7 +1317,7 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
                     {result && weekPills ? (
                         <Paper elevation={0} sx={{ p: 1.8, borderRadius: 6, ...glass(0.62), mb: 2 }}>
                             <Stack direction={{ xs: "column", lg: "row" }} spacing={1.4} alignItems={{ lg: "center" }} justifyContent="space-between">
-                                <SectionTitle icon={<CalendarMonthRoundedIcon fontSize="small" />} title="Bu hafta özet" sub={weekPills.rangeText} />
+                                <SectionTitle icon={<CalendarMonthRoundedIcon fontSize="small" />} title="Son 7 gün özet" sub={weekPills.rangeText} />
                                 <Chip
                                     size="small"
                                     label="KPI • canlı"
@@ -1304,7 +1325,7 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
                                         height: 26,
                                         borderRadius: 999,
                                         fontWeight: 1100,
-                                        bgcolor: alpha(theme.palette.text.primary, isDark ? 0.10 : 0.06),
+                                        bgcolor: alpha(theme.palette.text.primary, isDark ? 0.1 : 0.06),
                                         border: `1px solid ${alpha(theme.palette.divider, isDark ? 0.55 : 1)}`,
                                     }}
                                 />
@@ -1323,7 +1344,7 @@ export default function KarsilastirmaPanel({ open, onClose, onApply }) {
                     {result && tedMatrix ? (
                         <TedMatrixTablePretty
                             title={`Tedarik Öngörü Tablosu • ${region || "Tümü"}`}
-                            subtitle="Premium ama temiz • Arama/Sıralama/Density • Sticky toplam"
+                            subtitle="Hafta aralıkları: 1-7, 8-14, ... ay sonu • Arama/Sıralama/Density • Sticky toplam"
                             columns={tedMatrix.columns}
                             rows={tedMatrix.rows}
                             totals={tedMatrix.totals}

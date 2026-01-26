@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import {
     Box,
     Paper,
@@ -38,6 +38,7 @@ import {
     MdWarning,
     MdCancel,
     MdInfoOutline,
+    MdRefresh,
 } from "react-icons/md";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -45,7 +46,42 @@ import { motion, AnimatePresence } from "framer-motion";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
-/* ------------------------ yardımcılar ------------------------ */
+/* ------------------------ BACKEND (İLK KODDAN AYNEN) ------------------------ */
+const BASE_URL =
+    process.env.REACT_APP_API_URL || "https://tedarik-analiz-backend-clean.onrender.com";
+
+function isObject(v) {
+    return v !== null && typeof v === "object";
+}
+
+// Backend şu formatı döndürüyor: { rid, ok, data } veya { rid, ok, items }
+function extractItems(payload) {
+    if (!payload) return [];
+
+    // bizim backend (debug) -> { rid, ok, data }
+    const root = payload.items ?? payload.data ?? payload;
+
+    // Odak API -> { Data: [...], Success: true }
+    const arr = root?.Data ?? root?.data ?? root?.items ?? root;
+
+    return Array.isArray(arr) ? arr : [];
+}
+
+function toIsoLocalStart(d) {
+    // "YYYY-MM-DDT00:00:00"
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}T00:00:00`;
+}
+function toIsoLocalEnd(d) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}T23:59:59`;
+}
+
+/* ------------------------ yardımcılar (UI kodundan) ------------------------ */
 const STATUS_MAP = {
     1: { label: "Bekliyor", color: "#64748b" },
     2: { label: "Onaylandı", color: "#0ea5e9" },
@@ -68,9 +104,9 @@ const STATUS_MAP = {
 const norm = (s) =>
     (s ?? "")
         .toString()
-        .replace(/\u00A0/g, " ")   // NBSP (Excel bazen koyuyor)
-        .replace(/\u200B/g, "")   // zero-width space
-        .replace(/\r?\n/g, " ")   // satır sonu
+        .replace(/\u00A0/g, " ") // NBSP
+        .replace(/\u200B/g, "") // zero-width
+        .replace(/\r?\n/g, " ")
         .trim()
         .toLocaleUpperCase("tr-TR")
         .replace(/\s+/g, " ");
@@ -82,16 +118,11 @@ const normalizeSeferKey = (v) => {
         .replace(/\u200B/g, "")
         .replace(/\r?\n/g, " ")
         .trim();
-
     if (!s) return "";
-
     const up = s.toLocaleUpperCase("tr-TR");
-
     const m = up.match(/SFR\s*\d+/);
     if (m) return m[0].replace(/\s+/g, "");
-
     if (/^\d{8,}$/.test(up)) return `SFR${up}`;
-
     return up.split(/\s+/)[0];
 };
 
@@ -103,7 +134,6 @@ const mergeKeepFilled = (prev, next) => {
     }
     return out;
 };
-
 
 const toBool = (v) => {
     if (v === true || v === false) return v;
@@ -127,12 +157,12 @@ const formatDate = (dateStr) => {
     try {
         const date = new Date(dateStr);
         if (Number.isNaN(date.getTime())) return String(dateStr);
-        return `${String(date.getDate()).padStart(2, "0")}.${String(
-            date.getMonth() + 1
-        ).padStart(2, "0")}.${date.getFullYear()} ${String(date.getHours()).padStart(
+        return `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(
             2,
             "0"
-        )}:${String(date.getMinutes()).padStart(2, "0")}`;
+        )}.${date.getFullYear()} ${String(date.getHours()).padStart(2, "0")}:${String(
+            date.getMinutes()
+        ).padStart(2, "0")}`;
     } catch {
         return String(dateStr);
     }
@@ -173,10 +203,8 @@ const hoursDiff = (a, b) => {
 // sefer_acilis_zamani(TMSDespatchCreatedDate) -> yukleme_tarihi(PickupDate)
 const getTimingInfo = (seferAcilisZamani, yuklemeTarihi) => {
     const h = hoursDiff(seferAcilisZamani, yuklemeTarihi);
-    if (h == null)
-        return { label: "Tarih yok", color: "#94a3b8", hours: null, level: "none" };
-    if (h < 30)
-        return { label: "Zamanında", color: "#10b981", hours: h, level: "ok" };
+    if (h == null) return { label: "Tarih yok", color: "#94a3b8", hours: null, level: "none" };
+    if (h < 30) return { label: "Zamanında", color: "#10b981", hours: h, level: "ok" };
     return { label: "Gecikme", color: "#ef4444", hours: h, level: "late" };
 };
 
@@ -185,9 +213,7 @@ const StatusPill = ({ statusIdRaw }) => {
     const isDark = theme.palette.mode === "dark";
     const id = toNum(statusIdRaw);
     const s =
-        id != null && STATUS_MAP[id]
-            ? STATUS_MAP[id]
-            : { label: "Belirsiz", color: "#94a3b8" };
+        id != null && STATUS_MAP[id] ? STATUS_MAP[id] : { label: "Belirsiz", color: "#94a3b8" };
 
     return (
         <Chip
@@ -215,18 +241,9 @@ const Root = styled(Box)(({ theme }) => {
         padding: "clamp(12px, 2vw, 26px)",
         background: isDark
             ? [
-                `radial-gradient(1200px 600px at 15% 0%, ${alpha(
-                    "#3b82f6",
-                    0.22
-                )}, transparent 55%)`,
-                `radial-gradient(900px 520px at 85% 5%, ${alpha(
-                    "#10b981",
-                    0.16
-                )}, transparent 60%)`,
-                `radial-gradient(1000px 650px at 50% 100%, ${alpha(
-                    "#f59e0b",
-                    0.14
-                )}, transparent 60%)`,
+                `radial-gradient(1200px 600px at 15% 0%, ${alpha("#3b82f6", 0.22)}, transparent 55%)`,
+                `radial-gradient(900px 520px at 85% 5%, ${alpha("#10b981", 0.16)}, transparent 60%)`,
+                `radial-gradient(1000px 650px at 50% 100%, ${alpha("#f59e0b", 0.14)}, transparent 60%)`,
                 "linear-gradient(180deg,#020617, #071225 60%, #020617)",
             ].join(",")
             : [
@@ -253,14 +270,10 @@ const TopBar = styled(Paper)(({ theme }) => {
         zIndex: 10,
         borderRadius: 26,
         padding: 18,
-        border: isDark
-            ? `1px solid ${alpha("#ffffff", 0.1)}`
-            : "1px solid rgba(226,232,240,0.8)",
+        border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.8)",
         background: isDark ? alpha("#0b1220", 0.78) : "rgba(255,255,255,0.78)",
         backdropFilter: "blur(16px)",
-        boxShadow: isDark
-            ? "0 28px 90px rgba(0,0,0,0.55)"
-            : "0 24px 80px rgba(2,6,23,0.12)",
+        boxShadow: isDark ? "0 28px 90px rgba(0,0,0,0.55)" : "0 24px 80px rgba(2,6,23,0.12)",
     };
 });
 
@@ -281,14 +294,10 @@ const KPI = styled(motion.div)(({ theme, accent = "#3b82f6" }) => {
     return {
         borderRadius: 22,
         padding: 16,
-        border: isDark
-            ? `1px solid ${alpha("#ffffff", 0.1)}`
-            : "1px solid rgba(226,232,240,0.9)",
+        border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.9)",
         background: isDark ? alpha("#0b1220", 0.86) : "rgba(255,255,255,0.88)",
         backdropFilter: "blur(10px)",
-        boxShadow: isDark
-            ? "0 18px 55px rgba(0,0,0,0.45)"
-            : "0 18px 55px rgba(2,6,23,0.06)",
+        boxShadow: isDark ? "0 18px 55px rgba(0,0,0,0.45)" : "0 18px 55px rgba(2,6,23,0.06)",
         position: "relative",
         overflow: "hidden",
         cursor: "default",
@@ -296,10 +305,7 @@ const KPI = styled(motion.div)(({ theme, accent = "#3b82f6" }) => {
             content: '""',
             position: "absolute",
             inset: 0,
-            background: `radial-gradient(900px 250px at 18% 0%, ${alpha(
-                accent,
-                isDark ? 0.24 : 0.18
-            )}, transparent 55%)`,
+            background: `radial-gradient(900px 250px at 18% 0%, ${alpha(accent, isDark ? 0.24 : 0.18)}, transparent 55%)`,
             pointerEvents: "none",
         },
     };
@@ -311,15 +317,11 @@ const RegionTabs = styled(Tabs)(({ theme }) => {
         background: isDark ? alpha("#ffffff", 0.06) : "rgba(15,23,42,0.04)",
         padding: 6,
         borderRadius: 18,
-        border: isDark
-            ? `1px solid ${alpha("#ffffff", 0.12)}`
-            : "1px solid rgba(226,232,240,0.9)",
+        border: isDark ? `1px solid ${alpha("#ffffff", 0.12)}` : "1px solid rgba(226,232,240,0.9)",
         "& .MuiTabs-indicator": {
             height: "calc(100% - 12px)",
             borderRadius: 14,
-            backgroundColor: isDark
-                ? alpha("#ffffff", 0.1)
-                : "rgba(255,255,255,0.92)",
+            backgroundColor: isDark ? alpha("#ffffff", 0.1) : "rgba(255,255,255,0.92)",
             top: 6,
         },
     };
@@ -343,14 +345,10 @@ const ProjectCard = styled(motion.div)(({ theme }) => {
     const isDark = theme.palette.mode === "dark";
     return {
         borderRadius: 24,
-        border: isDark
-            ? `1px solid ${alpha("#ffffff", 0.1)}`
-            : "1px solid rgba(226,232,240,0.95)",
+        border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.95)",
         background: isDark ? alpha("#0b1220", 0.86) : "rgba(255,255,255,0.9)",
         backdropFilter: "blur(12px)",
-        boxShadow: isDark
-            ? "0 18px 60px rgba(0,0,0,0.55)"
-            : "0 16px 55px rgba(2,6,23,0.07)",
+        boxShadow: isDark ? "0 18px 60px rgba(0,0,0,0.55)" : "0 16px 55px rgba(2,6,23,0.07)",
         overflow: "hidden",
     };
 });
@@ -397,9 +395,7 @@ const MiniStat = ({ label, value, color = "#0f172a" }) => {
             >
                 {label}
             </Typography>
-            <Typography sx={{ fontSize: "1.08rem", fontWeight: 1000, color }}>
-                {value}
-            </Typography>
+            <Typography sx={{ fontSize: "1.08rem", fontWeight: 1000, color }}>{value}</Typography>
         </Box>
     );
 };
@@ -430,9 +426,7 @@ const ShipmentWrap = styled(Box)(({ theme }) => {
     return {
         padding: 16,
         background: isDark ? alpha("#ffffff", 0.03) : "rgba(15,23,42,0.02)",
-        borderTop: isDark
-            ? `1px solid ${alpha("#ffffff", 0.1)}`
-            : "1px solid rgba(226,232,240,0.9)",
+        borderTop: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.9)",
     };
 });
 
@@ -440,13 +434,9 @@ const ShipmentCard = styled(motion.div)(({ theme, printed }) => {
     const isDark = theme.palette.mode === "dark";
     return {
         borderRadius: 22,
-        border: isDark
-            ? `1px solid ${alpha("#ffffff", 0.1)}`
-            : "1px solid rgba(226,232,240,0.95)",
+        border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.95)",
         background: isDark ? alpha("#0b1220", 0.92) : "rgba(255,255,255,0.94)",
-        boxShadow: isDark
-            ? "0 18px 55px rgba(0,0,0,0.50)"
-            : "0 14px 48px rgba(2,6,23,0.07)",
+        boxShadow: isDark ? "0 18px 55px rgba(0,0,0,0.50)" : "0 14px 48px rgba(2,6,23,0.07)",
         overflow: "hidden",
         position: "relative",
         padding: 16,
@@ -457,9 +447,7 @@ const ShipmentCard = styled(motion.div)(({ theme, printed }) => {
             top: 0,
             bottom: 0,
             width: 10,
-            background: printed
-                ? "linear-gradient(180deg,#10b981,#059669)"
-                : "linear-gradient(180deg,#3b82f6,#2563eb)",
+            background: printed ? "linear-gradient(180deg,#10b981,#059669)" : "linear-gradient(180deg,#3b82f6,#2563eb)",
         },
     };
 });
@@ -557,15 +545,7 @@ const REGIONS = {
         "PELAGOS GIDA FTL",
         "KÜÇÜKBAY İZMİR FTL",
     ],
-    ÇUKUROVA: [
-        "PEKER FTL",
-        "GDP FTL",
-        "ÖZMEN UN FTL",
-        "KİPAŞ MARAŞ FTL",
-        "TÜRK OLUKLU FTL",
-        "İLKON TEKSTİL FTL",
-        "BİM / MERSİN",
-    ],
+    ÇUKUROVA: ["PEKER FTL", "GDP FTL", "ÖZMEN UN FTL", "KİPAŞ MARAŞ FTL", "TÜRK OLUKLU FTL", "İLKON TEKSTİL FTL", "BİM / MERSİN"],
     ESKİŞEHİR: [
         "ES FTL",
         "ES GLOBAL FRİGO FTL",
@@ -615,25 +595,15 @@ function buildSubDetails(rowName, allData) {
                 norm(item.PickupCityName) === norm("KOCAELİ") &&
                 norm(item.PickupCountyName) === norm("GEBZE");
 
-            const isOttonya =
-                rowNorm === norm("OTTONYA (HEDEFTEN AÇILIYOR)") &&
-                pNorm === norm("OTTONYA");
+            const isOttonya = rowNorm === norm("OTTONYA (HEDEFTEN AÇILIYOR)") && pNorm === norm("OTTONYA");
 
             const isKucukbayTrakya =
                 rowNorm.includes("TRAKYA") &&
                 pNorm === norm("KÜÇÜKBAY FTL") &&
-                new Set(["EDİRNE", "KIRKLARELİ", "TEKİRDAĞ"].map(norm)).has(
-                    norm(item.PickupCityName)
-                );
+                new Set(["EDİRNE", "KIRKLARELİ", "TEKİRDAĞ"].map(norm)).has(norm(item.PickupCityName));
 
             const match =
-                isDirect ||
-                isPepsiCorlu ||
-                isPepsiGebze ||
-                isEbebekGebze ||
-                isFakirGebze ||
-                isOttonya ||
-                isKucukbayTrakya;
+                isDirect || isPepsiCorlu || isPepsiGebze || isEbebekGebze || isFakirGebze || isOttonya || isKucukbayTrakya;
 
             if (!match) return false;
 
@@ -661,8 +631,7 @@ function ProjectRow({ row, allData, excelTimesBySefer }) {
 
     const subDetails = useMemo(() => buildSubDetails(row.name, allData), [row.name, allData]);
 
-    const accentColor =
-        row.yuzde >= 90 ? "#10b981" : row.yuzde >= 70 ? "#3b82f6" : "#f59e0b";
+    const accentColor = row.yuzde >= 90 ? "#10b981" : row.yuzde >= 70 ? "#3b82f6" : "#f59e0b";
 
     return (
         <ProjectCard
@@ -705,11 +674,7 @@ function ProjectRow({ row, allData, excelTimesBySefer }) {
                         <MiniStat label="SPOT" value={row.spot} color="#3b82f6" />
                         <MiniStat label="FİLO" value={row.filo} color="#8b5cf6" />
                         <MiniStat label="Basım" value={row.sho_b} color="#059669" />
-                        <MiniStat
-                            label="Zamanında"
-                            value={`%${row.yuzde}`}
-                            color={row.yuzde >= 90 ? "#10b981" : "#f59e0b"}
-                        />
+                        <MiniStat label="Zamanında" value={`%${row.yuzde}`} color={row.yuzde >= 90 ? "#10b981" : "#f59e0b"} />
                     </Stack>
 
                     <ExpandBtn open={open ? 1 : 0}>
@@ -806,9 +771,7 @@ function ProjectRow({ row, allData, excelTimesBySefer }) {
                                                             ? alpha("#10b981", isDark ? 0.18 : 0.14)
                                                             : alpha("#64748b", isDark ? 0.18 : 0.12),
                                                         color: printed ? (isDark ? theme.palette.text.primary : "#059669") : theme.palette.text.secondary,
-                                                        border: `1px solid ${printed
-                                                                ? alpha("#10b981", isDark ? 0.3 : 0.24)
-                                                                : alpha("#64748b", isDark ? 0.28 : 0.2)
+                                                        border: `1px solid ${printed ? alpha("#10b981", isDark ? 0.3 : 0.24) : alpha("#64748b", isDark ? 0.28 : 0.2)
                                                             }`,
                                                     }}
                                                 />
@@ -999,18 +962,12 @@ function ProjectRow({ row, allData, excelTimesBySefer }) {
                                                     mt: 2,
                                                     p: 2,
                                                     borderRadius: 20,
-                                                    border: isDark
-                                                        ? `1px solid ${alpha("#ffffff", 0.1)}`
-                                                        : "1px solid rgba(226,232,240,0.9)",
+                                                    border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.9)",
                                                     bgcolor: alpha(timing.color, isDark ? 0.12 : 0.08),
                                                 }}
                                             >
                                                 <Typography sx={{ fontWeight: 1000, color: theme.palette.text.primary, fontSize: "1rem" }}>
-                                                    {timing.level === "ok"
-                                                        ? "✅ Zamanında"
-                                                        : timing.level === "late"
-                                                            ? "⚠️ Gecikme var"
-                                                            : "ℹ️ Tarih eksik"}
+                                                    {timing.level === "ok" ? "✅ Zamanında" : timing.level === "late" ? "⚠️ Gecikme var" : "ℹ️ Tarih eksik"}
                                                 </Typography>
 
                                                 <Typography sx={{ fontWeight: 800, color: theme.palette.text.secondary, mt: 0.4 }}>
@@ -1025,9 +982,7 @@ function ProjectRow({ row, allData, excelTimesBySefer }) {
                                                         mt: 1.6,
                                                         p: 2,
                                                         borderRadius: 20,
-                                                        border: isDark
-                                                            ? `1px solid ${alpha("#ffffff", 0.1)}`
-                                                            : "1px solid rgba(226,232,240,0.9)",
+                                                        border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.9)",
                                                         bgcolor: isDark ? alpha("#ffffff", 0.04) : "rgba(15,23,42,0.02)",
                                                     }}
                                                 >
@@ -1038,42 +993,30 @@ function ProjectRow({ row, allData, excelTimesBySefer }) {
                                                     <Stack spacing={0.7}>
                                                         <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>
                                                             Yükleme Varış:{" "}
-                                                            <span style={{ color: theme.palette.text.primary }}>
-                                                                {formatDate(excelTimes.yukleme_varis)}
-                                                            </span>
+                                                            <span style={{ color: theme.palette.text.primary }}>{formatDate(excelTimes.yukleme_varis)}</span>
                                                         </Typography>
                                                         <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>
                                                             Yükleme Giriş:{" "}
-                                                            <span style={{ color: theme.palette.text.primary }}>
-                                                                {formatDate(excelTimes.yukleme_giris)}
-                                                            </span>
+                                                            <span style={{ color: theme.palette.text.primary }}>{formatDate(excelTimes.yukleme_giris)}</span>
                                                         </Typography>
                                                         <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>
                                                             Yükleme Çıkış:{" "}
-                                                            <span style={{ color: theme.palette.text.primary }}>
-                                                                {formatDate(excelTimes.yukleme_cikis)}
-                                                            </span>
+                                                            <span style={{ color: theme.palette.text.primary }}>{formatDate(excelTimes.yukleme_cikis)}</span>
                                                         </Typography>
 
                                                         <Divider sx={{ my: 1, opacity: isDark ? 0.18 : 0.6 }} />
 
                                                         <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>
                                                             Teslim Varış:{" "}
-                                                            <span style={{ color: theme.palette.text.primary }}>
-                                                                {formatDate(excelTimes.teslim_varis)}
-                                                            </span>
+                                                            <span style={{ color: theme.palette.text.primary }}>{formatDate(excelTimes.teslim_varis)}</span>
                                                         </Typography>
                                                         <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>
                                                             Teslim Giriş:{" "}
-                                                            <span style={{ color: theme.palette.text.primary }}>
-                                                                {formatDate(excelTimes.teslim_giris)}
-                                                            </span>
+                                                            <span style={{ color: theme.palette.text.primary }}>{formatDate(excelTimes.teslim_giris)}</span>
                                                         </Typography>
                                                         <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>
                                                             Teslim Çıkış:{" "}
-                                                            <span style={{ color: theme.palette.text.primary }}>
-                                                                {formatDate(excelTimes.teslim_cikis)}
-                                                            </span>
+                                                            <span style={{ color: theme.palette.text.primary }}>{formatDate(excelTimes.teslim_cikis)}</span>
                                                         </Typography>
                                                     </Stack>
                                                 </Box>
@@ -1086,16 +1029,10 @@ function ProjectRow({ row, allData, excelTimesBySefer }) {
                                             <RouteBox t="pickup">
                                                 <Stack direction="row" spacing={1} alignItems="center">
                                                     <MdPinDrop color="#10b981" />
-                                                    <Typography sx={{ fontWeight: 1000, color: theme.palette.text.primary }}>
-                                                        Yükleme Noktası
-                                                    </Typography>
+                                                    <Typography sx={{ fontWeight: 1000, color: theme.palette.text.primary }}>Yükleme Noktası</Typography>
                                                 </Stack>
-                                                <Typography sx={{ mt: 0.8, fontWeight: 1000, color: theme.palette.text.primary }}>
-                                                    {pickupCity}
-                                                </Typography>
-                                                <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>
-                                                    {pickupCounty}
-                                                </Typography>
+                                                <Typography sx={{ mt: 0.8, fontWeight: 1000, color: theme.palette.text.primary }}>{pickupCity}</Typography>
+                                                <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>{pickupCounty}</Typography>
                                                 <Chip
                                                     size="small"
                                                     label={`Kod: ${item.PickupAddressCode || "-"}`}
@@ -1105,9 +1042,7 @@ function ProjectRow({ row, allData, excelTimesBySefer }) {
                                                         fontWeight: 950,
                                                         bgcolor: isDark ? alpha("#ffffff", 0.06) : "#fff",
                                                         color: theme.palette.text.primary,
-                                                        border: isDark
-                                                            ? `1px solid ${alpha("#ffffff", 0.1)}`
-                                                            : "1px solid rgba(226,232,240,0.9)",
+                                                        border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.9)",
                                                     }}
                                                 />
                                             </RouteBox>
@@ -1118,9 +1053,7 @@ function ProjectRow({ row, allData, excelTimesBySefer }) {
 
                                             <RouteBox t="delivery">
                                                 <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
-                                                    <Typography sx={{ fontWeight: 1000, color: theme.palette.text.primary }}>
-                                                        Teslimat Noktası
-                                                    </Typography>
+                                                    <Typography sx={{ fontWeight: 1000, color: theme.palette.text.primary }}>Teslimat Noktası</Typography>
                                                     <MdPinDrop color="#ef4444" />
                                                 </Stack>
 
@@ -1149,9 +1082,7 @@ function ProjectRow({ row, allData, excelTimesBySefer }) {
                                                             fontWeight: 950,
                                                             bgcolor: isDark ? alpha("#ffffff", 0.06) : "#fff",
                                                             color: theme.palette.text.primary,
-                                                            border: isDark
-                                                                ? `1px solid ${alpha("#ffffff", 0.1)}`
-                                                                : "1px solid rgba(226,232,240,0.9)",
+                                                            border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.9)",
                                                         }}
                                                     />
                                                 </Box>
@@ -1168,8 +1099,8 @@ function ProjectRow({ row, allData, excelTimesBySefer }) {
     );
 }
 
-/* ------------------------ ana bileşen ------------------------ */
-export default function UltraProjeTablosu({ data }) {
+/* ------------------------ ana panel (data prop alır) ------------------------ */
+function UltraProjeTablosu({ data }) {
     const theme = useTheme();
     const isDark = theme.palette.mode === "dark";
 
@@ -1181,8 +1112,6 @@ export default function UltraProjeTablosu({ data }) {
     // ✅ Excel’den okunacak zamanlar (Sefer Numarası -> 6 tarih alanı)
     const [excelTimesBySefer, setExcelTimesBySefer] = useState({});
     const [excelImportInfo, setExcelImportInfo] = useState(null);
-
-    // ✅ sadece UI için loading
     const [excelSyncLoading, setExcelSyncLoading] = useState(false);
 
     // Excel hücre değeri Date / number / string olabilir -> normalize edip ISO string yapalım
@@ -1216,7 +1145,7 @@ export default function UltraProjeTablosu({ data }) {
             const exact = normKeys.find((x) => x.n === target);
             if (exact) return rowObj[exact.raw];
 
-            // 2) içeriyor eşleşme (ör: "Sefer Numarası " / "Sefer Numarası\r" gibi)
+            // 2) içeriyor eşleşme
             const contains = normKeys.find((x) => x.n.includes(target));
             if (contains) return rowObj[contains.raw];
         }
@@ -1224,10 +1153,9 @@ export default function UltraProjeTablosu({ data }) {
     };
 
     // ✅ Tarihleri Getir: Excel seç -> oku -> sefer no’ya göre map oluştur (BACKEND YOK)
-    // ✅ Tarihleri Getir: Excel seç -> oku -> sefer no’ya göre map oluştur (BACKEND YOK)
     const importTimesFromExcel = async () => {
         try {
-            const input = document.createElement("input"); // ✅ eksik olan buydu
+            const input = document.createElement("input");
             input.type = "file";
             input.accept = ".xlsx,.xls";
 
@@ -1244,46 +1172,22 @@ export default function UltraProjeTablosu({ data }) {
                     const ws = wb.Sheets[wb.SheetNames[0]];
                     const json = XLSX.utils.sheet_to_json(ws, { defval: "" });
 
-                    // ✅ debug (kolonları görüp eşleşme sorununu anında yakalarsın)
-                    console.log("Excel ilk satır kolonlar:", Object.keys(json?.[0] || {}));
-                    console.log("Excel ilk satır örnek:", json?.[0]);
-
                     const map = {};
 
                     json.forEach((r) => {
-                        const seferNoRaw = pickColumn(r, [
-                            "Sefer Numarası",
-                            "Sefer No",
-                            "SeferNo",
-                            "Sefer",
-                            "Sefer Numarasi", // i/ı farkları için opsiyonel
-                        ]);
-
+                        const seferNoRaw = pickColumn(r, ["Sefer Numarası", "Sefer No", "SeferNo", "Sefer", "Sefer Numarasi"]);
                         const seferKey = normalizeSeferKey(seferNoRaw);
                         if (!seferKey) return;
 
                         const nextObj = {
-                            yukleme_varis: excelCellToISO(
-                                pickColumn(r, ["Yükleme Noktası Varış Zamanı", "Yükleme Varış"])
-                            ),
-                            yukleme_giris: excelCellToISO(
-                                pickColumn(r, ["Yükleme Noktasına Giriş Zamanı", "Yükleme Giriş"])
-                            ),
-                            yukleme_cikis: excelCellToISO(
-                                pickColumn(r, ["Yükleme Noktası Çıkış Zamanı", "Yükleme Çıkış"])
-                            ),
-                            teslim_varis: excelCellToISO(
-                                pickColumn(r, ["Teslim Noktası Varış Zamanı", "Teslim Varış"])
-                            ),
-                            teslim_giris: excelCellToISO(
-                                pickColumn(r, ["Teslim Noktasına Giriş Zamanı", "Teslim Giriş"])
-                            ),
-                            teslim_cikis: excelCellToISO(
-                                pickColumn(r, ["Teslim Noktası Çıkış Zamanı", "Teslim Çıkış"])
-                            ),
+                            yukleme_varis: excelCellToISO(pickColumn(r, ["Yükleme Noktası Varış Zamanı", "Yükleme Varış"])),
+                            yukleme_giris: excelCellToISO(pickColumn(r, ["Yükleme Noktasına Giriş Zamanı", "Yükleme Giriş"])),
+                            yukleme_cikis: excelCellToISO(pickColumn(r, ["Yükleme Noktası Çıkış Zamanı", "Yükleme Çıkış"])),
+                            teslim_varis: excelCellToISO(pickColumn(r, ["Teslim Noktası Varış Zamanı", "Teslim Varış"])),
+                            teslim_giris: excelCellToISO(pickColumn(r, ["Teslim Noktasına Giriş Zamanı", "Teslim Giriş"])),
+                            teslim_cikis: excelCellToISO(pickColumn(r, ["Teslim Noktası Çıkış Zamanı", "Teslim Çıkış"])),
                         };
 
-                        // 🔥 overwrite YOK → dolu alanları koru
                         map[seferKey] = mergeKeepFilled(map[seferKey], nextObj);
                     });
 
@@ -1291,14 +1195,9 @@ export default function UltraProjeTablosu({ data }) {
                     const withSefer = Object.keys(map).length;
 
                     const withAnyDate = Object.values(map).filter((t) =>
-                        [
-                            t.yukleme_varis,
-                            t.yukleme_giris,
-                            t.yukleme_cikis,
-                            t.teslim_varis,
-                            t.teslim_giris,
-                            t.teslim_cikis,
-                        ].some((x) => x != null && x !== "" && x !== "---")
+                        [t.yukleme_varis, t.yukleme_giris, t.yukleme_cikis, t.teslim_varis, t.teslim_giris, t.teslim_cikis].some(
+                            (x) => x != null && x !== "" && x !== "---"
+                        )
                     ).length;
 
                     setExcelImportInfo({ totalRows, withSefer, withAnyDate });
@@ -1412,11 +1311,7 @@ export default function UltraProjeTablosu({ data }) {
 
             // Filo/Spot
             const vw = norm(item.VehicleWorkingName);
-            const isFilo =
-                vw === norm("FİLO") ||
-                vw === norm("ÖZMAL") ||
-                vw === norm("MODERN AMBALAJ FİLO");
-
+            const isFilo = vw === norm("FİLO") || vw === norm("ÖZMAL") || vw === norm("MODERN AMBALAJ FİLO");
             if (isFilo) s.filo.add(despKey);
             else s.spot.add(despKey);
 
@@ -1425,7 +1320,6 @@ export default function UltraProjeTablosu({ data }) {
             else s.sho_bm.add(despKey);
 
             // ✅ 30 saat kuralı (req bazlı set’leri doldur)
-            // Not: plan set'in reqNoUp olduğu için ontime/late de reqNoUp tutmalı
             const h = hoursDiff(item.TMSDespatchCreatedDate, item.PickupDate);
             if (reqNoKey && !reqNoUp.startsWith("BOS") && h != null) {
                 if (h < 30) s.ontime_req.add(reqNoUp);
@@ -1435,6 +1329,7 @@ export default function UltraProjeTablosu({ data }) {
 
         return stats;
     }, [data]);
+
     const rows = useMemo(() => {
         const q = norm(query);
         const regionList = REGIONS[selectedRegion] || [];
@@ -1626,9 +1521,7 @@ export default function UltraProjeTablosu({ data }) {
                                             bgcolor: isDark ? alpha("#ffffff", 0.08) : "#0f172a",
                                             display: "grid",
                                             placeItems: "center",
-                                            boxShadow: isDark
-                                                ? "0 18px 45px rgba(0,0,0,0.55)"
-                                                : "0 18px 45px rgba(2,6,23,0.22)",
+                                            boxShadow: isDark ? "0 18px 45px rgba(0,0,0,0.55)" : "0 18px 45px rgba(2,6,23,0.22)",
                                             border: isDark ? `1px solid ${alpha("#ffffff", 0.12)}` : "none",
                                         }}
                                     >
@@ -1671,14 +1564,10 @@ export default function UltraProjeTablosu({ data }) {
                                         <Typography sx={{ fontSize: "0.62rem", fontWeight: 950, color: theme.palette.text.secondary, letterSpacing: "0.8px" }}>
                                             TOPLAM TALEP
                                         </Typography>
-                                        <Typography sx={{ fontSize: "1.55rem", fontWeight: 1000, color: theme.palette.text.primary }}>
-                                            {kpi.plan}
-                                        </Typography>
+                                        <Typography sx={{ fontSize: "1.55rem", fontWeight: 1000, color: theme.palette.text.primary }}>{kpi.plan}</Typography>
                                         <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
                                             <MdTrendingUp color="#0ea5e9" />
-                                            <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>
-                                                Bölge: {selectedRegion}
-                                            </Typography>
+                                            <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>Bölge: {selectedRegion}</Typography>
                                         </Stack>
                                     </KPI>
 
@@ -1686,14 +1575,10 @@ export default function UltraProjeTablosu({ data }) {
                                         <Typography sx={{ fontSize: "0.62rem", fontWeight: 950, color: theme.palette.text.secondary, letterSpacing: "0.8px" }}>
                                             TEDARİK EDİLEN
                                         </Typography>
-                                        <Typography sx={{ fontSize: "1.55rem", fontWeight: 1000, color: "#10b981" }}>
-                                            {kpi.ted}
-                                        </Typography>
+                                        <Typography sx={{ fontSize: "1.55rem", fontWeight: 1000, color: "#10b981" }}>{kpi.ted}</Typography>
                                         <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
                                             <MdBolt color="#10b981" />
-                                            <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>
-                                                Aktif seferler
-                                            </Typography>
+                                            <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>Aktif seferler</Typography>
                                         </Stack>
                                     </KPI>
 
@@ -1706,9 +1591,7 @@ export default function UltraProjeTablosu({ data }) {
                                         </Typography>
                                         <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
                                             <MdWarning color={kpi.perf >= 90 ? "#10b981" : "#f59e0b"} />
-                                            <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>
-                                                30 saat kuralı
-                                            </Typography>
+                                            <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>30 saat kuralı</Typography>
                                         </Stack>
                                     </KPI>
 
@@ -1717,14 +1600,11 @@ export default function UltraProjeTablosu({ data }) {
                                             RİSK: GECİKME / İPTAL
                                         </Typography>
                                         <Typography sx={{ fontSize: "1.15rem", fontWeight: 1000, color: theme.palette.text.primary }}>
-                                            <span style={{ color: "#ef4444" }}>{kpi.gec}</span> /{" "}
-                                            <span style={{ color: "#b91c1c" }}>{kpi.iptal}</span>
+                                            <span style={{ color: "#ef4444" }}>{kpi.gec}</span> / <span style={{ color: "#b91c1c" }}>{kpi.iptal}</span>
                                         </Typography>
                                         <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
                                             <MdCancel color="#ef4444" />
-                                            <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>
-                                                Takip alanı
-                                            </Typography>
+                                            <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>Takip alanı</Typography>
                                         </Stack>
                                     </KPI>
                                 </Grid2>
@@ -1830,9 +1710,7 @@ export default function UltraProjeTablosu({ data }) {
                                                 userSelect: "none",
                                                 fontWeight: 950,
                                                 bgcolor: isDark ? alpha("#ffffff", 0.06) : "rgba(255,255,255,0.95)",
-                                                border: isDark
-                                                    ? `1px solid ${alpha("#ffffff", 0.1)}`
-                                                    : "1px solid rgba(226,232,240,0.9)",
+                                                border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.9)",
                                                 color: theme.palette.text.primary,
                                                 display: "flex",
                                                 alignItems: "center",
@@ -1844,7 +1722,7 @@ export default function UltraProjeTablosu({ data }) {
                                         </Box>
                                     </Tooltip>
 
-                                    {/* ✅ FTS Tarihler */}
+                                    {/* ✅ FTS Tarihler (aynı import fonksiyonu, istersen ileride ayrılaştırırsın) */}
                                     <Tooltip title="Excel seçip FTS tarihlerini yükle">
                                         <Box
                                             onClick={excelSyncLoading ? undefined : importTimesFromExcel}
@@ -1856,9 +1734,7 @@ export default function UltraProjeTablosu({ data }) {
                                                 userSelect: "none",
                                                 fontWeight: 950,
                                                 bgcolor: isDark ? alpha("#ffffff", 0.06) : "rgba(255,255,255,0.95)",
-                                                border: isDark
-                                                    ? `1px solid ${alpha("#ffffff", 0.1)}`
-                                                    : "1px solid rgba(226,232,240,0.9)",
+                                                border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.9)",
                                                 color: theme.palette.text.primary,
                                                 display: "flex",
                                                 alignItems: "center",
@@ -1920,7 +1796,6 @@ export default function UltraProjeTablosu({ data }) {
                                             Excel satır: {excelImportInfo.totalRows} • Sefer bulunan: {excelImportInfo.withSefer} • Tarih dolu: {excelImportInfo.withAnyDate}
                                         </Typography>
                                     )}
-
                                 </Box>
                             </Stack>
                         </Grid>
@@ -1957,6 +1832,193 @@ export default function UltraProjeTablosu({ data }) {
                     </CardList>
                 </Wide>
             </Root>
+        </Box>
+    );
+}
+
+/* ------------------------ DIŞ KATMAN: BACKEND'DEN ÇEK + UltraProjeTablosu'na ver ------------------------ */
+export default function AnalizPaneliBackend() {
+    const theme = useTheme();
+    const isDark = theme.palette.mode === "dark";
+
+    const [loading, setLoading] = useState(false);
+    const [raw, setRaw] = useState(null);
+    const [error, setError] = useState("");
+
+    // varsayılan: bugün
+    const [date, setDate] = useState(() => {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        return d;
+    });
+
+    const [userId, setUserId] = useState(1);
+
+    const load = async () => {
+        setLoading(true);
+        setError("");
+        setRaw(null);
+
+        try {
+            const body = {
+                startDate: toIsoLocalStart(date),
+                endDate: toIsoLocalEnd(date),
+                userId: Number(userId),
+            };
+
+            const res = await fetch(`${BASE_URL}/tmsorders`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+
+            const text = await res.text();
+            let payload;
+            try {
+                payload = text ? JSON.parse(text) : null;
+            } catch {
+                payload = text;
+            }
+
+            if (!res.ok) {
+                throw new Error(typeof payload === "string" ? payload : JSON.stringify(payload));
+            }
+
+            setRaw(payload);
+        } catch (e) {
+            setError(e?.message || "Bilinmeyen hata");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        load();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const data = useMemo(() => extractItems(raw), [raw]);
+
+    return (
+        <Box sx={{ width: "100%" }}>
+            {/* Üst küçük kontrol barı (veri çekme kısmı) */}
+            <Box
+                sx={{
+                    position: "sticky",
+                    top: 0,
+                    zIndex: 20,
+                    p: 1.2,
+                    bgcolor: isDark ? alpha("#020617", 0.72) : alpha("#f8fafc", 0.85),
+                    backdropFilter: "blur(10px)",
+                    borderBottom: isDark ? `1px solid ${alpha("#ffffff", 0.08)}` : "1px solid rgba(226,232,240,0.9)",
+                }}
+            >
+                <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }}>
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                        <Chip
+                            size="small"
+                            label={`Base: ${BASE_URL}`}
+                            sx={{
+                                maxWidth: { xs: "100%", md: 520 },
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                fontWeight: 900,
+                                bgcolor: isDark ? alpha("#ffffff", 0.06) : alpha("#0f172a", 0.06),
+                                border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.9)",
+                            }}
+                        />
+                        <Chip
+                            size="small"
+                            label={`POST /tmsorders`}
+                            sx={{
+                                fontWeight: 950,
+                                bgcolor: alpha("#0ea5e9", isDark ? 0.16 : 0.12),
+                                border: `1px solid ${alpha("#0ea5e9", isDark ? 0.26 : 0.2)}`,
+                            }}
+                        />
+                        <Chip
+                            size="small"
+                            label={loading ? "Yükleniyor..." : `Satır: ${data.length}`}
+                            sx={{
+                                fontWeight: 950,
+                                bgcolor: isDark ? alpha("#ffffff", 0.06) : alpha("#0f172a", 0.06),
+                                border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.9)",
+                            }}
+                        />
+                    </Stack>
+
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ ml: { md: "auto" }, flexWrap: "wrap" }}>
+                        <Tooltip title="Veriyi tekrar çek">
+                            <Box
+                                onClick={loading ? undefined : load}
+                                sx={{
+                                    px: 1.4,
+                                    py: 0.9,
+                                    borderRadius: 16,
+                                    cursor: loading ? "default" : "pointer",
+                                    userSelect: "none",
+                                    fontWeight: 950,
+                                    bgcolor: isDark ? alpha("#ffffff", 0.06) : "rgba(255,255,255,0.95)",
+                                    border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.9)",
+                                    color: theme.palette.text.primary,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 0.6,
+                                    whiteSpace: "nowrap",
+                                }}
+                            >
+                                <MdRefresh />
+                                {loading ? "Çekiliyor..." : "Getir"}
+                            </Box>
+                        </Tooltip>
+
+                        <TextField
+                            type="date"
+                            size="small"
+                            value={`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`}
+                            onChange={(e) => {
+                                const [y, m, d] = e.target.value.split("-").map(Number);
+                                const nd = new Date(y, m - 1, d);
+                                nd.setHours(0, 0, 0, 0);
+                                setDate(nd);
+                            }}
+                            sx={{
+                                "& .MuiOutlinedInput-root": {
+                                    borderRadius: 16,
+                                    bgcolor: isDark ? alpha("#ffffff", 0.06) : "rgba(255,255,255,0.95)",
+                                    border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.9)",
+                                },
+                            }}
+                        />
+
+                        <TextField
+                            type="number"
+                            size="small"
+                            value={userId}
+                            onChange={(e) => setUserId(e.target.value)}
+                            inputProps={{ min: 1 }}
+                            sx={{
+                                width: 120,
+                                "& .MuiOutlinedInput-root": {
+                                    borderRadius: 16,
+                                    bgcolor: isDark ? alpha("#ffffff", 0.06) : "rgba(255,255,255,0.95)",
+                                    border: isDark ? `1px solid ${alpha("#ffffff", 0.1)}` : "1px solid rgba(226,232,240,0.9)",
+                                },
+                            }}
+                            placeholder="userId"
+                        />
+                    </Stack>
+                </Stack>
+
+                {error ? (
+                    <Box sx={{ mt: 1 }}>
+                        <Typography sx={{ fontWeight: 900, color: "#ef4444" }}>Hata: {error}</Typography>
+                    </Box>
+                ) : null}
+            </Box>
+
+            {/* Asıl UI */}
+            <UltraProjeTablosu data={data} />
         </Box>
     );
 }
