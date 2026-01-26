@@ -1,4 +1,4 @@
-﻿import { Fade, Box } from "@mui/material";
+import { Fade, Box } from "@mui/material";
 import { useOutletContext } from "react-router-dom";
 
 import BilgiPanelleri from "../bilesenler/BilgiPanelleri";

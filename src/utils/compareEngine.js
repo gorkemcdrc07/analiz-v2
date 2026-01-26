@@ -1,4 +1,4 @@
-﻿// src/utils/compareEngine.js
+// src/utils/compareEngine.js
 // ✅ Güncel: "Aynı hafta" = takvim haftası (Pazartesi–Pazar) olacak şekilde düzeltildi.
 // ✅ buildAnalysis artık UI (karsilastirma.js) ile aynı hafta mantığını kullanır.
 // Not: date-fns yok, pure JS.

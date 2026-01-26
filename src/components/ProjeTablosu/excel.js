@@ -1,4 +1,4 @@
-﻿// src/components/ProjeTablosu/excel.js
+// src/components/ProjeTablosu/excel.js
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { mergeKeepFilled, normalizeSeferKey, parseTRDateTime, norm } from "./utils";

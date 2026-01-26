@@ -1,4 +1,4 @@
-﻿export const STATUS_MAP = {
+export const STATUS_MAP = {
     1: { label: "Bekliyor", color: "#64748b" },
     2: { label: "Onaylandı", color: "#0ea5e9" },
     3: { label: "Spot Araç Planlamada", color: "#f59e0b" },

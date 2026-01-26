@@ -1,4 +1,4 @@
-﻿// yardimcilar/tarihIslemleri.js
+// yardimcilar/tarihIslemleri.js
 
 // Supabase filtreleri için güvenli ISO üretimi
 // - start: gün başı 00:00:00
