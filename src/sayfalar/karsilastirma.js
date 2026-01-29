@@ -1,5 +1,5 @@
 // src/sayfalar/karsilastirma.js
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
     Box,
     Stack,
@@ -23,15 +23,26 @@ import {
     TableContainer,
     Chip,
     LinearProgress,
-    CircularProgress,
 } from "@mui/material";
 import { RiRefreshLine, RiBarChart2Line, RiSearch2Line, RiInformationLine } from "react-icons/ri";
 import { motion } from "framer-motion";
 
-import { BASE_URL } from "../ozellikler/yardimcilar/sabitler";
-import { extractItems } from "../ozellikler/yardimcilar/backend";
 import { REGIONS } from "../ozellikler/yardimcilar/veriKurallari";
 import { metniNormalizeEt } from "../ozellikler/yardimcilar/metin";
+
+/* -------------------------------------------------------------------------- */
+/*                              DEMO / LOCAL DATA                             */
+/* -------------------------------------------------------------------------- */
+/**
+ * ✅ Veri çekme kapalı. İstersen aşağıya demo data koy.
+ * Beklenen alanlar: PickupDate (veya pickupDate...) + ProjectName (veya türevleri)
+ */
+const DEMO_ITEMS = [
+    // Örnek:
+    // { PickupDate: "2026-01-10T10:00:00Z", ProjectName: "ABC LOJİSTİK" },
+    // { PickupDate: "2026-01-12T12:00:00Z", ProjectName: "ABC LOJİSTİK" },
+    // { PickupDate: "2025-12-05T08:00:00Z", ProjectName: "XYZ OTOMOTİV" },
+];
 
 /* ------------------------ küçük tarih yardımcıları ------------------------ */
 const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
@@ -43,7 +54,6 @@ const fmtTR = (d) =>
         : "-";
 
 const fmtRange = (a, b) => `${fmtTR(a)} – ${fmtTR(b)}`;
-
 
 const clampDayStart = (d) => {
     const x = new Date(d);
@@ -90,33 +100,6 @@ const eachDay = (a, b) => {
 
 const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 const monthLabelTR = (d) => d.toLocaleDateString("tr-TR", { year: "numeric", month: "long" });
-
-// ✅ haftalık çekim için ISO (Z)
-const isoStartOfDayZ = (d) => {
-    const x = new Date(d);
-    x.setHours(0, 0, 0, 0);
-    return x.toISOString();
-};
-
-const isoEndOfDayZ = (d) => {
-    const x = new Date(d);
-    x.setHours(23, 59, 59, 999);
-    return x.toISOString();
-};
-
-// ✅ son N hafta (eski -> yeni)
-const buildWeekRanges = ({ weeksBack = 12, anchorDate = new Date() }) => {
-    const t0 = clampDayStart(anchorDate);
-    const week0Start = startOfWeekMon(t0); // bu haftanın pazartesi
-    const out = [];
-    for (let i = weeksBack - 1; i >= 0; i--) {
-        const s = addDays(week0Start, -7 * i);
-        const e = addDays(s, 6);
-        e.setHours(23, 59, 59, 999);
-        out.push({ start: s, end: e });
-    }
-    return out;
-};
 
 /* ------------------------ veri alanları yardımcıları ------------------------ */
 // ✅ Sende farklıysa burayı düzelt
@@ -390,95 +373,15 @@ export default function Karsilastirma() {
     const [seciliBolge, setSeciliBolge] = useState("GEBZE");
     const [arama, setArama] = useState("");
     const [sirala, setSirala] = useState("buHafta");
-    const [loading, setLoading] = useState(false);
-    const [raw, setRaw] = useState(null);
+    const [loading, setLoading] = useState(false); // veri çekme yok => genelde false
     const [error, setError] = useState("");
-    const [userId] = useState(1);
 
     const [viewMode, setViewMode] = useState("forecast"); // forecast | tarihsel
-    const [progress, setProgress] = useState({ done: 0, total: 0, failed: 0 });
 
-    // ✅ Kaç hafta çekilecek? (son ~3 ay)
-    const WEEKS_BACK = 12;
+    // ✅ Veri çekme yok: raw sadece local/demo items
+    const [raw, setRaw] = useState({ items: DEMO_ITEMS });
 
-    const handleFetch = useCallback(async () => {
-        setLoading(true);
-        setError("");
-        setProgress({ done: 0, total: 0, failed: 0 });
-
-        // kademeli yükleme: UI hemen veri görsün
-        setRaw({ items: [] });
-
-        const ranges = buildWeekRanges({ weeksBack: WEEKS_BACK, anchorDate: new Date() });
-        setProgress({ done: 0, total: ranges.length, failed: 0 });
-
-        const collected = [];
-
-        try {
-            for (let i = 0; i < ranges.length; i++) {
-                const r = ranges[i];
-
-                const body = {
-                    startDate: isoStartOfDayZ(r.start),
-                    endDate: isoEndOfDayZ(r.end),
-                    userId: Number(userId),
-                };
-
-                const controller = new AbortController();
-                const t = setTimeout(() => controller.abort(), 35_000);
-
-                try {
-                    const res = await fetch(`${BASE_URL}/tmsorders/week`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(body),
-                        signal: controller.signal,
-                    });
-
-                    const rawText = await res.text();
-
-                    let payload;
-                    try {
-                        payload = rawText ? JSON.parse(rawText) : null;
-                    } catch {
-                        payload = rawText;
-                    }
-
-                    if (!res.ok) {
-                        setProgress((p) => ({ ...p, done: p.done + 1, failed: p.failed + 1 }));
-                        console.warn("week failed", i, res.status, payload);
-                        continue;
-                    }
-
-                    const items = extractItems(payload);
-                    collected.push(...items);
-
-                    // ✅ kademeli güncelle
-                    setRaw({ items: [...collected] });
-                    setProgress((p) => ({ ...p, done: p.done + 1 }));
-                } catch (e) {
-                    setProgress((p) => ({ ...p, done: p.done + 1, failed: p.failed + 1 }));
-                    console.warn("week fetch aborted/failed", i, e?.message);
-                } finally {
-                    clearTimeout(t);
-                }
-            }
-        } catch (e) {
-            setError(e?.message || "Bağlantı hatası");
-        } finally {
-            setLoading(false);
-            if (collected.length === 0) {
-                setError("Veri çekilemedi (haftalık istekler başarısız)");
-            }
-        }
-    }, [userId]);
-
-    useEffect(() => {
-        handleFetch();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    const data = useMemo(() => extractItems(raw), [raw]);
+    const data = useMemo(() => raw?.items || [], [raw]);
 
     const forecast = useMemo(() => {
         if (!data?.length) return null;
@@ -577,6 +480,18 @@ export default function Karsilastirma() {
 
     const meta = forecast?.meta;
 
+    // ✅ Veri çekme yok: Yenile sadece demo/items’i tekrar set eder
+    const handleRefreshLocal = () => {
+        setLoading(true);
+        setError("");
+        try {
+            setRaw({ items: [...DEMO_ITEMS] });
+        } catch (e) {
+            setError(e?.message || "Local veri yenileme hatası");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <Box
@@ -589,48 +504,6 @@ export default function Karsilastirma() {
                     : `radial-gradient(circle at 50% 0%, ${alpha(theme.palette.primary.main, 0.06)} 0%, transparent 52%)`,
             }}
         >
-            {/* FULLSCREEN ANALİZ OVERLAY */}
-            {loading ? (
-                <Box
-                    sx={{
-                        position: "fixed",
-                        inset: 0,
-                        zIndex: 2500,
-                        display: "grid",
-                        placeItems: "center",
-                        bgcolor: isDark ? alpha("#000", 0.55) : alpha("#000", 0.25),
-                        backdropFilter: "blur(6px)",
-                    }}
-                >
-                    <Paper
-                        elevation={0}
-                        sx={{
-                            px: 3,
-                            py: 2.5,
-                            borderRadius: 24,
-                            border: `1px solid ${alpha("#fff", isDark ? 0.12 : 0.08)}`,
-                            bgcolor: isDark ? alpha("#0b1220", 0.8) : alpha("#ffffff", 0.92),
-                            minWidth: 340,
-                            textAlign: "center",
-                        }}
-                    >
-                        <Stack spacing={1.1} alignItems="center">
-                            <CircularProgress />
-                            <Typography sx={{ fontWeight: 1000, fontSize: "1.05rem" }}>Analiz yapılıyor, bekleyiniz…</Typography>
-                            <Typography sx={{ fontWeight: 800, color: "text.secondary", fontSize: "0.9rem" }}>
-                                Haftalık yükleniyor: {progress.done}/{progress.total} {progress.failed ? `• ${progress.failed} hata` : ""}
-                            </Typography>
-
-                            {progress.total > 0 ? (
-                                <Box sx={{ width: "100%", mt: 0.5 }}>
-                                    <LinearProgress variant="determinate" value={(progress.done / progress.total) * 100} />
-                                </Box>
-                            ) : null}
-                        </Stack>
-                    </Paper>
-                </Box>
-            ) : null}
-
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
                 <Paper
                     elevation={0}
@@ -664,7 +537,7 @@ export default function Karsilastirma() {
                                     KARŞILAŞTIRMA • FORECAST + ANALİZ
                                 </Typography>
                                 <Typography sx={{ fontWeight: 800, color: "text.secondary" }}>
-                                    Haftalık kademeli yükleme • Bölge bazlı • Forecast + Son 13 ay tarihsel tablo
+                                    (Veri çekme kapalı) • Bölge bazlı • Forecast + Son 13 ay tarihsel tablo
                                 </Typography>
                             </Box>
 
@@ -703,7 +576,7 @@ export default function Karsilastirma() {
                             <Button
                                 variant="contained"
                                 disableElevation
-                                onClick={handleFetch}
+                                onClick={handleRefreshLocal}
                                 disabled={loading}
                                 startIcon={loading ? null : <RiRefreshLine size={18} />}
                                 sx={{
@@ -884,7 +757,6 @@ export default function Karsilastirma() {
                     <>
                         <KpiCard label="BU HAFTA" value={forecastTotals.buHafta} hint={meta ? fmtRange(meta.week0Start, meta.week0End) : ""} color="#0ea5e9" />
                         <KpiCard label="GELECEK HAFTA" value={forecastTotals.gelecekHafta} hint={meta ? fmtRange(meta.week1Start, meta.week1End) : ""} color="#10b981" />
-                        {/* ✅ Ay sonuna kadar 01–31 göster */}
                         <KpiCard label="AY SONUNA KADAR" value={forecastTotals.aySonunaKadar} hint={meta ? fmtRange(meta.monthStart, meta.monthEnd) : ""} color="#f59e0b" />
                     </>
                 ) : null}
@@ -899,7 +771,7 @@ export default function Karsilastirma() {
                     borderRadius: 28,
                     border: `1px solid ${isDark ? alpha("#fff", 0.08) : alpha("#0f172a", 0.08)}`,
                     bgcolor: isDark ? alpha("#0b1220", 0.58) : alpha("#fff", 0.92),
-                    overflow: "visible", // ✅ oval kesmeyi engelle
+                    overflow: "visible",
                 }}
             >
                 <Box sx={{ position: "relative", mt: 2 }}>
@@ -909,27 +781,30 @@ export default function Karsilastirma() {
                             borderRadius: "24px",
                             border: `1px solid ${isDark ? alpha("#fff", 0.08) : alpha("#0f172a", 0.05)}`,
                             bgcolor: isDark ? alpha("#0f172a", 0.4) : alpha("#fff", 0.8),
-                            backdropFilter: "blur(12px)", // Cam efekti
-                            overflow: "hidden", // İçerideki border-radius'u korur
-                            boxShadow: isDark
-                                ? "0 20px 40px rgba(0,0,0,0.4)"
-                                : "0 20px 40px rgba(15, 23, 42, 0.06)",
+                            backdropFilter: "blur(12px)",
+                            overflow: "hidden",
+                            boxShadow: isDark ? "0 20px 40px rgba(0,0,0,0.4)" : "0 20px 40px rgba(15, 23, 42, 0.06)",
                         }}
                     >
-                        {/* HEADER BÖLÜMÜ */}
-                        <Box sx={{
-                            px: 3, py: 2.5,
-                            borderBottom: `1px solid ${isDark ? alpha("#fff", 0.05) : alpha("#0f172a", 0.05)}`,
-                            background: isDark
-                                ? `linear-gradient(90deg, ${alpha("#1e293b", 0.3)}, transparent)`
-                                : `linear-gradient(90deg, ${alpha("#f8fafc", 0.7)}, transparent)`
-                        }}>
+                        {/* HEADER */}
+                        <Box
+                            sx={{
+                                px: 3,
+                                py: 2.5,
+                                borderBottom: `1px solid ${isDark ? alpha("#fff", 0.05) : alpha("#0f172a", 0.05)}`,
+                                background: isDark
+                                    ? `linear-gradient(90deg, ${alpha("#1e293b", 0.3)}, transparent)`
+                                    : `linear-gradient(90deg, ${alpha("#f8fafc", 0.7)}, transparent)`,
+                            }}
+                        >
                             <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }} justifyContent="space-between">
                                 <Stack direction="row" spacing={1.5} alignItems="center">
                                     <Box sx={{ width: 6, height: 24, bgcolor: "primary.main", borderRadius: 4 }} />
                                     <Typography sx={{ fontWeight: 900, letterSpacing: "-0.02em", fontSize: "1.1rem" }}>
                                         {seciliBolge}
-                                        <Box component="span" sx={{ opacity: 0.4, mx: 1.5, fontWeight: 300 }}>|</Box>
+                                        <Box component="span" sx={{ opacity: 0.4, mx: 1.5, fontWeight: 300 }}>
+                                            |
+                                        </Box>
                                         <Box component="span" sx={{ color: "text.secondary", fontSize: "0.95rem" }}>
                                             {viewMode === "forecast" ? "Forecast Analizi" : "Tarihsel Trend (13 Ay)"}
                                         </Box>
@@ -937,14 +812,14 @@ export default function Karsilastirma() {
                                 </Stack>
 
                                 <Chip
-                                    label={(!raw || data.length === 0) ? "Veri Yok" : `${viewMode === "forecast" ? forecastRows.length : historyRows.length} Aktif Kayıt`}
+                                    label={!raw || data.length === 0 ? "Veri Yok" : `${viewMode === "forecast" ? forecastRows.length : historyRows.length} Aktif Kayıt`}
                                     size="small"
                                     sx={{
                                         fontWeight: 800,
                                         bgcolor: isDark ? alpha("#38bdf8", 0.1) : alpha("#0284c7", 0.05),
                                         color: isDark ? "#7dd3fc" : "#0369a1",
                                         borderRadius: "8px",
-                                        border: `1px solid ${isDark ? alpha("#38bdf8", 0.2) : alpha("#0284c7", 0.1)}`
+                                        border: `1px solid ${isDark ? alpha("#38bdf8", 0.2) : alpha("#0284c7", 0.1)}`,
                                     }}
                                 />
                             </Stack>
@@ -957,16 +832,17 @@ export default function Karsilastirma() {
                                 </Typography>
                             </Box>
                         ) : (
-                            <TableContainer sx={{
-                                maxHeight: 640,
-                                overflow: "auto",
-                                "&::-webkit-scrollbar": { width: 8, height: 8 },
-                                "&::-webkit-scrollbar-thumb": { bgcolor: alpha("#94a3b8", 0.2), borderRadius: 8 }
-                            }}>
+                            <TableContainer
+                                sx={{
+                                    maxHeight: 640,
+                                    overflow: "auto",
+                                    "&::-webkit-scrollbar": { width: 8, height: 8 },
+                                    "&::-webkit-scrollbar-thumb": { bgcolor: alpha("#94a3b8", 0.2), borderRadius: 8 },
+                                }}
+                            >
                                 <Table stickyHeader size="small">
                                     <TableHead>
                                         <TableRow>
-                                            {/* Sticky Header Hücreleri */}
                                             {["Bölge", "Proje"].map((head, i) => (
                                                 <TableCell
                                                     key={head}
@@ -974,77 +850,101 @@ export default function Karsilastirma() {
                                                         fontWeight: 800,
                                                         bgcolor: isDark ? "#0f172a" : "#f8fafc",
                                                         zIndex: 11,
-                                                        left: i === 0 ? 0 : 100, // Sabit sütun genişliği
+                                                        left: i === 0 ? 0 : 100,
                                                         position: "sticky",
                                                         borderBottom: `2px solid ${alpha("#94a3b8", 0.1)}`,
-                                                        fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: 0.5
+                                                        fontSize: "0.85rem",
+                                                        textTransform: "uppercase",
+                                                        letterSpacing: 0.5,
                                                     }}
                                                 >
                                                     {head}
                                                 </TableCell>
                                             ))}
 
-                                            {(viewMode === "forecast" ? ["Bu Hafta", "Haftaya", "Diğer", "Ay Sonu", "Toplam"] : [...(history?.months || []), "Toplam"]).map((col, idx) => (
-                                                <TableCell
-                                                    key={idx}
-                                                    align="right"
-                                                    sx={{
-                                                        fontWeight: 800,
-                                                        bgcolor: isDark ? "#0f172a" : "#f8fafc",
-                                                        borderBottom: `2px solid ${alpha("#94a3b8", 0.1)}`,
-                                                        fontSize: "0.85rem", textTransform: "uppercase"
-                                                    }}
-                                                >
-                                                    {typeof col === 'string' ? col : monthLabelTR(col)}
-                                                </TableCell>
-                                            ))}
+                                            {(viewMode === "forecast" ? ["Bu Hafta", "Haftaya", "Diğer", "Ay Sonu", "Toplam"] : [...(history?.months || []), "Toplam"]).map(
+                                                (col, idx) => (
+                                                    <TableCell
+                                                        key={idx}
+                                                        align="right"
+                                                        sx={{
+                                                            fontWeight: 800,
+                                                            bgcolor: isDark ? "#0f172a" : "#f8fafc",
+                                                            borderBottom: `2px solid ${alpha("#94a3b8", 0.1)}`,
+                                                            fontSize: "0.85rem",
+                                                            textTransform: "uppercase",
+                                                        }}
+                                                    >
+                                                        {typeof col === "string" ? col : monthLabelTR(col)}
+                                                    </TableCell>
+                                                )
+                                            )}
                                         </TableRow>
                                     </TableHead>
 
                                     <TableBody>
                                         {(viewMode === "forecast" ? forecastRows : historyRows).map((r, idx) => {
-                                            const isHot = viewMode === "forecast" && (r.ayToplam > 0);
+                                            const isHot = viewMode === "forecast" && r.ayToplam > 0;
                                             return (
                                                 <TableRow
                                                     key={idx}
                                                     hover
                                                     sx={{
                                                         transition: "all 0.2s",
-                                                        "&:hover": { bgcolor: isDark ? alpha("#fff", 0.02) : alpha("#000", 0.01) }
+                                                        "&:hover": { bgcolor: isDark ? alpha("#fff", 0.02) : alpha("#000", 0.01) },
                                                     }}
                                                 >
-                                                    {/* Sabit Sütunlar (Sticky Columns) */}
-                                                    <TableCell sx={{
-                                                        position: "sticky", left: 0, zIndex: 5,
-                                                        bgcolor: isDark ? "#0b1220" : "#fff",
-                                                        borderRight: `1px solid ${alpha("#94a3b8", 0.05)}`
-                                                    }}>
+                                                    <TableCell
+                                                        sx={{
+                                                            position: "sticky",
+                                                            left: 0,
+                                                            zIndex: 5,
+                                                            bgcolor: isDark ? "#0b1220" : "#fff",
+                                                            borderRight: `1px solid ${alpha("#94a3b8", 0.05)}`,
+                                                        }}
+                                                    >
                                                         <Chip label={seciliBolge} size="small" sx={{ fontWeight: 900, fontSize: "0.7rem", height: 20 }} />
                                                     </TableCell>
 
-                                                    <TableCell sx={{
-                                                        position: "sticky", left: 100, zIndex: 5,
-                                                        bgcolor: isDark ? "#0b1220" : "#fff",
-                                                        borderRight: `1px solid ${alpha("#94a3b8", 0.05)}`,
-                                                        whiteSpace: "nowrap"
-                                                    }}>
+                                                    <TableCell
+                                                        sx={{
+                                                            position: "sticky",
+                                                            left: 100,
+                                                            zIndex: 5,
+                                                            bgcolor: isDark ? "#0b1220" : "#fff",
+                                                            borderRight: `1px solid ${alpha("#94a3b8", 0.05)}`,
+                                                            whiteSpace: "nowrap",
+                                                        }}
+                                                    >
                                                         <Typography sx={{ fontWeight: 700, fontSize: "0.9rem" }}>{r.proje}</Typography>
                                                     </TableCell>
 
-                                                    {/* Dinamik Veri Hücreleri */}
                                                     {viewMode === "forecast" ? (
                                                         <>
-                                                            <TableCell align="right" sx={{ fontWeight: 600 }}>{r.buHafta}</TableCell>
-                                                            <TableCell align="right" sx={{ fontWeight: 600 }}>{r.gelecekHafta}</TableCell>
-                                                            <TableCell align="right" sx={{ fontWeight: 600 }}>{r.digerHafta}</TableCell>
-                                                            <TableCell align="right" sx={{ fontWeight: 600 }}>{r.aySonunaKadar}</TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 600 }}>
+                                                                {r.buHafta}
+                                                            </TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 600 }}>
+                                                                {r.gelecekHafta}
+                                                            </TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 600 }}>
+                                                                {r.digerHafta}
+                                                            </TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 600 }}>
+                                                                {r.aySonunaKadar}
+                                                            </TableCell>
                                                             <TableCell align="right">
-                                                                <Box sx={{
-                                                                    display: "inline-block", px: 1.2, py: 0.4, borderRadius: "6px",
-                                                                    bgcolor: isHot ? alpha(theme.palette.primary.main, 0.1) : "transparent",
-                                                                    color: isHot ? "primary.main" : "text.primary",
-                                                                    fontWeight: 900
-                                                                }}>
+                                                                <Box
+                                                                    sx={{
+                                                                        display: "inline-block",
+                                                                        px: 1.2,
+                                                                        py: 0.4,
+                                                                        borderRadius: "6px",
+                                                                        bgcolor: isHot ? alpha(theme.palette.primary.main, 0.1) : "transparent",
+                                                                        color: isHot ? "primary.main" : "text.primary",
+                                                                        fontWeight: 900,
+                                                                    }}
+                                                                >
                                                                     {r.ayToplam}
                                                                 </Box>
                                                             </TableCell>
@@ -1052,9 +952,13 @@ export default function Karsilastirma() {
                                                     ) : (
                                                         <>
                                                             {r.counts.map((c, i) => (
-                                                                <TableCell key={i} align="right" sx={{ fontWeight: 600, opacity: c === 0 ? 0.3 : 1 }}>{c}</TableCell>
+                                                                <TableCell key={i} align="right" sx={{ fontWeight: 600, opacity: c === 0 ? 0.3 : 1 }}>
+                                                                    {c}
+                                                                </TableCell>
                                                             ))}
-                                                            <TableCell align="right" sx={{ fontWeight: 900, color: "primary.main" }}>{r.total}</TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 900, color: "primary.main" }}>
+                                                                {r.total}
+                                                            </TableCell>
                                                         </>
                                                     )}
                                                 </TableRow>
@@ -1063,24 +967,42 @@ export default function Karsilastirma() {
 
                                         {/* TOPLAM SATIRI */}
                                         <TableRow sx={{ bgcolor: isDark ? alpha("#fff", 0.03) : alpha("#000", 0.02) }}>
-                                            <TableCell colSpan={2} sx={{
-                                                position: "sticky", left: 0, zIndex: 6,
-                                                bgcolor: isDark ? "#161d2b" : "#f1f5f9",
-                                                fontWeight: 900, color: "primary.main", fontSize: "0.9rem"
-                                            }}>
+                                            <TableCell
+                                                colSpan={2}
+                                                sx={{
+                                                    position: "sticky",
+                                                    left: 0,
+                                                    zIndex: 6,
+                                                    bgcolor: isDark ? "#161d2b" : "#f1f5f9",
+                                                    fontWeight: 900,
+                                                    color: "primary.main",
+                                                    fontSize: "0.9rem",
+                                                }}
+                                            >
                                                 GENEL TOPLAM
                                             </TableCell>
+
                                             {viewMode === "forecast" ? (
                                                 <>
-                                                    <TableCell align="right" sx={{ fontWeight: 900 }}>{forecastTotals.buHafta}</TableCell>
-                                                    <TableCell align="right" sx={{ fontWeight: 900 }}>{forecastTotals.gelecekHafta}</TableCell>
-                                                    <TableCell align="right" sx={{ fontWeight: 900 }}>{forecastTotals.digerHafta}</TableCell>
-                                                    <TableCell align="right" sx={{ fontWeight: 900 }}>{forecastTotals.aySonunaKadar}</TableCell>
-                                                    <TableCell align="right" sx={{ fontWeight: 1000, fontSize: "1rem", color: "primary.main" }}>{forecastTotals.ayToplam}</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 900 }}>
+                                                        {forecastTotals.buHafta}
+                                                    </TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 900 }}>
+                                                        {forecastTotals.gelecekHafta}
+                                                    </TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 900 }}>
+                                                        {forecastTotals.digerHafta}
+                                                    </TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 900 }}>
+                                                        {forecastTotals.aySonunaKadar}
+                                                    </TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 1000, fontSize: "1rem", color: "primary.main" }}>
+                                                        {forecastTotals.ayToplam}
+                                                    </TableCell>
                                                 </>
                                             ) : (
-                                                <TableCell align="right" colSpan={history?.months?.length + 1} sx={{ fontWeight: 900 }}>
-                                                    {/* Buraya history toplamlarını mapleyebilirsin */}
+                                                <TableCell align="right" colSpan={(history?.months?.length || 0) + 1} sx={{ fontWeight: 900 }}>
+                                                    {/* İstersen buraya tarihsel genel toplamları da ekleyebilirsin */}
                                                 </TableCell>
                                             )}
                                         </TableRow>
@@ -1088,9 +1010,9 @@ export default function Karsilastirma() {
                                 </Table>
                             </TableContainer>
                         )}
-                    </Paper>   
-                </Box>         
-            </Paper>         
-        </Box>             
+                    </Paper>
+                </Box>
+            </Paper>
+        </Box>
     );
 }

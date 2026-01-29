@@ -1,3 +1,4 @@
+// src/ozellikler/analiz-paneli/AnalizPaneli.jsx
 import React, { useMemo, useState, useCallback } from "react";
 import { Box, Stack, Typography, alpha, Avatar, Button } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
@@ -12,6 +13,54 @@ import { seferNoNormalizeEt } from "../yardimcilar/metin";
 
 // Print API
 const PRINTS_BASE_URL = "https://tedarik-analiz-sho-api.onrender.com";
+
+/* ------------------------ küçük tarih yardımcıları ------------------------ */
+const clampDayStart = (d) => {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+};
+
+const addDays = (d, n) => {
+    const x = new Date(d);
+    x.setDate(x.getDate() + n);
+    return x;
+};
+
+// Pazartesi başlangıçlı hafta
+const startOfWeekMon = (d) => {
+    const x = clampDayStart(d);
+    const day = x.getDay(); // 0 pazar
+    const diff = (day + 6) % 7; // pazartesi=0
+    x.setDate(x.getDate() - diff);
+    return x;
+};
+
+// Haftalık aralıkları üret (range içindeki haftaları kapsar)
+const buildWeekRangesBetween = (startDate, endDate) => {
+    const s0 = clampDayStart(new Date(startDate));
+    const e0 = clampDayStart(new Date(endDate));
+
+    const firstWeekStart = startOfWeekMon(s0);
+    const out = [];
+
+    let cur = new Date(firstWeekStart);
+    while (cur <= e0) {
+        const wStart = new Date(cur);
+        const wEnd = addDays(wStart, 6);
+        wEnd.setHours(23, 59, 59, 999);
+
+        // range ile kesişim
+        const a = new Date(Math.max(wStart.getTime(), s0.getTime()));
+        const b = new Date(Math.min(wEnd.getTime(), new Date(endDate).getTime()));
+
+        if (a <= b) out.push({ start: a, end: b });
+
+        cur = addDays(cur, 7);
+    }
+
+    return out;
+};
 
 export default function AnalizPaneli() {
     const theme = useTheme();
@@ -32,31 +81,70 @@ export default function AnalizPaneli() {
         end: new Date(),
     });
 
-    // ✅ TMS verisi çek (MANUEL)
+    // ✅ TMS verisi çek (MANUEL) — /tmsorders yerine /tmsorders/week kullan
     const handleFetchData = useCallback(async () => {
         setLoading(true);
         setError("");
         setPrintsError("");
         setPrintsMap({});
+        setRaw({ items: [] }); // UI hemen başlasın
+
+        const TMS_WEEK_URL = `${BASE_URL}/tmsorders/week`; // ✅ kritik düzeltme
 
         try {
-            const body = {
-                startDate: toIsoLocalStart(range.start),
-                endDate: toIsoLocalEnd(range.end),
-                userId: Number(userId),
-            };
+            const weeks = buildWeekRangesBetween(range.start, range.end);
 
-            const res = await fetch(`${BASE_URL}/tmsorders`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
-            });
+            const collected = [];
 
-            const text = await res.text();
-            const payload = text ? JSON.parse(text) : null;
+            for (let i = 0; i < weeks.length; i++) {
+                const w = weeks[i];
 
-            if (!res.ok) throw new Error(typeof payload === "string" ? payload : "Veri çekilemedi");
-            setRaw(payload);
+                const body = {
+                    startDate: toIsoLocalStart(w.start),
+                    endDate: toIsoLocalEnd(w.end),
+                    userId: Number(userId),
+                };
+
+                const controller = new AbortController();
+                const t = setTimeout(() => controller.abort(), 35_000);
+
+                try {
+                    const res = await fetch(TMS_WEEK_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Accept: "application/json" },
+                        body: JSON.stringify(body),
+                        signal: controller.signal,
+                    });
+
+                    const text = await res.text();
+                    let payload = null;
+                    try {
+                        payload = text ? JSON.parse(text) : null;
+                    } catch {
+                        payload = text;
+                    }
+
+                    if (!res.ok) {
+                        console.error("TMS WEEK ERROR", { url: TMS_WEEK_URL, status: res.status, bodySent: body, response: payload });
+                        // tek hafta patlarsa devam
+                        continue;
+                    }
+
+                    const items = extractItems(payload);
+                    collected.push(...items);
+
+                    // kademeli UI update
+                    setRaw({ items: [...collected] });
+                } catch (e) {
+                    console.warn("TMS WEEK FAILED", i, e?.message);
+                } finally {
+                    clearTimeout(t);
+                }
+            }
+
+            if (collected.length === 0) {
+                throw new Error("TMS verisi çekilemedi. (Endpoint /tmsorders/week yanıt vermedi)");
+            }
         } catch (e) {
             setError(e?.message || "Bağlantı hatası");
             setRaw(null);
@@ -67,7 +155,7 @@ export default function AnalizPaneli() {
 
     const data = useMemo(() => extractItems(raw), [raw]);
 
-    // TMS içinden SFR listesi (istersen AnalizTablosu’nda da kullanırsın)
+    // TMS içinden SFR listesi
     const docNos = useMemo(() => {
         const items = Array.isArray(data) ? data : [];
         const set = new Set();
@@ -86,10 +174,9 @@ export default function AnalizPaneli() {
         try {
             if (!raw) throw new Error("Önce TMS verisini çekmelisiniz.");
 
-            // Backend’in paylaştığın parametre formatı:
             const body = {
-                startDate: toIsoLocalStart(range.start), // "2026-01-21T00:00:00"
-                endDate: toIsoLocalEnd(range.end),       // "2026-01-28T23:59:59"
+                startDate: toIsoLocalStart(range.start),
+                endDate: toIsoLocalEnd(range.end),
                 userId: Number(userId),
                 CustomerId: 0,
                 SupplierId: 0,
@@ -116,7 +203,6 @@ export default function AnalizPaneli() {
             }
 
             if (!res.ok) {
-                // burada zaten Odak patlıyor; kullanıcıya düzgün mesaj verelim
                 console.error("PRINT API ERROR", { url, status: res.status, bodySent: body, response: payload, responseText: text });
 
                 const msg =
@@ -125,8 +211,7 @@ export default function AnalizPaneli() {
                     (typeof payload === "string" ? payload : null) ||
                     `Print API hata: ${res.status}`;
 
-                // Daha anlaşılır UI mesajı:
-                throw new Error("Basım servisi (Odak) hata veriyor. Backend tarafı düzeltilmeli. Detay: " + msg);
+                throw new Error("Basım servisi (Odak) hata veriyor. Detay: " + msg);
             }
 
             const list = Array.isArray(payload) ? payload : payload?.items || payload?.data || [];
@@ -284,7 +369,7 @@ export default function AnalizPaneli() {
                             {loading ? "Veriler Çekiliyor..." : "Verileri Analiz Et"}
                         </Button>
 
-                        {/* Prints Buton (opsiyonel) */}
+                        {/* Prints Buton */}
                         <Button
                             variant="outlined"
                             onClick={handleFetchPrints}
@@ -314,9 +399,7 @@ export default function AnalizPaneli() {
                             <Typography variant="h6" sx={{ fontWeight: 800 }}>
                                 Analiz İçin Hazırız
                             </Typography>
-                            <Typography variant="body2">
-                                Tarih aralığı seçin ve "Verileri Analiz Et" butonuna tıklayın.
-                            </Typography>
+                            <Typography variant="body2">Tarih aralığı seçin ve "Verileri Analiz Et" butonuna tıklayın.</Typography>
                         </Stack>
                     </motion.div>
                 ) : (
@@ -331,12 +414,7 @@ export default function AnalizPaneli() {
                                 boxShadow: "0 40px 80px -20px rgba(0,0,0,0.08)",
                             }}
                         >
-                            <AnalizTablosu
-                                data={data}
-                                loading={loading}
-                                printsMap={printsMap}
-                                printsLoading={printsLoading}
-                            />
+                            <AnalizTablosu data={data} loading={loading} printsMap={printsMap} printsLoading={printsLoading} />
                         </Box>
                     </motion.div>
                 )}

@@ -3,16 +3,16 @@
   "WorkspaceRootPath": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\karsilastirma.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\sayfalar\\karsilastirma.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\ozellikler\\analiz-paneli\\AnalizPaneli.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\ozellikler\\analiz-paneli\\AnalizPaneli.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\ozellikler\\analiz-paneli\\AnalizTablosu.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\ozellikler\\analiz-paneli\\AnalizTablosu.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\ozellikler\\analiz-paneli\\AnalizPaneli.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\ozellikler\\analiz-paneli\\AnalizPaneli.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\karsilastirma.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\sayfalar\\karsilastirma.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\App.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
@@ -172,22 +172,10 @@
               "RelativeDocumentMoniker": "src\\ozellikler\\analiz-paneli\\AnalizTablosu.js",
               "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\ozellikler\\analiz-paneli\\AnalizTablosu.js",
               "RelativeToolTip": "src\\ozellikler\\analiz-paneli\\AnalizTablosu.js",
-              "ViewState": "AgIAADUAAAAAAAAAAAAtwF4AAAAvAAAAAAAAAA==",
+              "ViewState": "AgIAAMIEAAAAAAAAAAAowPsEAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
               "WhenOpened": "2026-01-26T13:42:24.805Z",
               "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 7,
-              "Title": "index.js",
-              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\ozellikler\\analiz-paneli\\index.js",
-              "RelativeDocumentMoniker": "src\\ozellikler\\analiz-paneli\\index.js",
-              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\ozellikler\\analiz-paneli\\index.js",
-              "RelativeToolTip": "src\\ozellikler\\analiz-paneli\\index.js",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
-              "WhenOpened": "2026-01-26T13:41:45.501Z"
             },
             {
               "$type": "Document",
@@ -275,28 +263,41 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 2,
               "Title": "karsilastirma.js",
               "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\karsilastirma.js",
               "RelativeDocumentMoniker": "src\\sayfalar\\karsilastirma.js",
               "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\sayfalar\\karsilastirma.js",
               "RelativeToolTip": "src\\sayfalar\\karsilastirma.js",
-              "ViewState": "AgIAACsCAAAAAAAAAAAtwFcCAAAZAAAAAAAAAA==",
+              "ViewState": "AgIAAMEDAAAAAAAAAAAowPoDAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
               "WhenOpened": "2026-01-27T07:18:02.155Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 0,
               "Title": "AnalizPaneli.js",
               "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\ozellikler\\analiz-paneli\\AnalizPaneli.js",
               "RelativeDocumentMoniker": "src\\ozellikler\\analiz-paneli\\AnalizPaneli.js",
               "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\ozellikler\\analiz-paneli\\AnalizPaneli.js",
               "RelativeToolTip": "src\\ozellikler\\analiz-paneli\\AnalizPaneli.js",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAC0BAABGAAAAAAAAAA==",
+              "ViewState": "AgIAAG8BAAAAAAAAAAAowKgBAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
-              "WhenOpened": "2026-01-26T13:42:15.273Z"
+              "WhenOpened": "2026-01-26T13:42:15.273Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "index.js",
+              "DocumentMoniker": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\ozellikler\\analiz-paneli\\index.js",
+              "RelativeDocumentMoniker": "src\\ozellikler\\analiz-paneli\\index.js",
+              "ToolTip": "C:\\Users\\Gorkem.Cadirci\\tedarik-analiz-v2\\src\\ozellikler\\analiz-paneli\\index.js",
+              "RelativeToolTip": "src\\ozellikler\\analiz-paneli\\index.js",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2026-01-26T13:41:45.501Z"
             },
             {
               "$type": "Document",
