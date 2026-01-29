@@ -1,15 +1,12 @@
 {
   "ExpandedNodes": [
     "",
-    "\\public",
     "\\src",
-    "\\src\\bilesenler",
-    "\\src\\components",
-    "\\src\\components\\ProjeTablosu",
-    "\\src\\sayfalar",
-    "\\src\\utils",
-    "\\src\\yardimcilar"
+    "\\src\\ozellikler",
+    "\\src\\ozellikler\\analiz-paneli",
+    "\\src\\ozellikler\\analiz-paneli\\bilesenler",
+    "\\src\\ozellikler\\stiller",
+    "\\src\\ozellikler\\yardimcilar"
   ],
-  "SelectedNode": "\\package.json",
   "PreviewInSolutionExplorer": false
 }

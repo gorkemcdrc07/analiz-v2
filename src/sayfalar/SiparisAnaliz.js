@@ -23,13 +23,40 @@ import {
     Tooltip,
     useTheme,
 } from "@mui/material";
-import { Search, Assignment, FilterAlt, Star, Groups, AutoFixHigh, TouchApp } from "@mui/icons-material";
-import { formatDate } from "../yardimcilar/tarihIslemleri";
+import {
+    Search,
+    Assignment,
+    FilterAlt,
+    Star,
+    Groups,
+    AutoFixHigh,
+    TouchApp,
+} from "@mui/icons-material";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
+/* ---------------- BACKEND ---------------- */
+const BASE_URL =
+    process.env.REACT_APP_API_URL || "https://tedarik-analiz-backend-clean.onrender.com";
+
+/** Backend şu formatı döndürebilir:
+ * - { rid, ok, data }
+ * - { rid, ok, items }
+ * - Odak API: { Data: [...], Success: true }
+ */
+function extractItems(payload) {
+    if (!payload) return [];
+
+    const root = payload.items ?? payload.data ?? payload;
+    const arr = root?.Data ?? root?.data ?? root?.items ?? root;
+
+    return Array.isArray(arr) ? arr : [];
+}
+
+/* ---------------- CONST ---------------- */
 const PEOPLE = ["HALİT BAKACAK", "IŞIL GÖKÇE KATRAN", "YASEMİN YILMAZ", "İDİL ÇEVİK"];
-const normTR = (s) => (s ?? "").toString().trim().toLocaleUpperCase("tr-TR").replace(/\s+/g, " ");
+const normTR = (s) =>
+    (s ?? "").toString().trim().toLocaleUpperCase("tr-TR").replace(/\s+/g, " ");
 
 // YYYY-MM-DD (local) üret
 const toInputDate = (d) => {
@@ -43,6 +70,13 @@ const toInputDate = (d) => {
 // date input string -> Date (local) başlangıç/bitiş
 const startOfDay = (yyyyMmDd) => new Date(`${yyyyMmDd}T00:00:00`);
 const endOfDay = (yyyyMmDd) => new Date(`${yyyyMmDd}T23:59:59.999`);
+
+function toIsoLocalStartFromInput(yyyyMmDd) {
+    return `${yyyyMmDd}T00:00:00`;
+}
+function toIsoLocalEndFromInput(yyyyMmDd) {
+    return `${yyyyMmDd}T23:59:59`;
+}
 
 /* ---------------- KPI KARTI ---------------- */
 function PersonKPICard({ name, data, isSelected, onClick, diffDays }) {
@@ -235,6 +269,8 @@ export default function SiparisAnaliz() {
     const [selectedPerson, setSelectedPerson] = useState(PEOPLE[0]);
     const [searchTerm, setSearchTerm] = useState("");
 
+    const [error, setError] = useState("");
+
     const reportRef = useRef(null);
 
     // ✅ diffDays artık string tarihlerden hesaplanıyor
@@ -247,24 +283,40 @@ export default function SiparisAnaliz() {
 
     const fetchSiparis = async () => {
         setLoading(true);
+        setError("");
         try {
-            const startDate = startOfDay(startStr);
-            const endDate = endOfDay(endStr);
+            // ✅ backend’in beklediği format:
+            // startDate: "YYYY-MM-DDT00:00:00"
+            // endDate:   "YYYY-MM-DDT23:59:59"
+            const body = {
+                startDate: toIsoLocalStartFromInput(startStr),
+                endDate: toIsoLocalEndFromInput(endStr),
+                userId: 1,
+            };
 
-            const response = await fetch("/api/tmsorders/getall", {
+            const res = await fetch(`${BASE_URL}/tmsorders`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    startDate: formatDate(startDate),
-                    endDate: formatDate(endDate, true),
-                    userId: 1,
-                }),
+                body: JSON.stringify(body),
             });
 
-            const result = await response.json();
-            setRows(result?.Data || []);
+            const text = await res.text();
+            let payload;
+            try {
+                payload = text ? JSON.parse(text) : null;
+            } catch {
+                payload = text;
+            }
+
+            if (!res.ok) {
+                throw new Error(typeof payload === "string" ? payload : JSON.stringify(payload));
+            }
+
+            const items = extractItems(payload);
+            setRows(items);
         } catch (e) {
             setRows([]);
+            setError(e?.message || "Bilinmeyen hata");
         } finally {
             setLoading(false);
         }
@@ -278,10 +330,7 @@ export default function SiparisAnaliz() {
     // --- MANUEL VS OTOMASYON ANALİZİ ---
     const personAnalysis = useMemo(() => {
         const data = Object.fromEntries(
-            PEOPLE.map((p) => [
-                p,
-                { total: 0, manualCount: 0, autoCount: 0, projects: {} },
-            ])
+            PEOPLE.map((p) => [p, { total: 0, manualCount: 0, autoCount: 0, projects: {} }])
         );
 
         const sortedRows = [...rows].sort(
@@ -298,6 +347,7 @@ export default function SiparisAnaliz() {
                 const currentTime = new Date(r.OrderCreatedDate).getTime();
                 const lastTime = lastActionTimes[who] || 0;
 
+                // aynı kişi 10 saniye içinde ardışık kayıt girdiyse "oto" kabul
                 const isAuto = currentTime - lastTime < 10000;
                 lastActionTimes[who] = currentTime;
 
@@ -333,7 +383,6 @@ export default function SiparisAnaliz() {
 
             for (let i = 0; i < PEOPLE.length; i++) {
                 setSelectedPerson(PEOPLE[i]);
-                // ui güncellensin
                 await new Promise((r) => setTimeout(r, 600));
 
                 const canvas = await html2canvas(reportRef.current, {
@@ -403,6 +452,16 @@ export default function SiparisAnaliz() {
                             >
                                 <TouchApp fontSize="small" /> Manuel vs Otomasyon Bazlı Analiz
                             </Typography>
+
+                            <Typography sx={{ mt: 0.8, fontSize: "0.75rem", color: theme.palette.text.secondary, fontWeight: 700 }}>
+                                Base URL: <b>{BASE_URL}</b> — Endpoint: <b>POST /tmsorders</b>
+                            </Typography>
+
+                            {error ? (
+                                <Typography sx={{ mt: 0.6, fontSize: "0.8rem", color: "tomato", fontWeight: 800 }}>
+                                    Hata: {error}
+                                </Typography>
+                            ) : null}
                         </Box>
 
                         <Stack direction="row" spacing={2}>
@@ -410,9 +469,7 @@ export default function SiparisAnaliz() {
                                 variant="contained"
                                 onClick={handleExportAllPDF}
                                 disabled={exporting || loading}
-                                startIcon={
-                                    exporting ? <CircularProgress size={16} color="inherit" /> : <Groups />
-                                }
+                                startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <Groups />}
                                 sx={{
                                     borderRadius: "14px",
                                     bgcolor: isDark ? "#e2e8f0" : "#0f172a",
@@ -421,9 +478,7 @@ export default function SiparisAnaliz() {
                                     py: 1.5,
                                     textTransform: "none",
                                     fontWeight: 800,
-                                    "&:hover": {
-                                        bgcolor: isDark ? "#f1f5f9" : "#111827",
-                                    },
+                                    "&:hover": { bgcolor: isDark ? "#f1f5f9" : "#111827" },
                                 }}
                             >
                                 {exporting ? "Raporlanıyor..." : "Tüm Ekip Analizini İndir"}
@@ -462,12 +517,10 @@ export default function SiparisAnaliz() {
                                         bgcolor: isDark ? "#e2e8f0" : "#0f172a",
                                         color: isDark ? "#0b1220" : "#fff",
                                         minWidth: 45,
-                                        "&:hover": {
-                                            bgcolor: isDark ? "#f1f5f9" : "#111827",
-                                        },
+                                        "&:hover": { bgcolor: isDark ? "#f1f5f9" : "#111827" },
                                     }}
                                 >
-                                    <FilterAlt fontSize="small" />
+                                    {loading ? <CircularProgress size={16} color="inherit" /> : <FilterAlt fontSize="small" />}
                                 </Button>
                             </Paper>
                         </Stack>
@@ -496,7 +549,9 @@ export default function SiparisAnaliz() {
                                 border: `1px solid ${alpha(theme.palette.divider, isDark ? 0.65 : 1)}`,
                                 bgcolor: theme.palette.background.paper,
                                 overflow: "hidden",
-                                boxShadow: isDark ? "0 18px 50px rgba(0,0,0,0.45)" : "0 4px 6px -1px rgba(0,0,0,0.1)",
+                                boxShadow: isDark
+                                    ? "0 18px 50px rgba(0,0,0,0.45)"
+                                    : "0 4px 6px -1px rgba(0,0,0,0.1)",
                             }}
                         >
                             <Box
@@ -541,11 +596,7 @@ export default function SiparisAnaliz() {
                             </Box>
 
                             <Table>
-                                <TableHead
-                                    sx={{
-                                        bgcolor: alpha(theme.palette.text.primary, isDark ? 0.06 : 0.03),
-                                    }}
-                                >
+                                <TableHead sx={{ bgcolor: alpha(theme.palette.text.primary, isDark ? 0.06 : 0.03) }}>
                                     <TableRow>
                                         <TableCell sx={{ fontWeight: 900, pl: 4, color: theme.palette.text.secondary }}>
                                             PROJE ADI
@@ -574,9 +625,7 @@ export default function SiparisAnaliz() {
                                                 key={proj.name}
                                                 hover
                                                 sx={{
-                                                    "&:hover": {
-                                                        bgcolor: alpha(theme.palette.primary.main, isDark ? 0.08 : 0.04),
-                                                    },
+                                                    "&:hover": { bgcolor: alpha(theme.palette.primary.main, isDark ? 0.08 : 0.04) },
                                                 }}
                                             >
                                                 <TableCell sx={{ pl: 4, fontWeight: 800, color: theme.palette.text.primary }}>
@@ -622,9 +671,7 @@ export default function SiparisAnaliz() {
                                                                     color: isDark ? "#e2e8f0" : "#fff",
                                                                     fontSize: "0.6rem",
                                                                     fontWeight: 900,
-                                                                    border: isDark
-                                                                        ? `1px solid ${alpha("#e2e8f0", 0.22)}`
-                                                                        : "none",
+                                                                    border: isDark ? `1px solid ${alpha("#e2e8f0", 0.22)}` : "none",
                                                                 }}
                                                             />
                                                         </Tooltip>
@@ -653,9 +700,7 @@ export default function SiparisAnaliz() {
                                                                 height: 6,
                                                                 borderRadius: 3,
                                                                 bgcolor: alpha(theme.palette.text.primary, isDark ? 0.12 : 0.06),
-                                                                "& .MuiLinearProgress-bar": {
-                                                                    bgcolor: theme.palette.primary.main,
-                                                                },
+                                                                "& .MuiLinearProgress-bar": { bgcolor: theme.palette.primary.main },
                                                             }}
                                                         />
                                                         <Typography sx={{ fontSize: "0.7rem", fontWeight: 900, color: theme.palette.text.primary }}>
@@ -669,7 +714,15 @@ export default function SiparisAnaliz() {
 
                                     {selectedPersonProjects.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={5} sx={{ py: 6, textAlign: "center", color: theme.palette.text.secondary, fontWeight: 900 }}>
+                                            <TableCell
+                                                colSpan={5}
+                                                sx={{
+                                                    py: 6,
+                                                    textAlign: "center",
+                                                    color: theme.palette.text.secondary,
+                                                    fontWeight: 900,
+                                                }}
+                                            >
                                                 Sonuç bulunamadı.
                                             </TableCell>
                                         </TableRow>

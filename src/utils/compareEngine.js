@@ -1,286 +1,150 @@
 // src/utils/compareEngine.js
-// ✅ Güncel: "Aynı hafta" = takvim haftası (Pazartesi–Pazar) olacak şekilde düzeltildi.
-// ✅ buildAnalysis artık UI (karsilastirma.js) ile aynı hafta mantığını kullanır.
-// Not: date-fns yok, pure JS.
+import { metniNormalizeEt as norm } from "../ozellikler/yardimcilar/metin";
+import { REGIONS } from "../ozellikler/yardimcilar/veriKurallari";
 
-const norm = (s) =>
-    (s ?? "")
-        .toString()
-        .trim()
-        .toLocaleUpperCase("tr-TR")
-        .replace(/\s+/g, " ");
+// ---- tarih yardımcıları
+const asDate = (v) => {
+    if (!v) return null;
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d;
+};
+const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+const monthStart = (y, m0) => new Date(y, m0, 1);
+const monthEnd = (y, m0) => new Date(y, m0 + 1, 0, 23, 59, 59, 999);
 
-const toNum = (v) => {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
+const getWeekOfMonth = (d) => {
+    // 1..5 (ayın kaçıncı haftası)
+    const first = new Date(d.getFullYear(), d.getMonth(), 1);
+    const dayOffset = first.getDay() === 0 ? 6 : first.getDay() - 1; // pazartesi başlangıç
+    const index = Math.floor((d.getDate() + dayOffset - 1) / 7) + 1;
+    return Math.min(5, Math.max(1, index));
 };
 
-// dd.mm.yyyy / ISO parse
-export const parseTRDateTime = (v) => {
-    if (!v || v === "---") return null;
-    if (v instanceof Date && !Number.isNaN(v.getTime())) return v;
-
-    const s = String(v).trim();
-    if (!s) return null;
-
-    // dd.mm.yyyy [HH:MI[:SS]]
-    const m = s.match(
-        /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/
-    );
-    if (m) {
-        const dd = Number(m[1]);
-        const mm = Number(m[2]);
-        const yyyy = Number(m[3]);
-        const HH = Number(m[4] ?? 0);
-        const MI = Number(m[5] ?? 0);
-        const SS = Number(m[6] ?? 0);
-        const d = new Date(yyyy, mm - 1, dd, HH, MI, SS);
-        return Number.isNaN(d.getTime()) ? null : d;
+const listLastMonths = (endDate, count) => {
+    const out = [];
+    const d = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+    for (let i = 0; i < count; i++) {
+        const x = new Date(d.getFullYear(), d.getMonth() - i, 1);
+        out.push({
+            key: monthKey(x),
+            start: monthStart(x.getFullYear(), x.getMonth()),
+            end: monthEnd(x.getFullYear(), x.getMonth()),
+            year: x.getFullYear(),
+            month0: x.getMonth(),
+        });
     }
-
-    // ISO / other JS parse
-    const d2 = new Date(s);
-    return Number.isNaN(d2.getTime()) ? null : d2;
+    return out.reverse(); // eski -> yeni
 };
 
-const hoursDiff = (a, b) => {
-    const d1 = parseTRDateTime(a);
-    const d2 = parseTRDateTime(b);
-    if (!d1 || !d2) return null;
-    return Math.abs(d2.getTime() - d1.getTime()) / (1000 * 60 * 60);
-};
-
-// sefer_acilis_zamani(TMSDespatchCreatedDate) -> yukleme_tarihi(PickupDate)
-const getTimingInfo = (seferAcilisZamani, yuklemeTarihi) => {
-    const h = hoursDiff(seferAcilisZamani, yuklemeTarihi);
-    if (h == null) return { level: "none", hours: null };
-    if (h < 30) return { level: "ok", hours: h };
-    return { level: "late", hours: h };
-};
-
-/** ✅ UltraProjeTablosu kuralları: ProjectName normalizasyonu */
-export const normalizeProjectName = (item) => {
-    let finalProjectName = item.ProjectName;
-    const pNorm = norm(item.ProjectName);
+// ---- proje mapping: AnalizTablosu’ndaki aynı kurallar
+export function mapProjectName(item) {
+    let name = item?.ProjectName;
+    const pNorm = norm(name);
 
     // KÜÇÜKBAY
     if (pNorm === norm("KÜÇÜKBAY FTL")) {
         const TRAKYA = new Set(["EDİRNE", "KIRKLARELİ", "TEKİRDAĞ"].map(norm));
-        if (TRAKYA.has(norm(item.PickupCityName))) finalProjectName = "KÜÇÜKBAY TRAKYA FTL";
-        else if (norm(item.PickupCityName) === norm("İZMİR")) finalProjectName = "KÜÇÜKBAY İZMİR FTL";
-        else return null; // senin kuralın
+        if (TRAKYA.has(norm(item?.PickupCityName))) return "KÜÇÜKBAY TRAKYA FTL";
+        if (norm(item?.PickupCityName) === norm("İZMİR")) return "KÜÇÜKBAY İZMİR FTL";
+        return null; // kapsam dışı
     }
 
     // PEPSİ
     if (pNorm === norm("PEPSİ FTL")) {
-        const c = norm(item.PickupCityName);
-        const d = norm(item.PickupCountyName);
-        if (c === norm("TEKİRDAĞ") && d === norm("ÇORLU")) finalProjectName = "PEPSİ FTL ÇORLU";
-        else if (c === norm("KOCAELİ") && d === norm("GEBZE")) finalProjectName = "PEPSİ FTL GEBZE";
+        const c = norm(item?.PickupCityName);
+        const d = norm(item?.PickupCountyName);
+        if (c === norm("TEKİRDAĞ") && d === norm("ÇORLU")) return "PEPSİ FTL ÇORLU";
+        if (c === norm("KOCAELİ") && d === norm("GEBZE")) return "PEPSİ FTL GEBZE";
+        return "PEPSİ FTL";
     }
 
     // EBEBEK
     if (pNorm === norm("EBEBEK FTL")) {
-        const c = norm(item.PickupCityName);
-        const d = norm(item.PickupCountyName);
-        if (c === norm("KOCAELİ") && d === norm("GEBZE")) finalProjectName = "EBEBEK FTL GEBZE";
+        const c = norm(item?.PickupCityName);
+        const d = norm(item?.PickupCountyName);
+        if (c === norm("KOCAELİ") && d === norm("GEBZE")) return "EBEBEK FTL GEBZE";
+        return "EBEBEK FTL";
     }
 
     // FAKİR
     if (pNorm === norm("FAKİR FTL")) {
-        const c = norm(item.PickupCityName);
-        const d = norm(item.PickupCountyName);
-        if (c === norm("KOCAELİ") && d === norm("GEBZE")) finalProjectName = "FAKİR FTL GEBZE";
+        const c = norm(item?.PickupCityName);
+        const d = norm(item?.PickupCountyName);
+        if (c === norm("KOCAELİ") && d === norm("GEBZE")) return "FAKİR FTL GEBZE";
+        return "FAKİR FTL";
     }
 
     // OTTONYA
-    if (pNorm === norm("OTTONYA")) finalProjectName = "OTTONYA (HEDEFTEN AÇILIYOR)";
+    if (pNorm === norm("OTTONYA")) return "OTTONYA (HEDEFTEN AÇILIYOR)";
 
-    return finalProjectName;
-};
+    return name || null;
+}
 
-/** ✅ Tarih aralığı filtreleme */
-export const filterByDateRange = (data, start, end, dateField = "OrderCreatedDate") => {
-    const s = start instanceof Date ? start : parseTRDateTime(start);
-    const e = end instanceof Date ? end : parseTRDateTime(end);
-    if (!s || !e) return [];
-    const sMs = s.getTime();
-    const eMs = e.getTime();
+// ---- region filter
+export function isInRegion(projectName, regionKey) {
+    const list = REGIONS?.[regionKey] || [];
+    const key = norm(projectName);
+    return list.some((x) => norm(x) === key);
+}
 
-    return (Array.isArray(data) ? data : []).filter((item) => {
-        const d = parseTRDateTime(item?.[dateField]);
-        if (!d) return false;
-        const t = d.getTime();
-        return t >= sMs && t <= eMs;
-    });
-};
+// ---- asıl agregasyon
+export function buildTimeSeries({ data, regionKey, endDate = new Date(), months = 13 }) {
+    const monthsList = listLastMonths(endDate, months);
 
-/** ✅ KPI hesap */
-export const calcKpi = ({
-    data,
-    start,
-    end,
-    dateField = "OrderCreatedDate",
-    allowedProjects = null, // Set(normalizeProjectName)
-}) => {
-    const slice = filterByDateRange(data, start, end, dateField);
-
-    const planReq = new Set(); // talep = VehicleRequest
-    const tedDesp = new Set(); // tedarik = SFR despatch
-    const iptalDesp = new Set(); // iptal = statu 200 (SFR içinde)
-    const ontimeReq = new Set(); // zamanında = reqNo timing ok
-    const lateReq = new Set(); // geç = reqNo timing late
-
-    for (const item of slice) {
-        // service scope kuralın
-        const service = norm(item.ServiceName);
-        const inScope =
-            service === norm("YURTİÇİ FTL HİZMETLERİ") || service === norm("FİLO DIŞ YÜK YÖNETİMİ");
-        if (!inScope) continue;
-
-        // proje kuralı (normalize)
-        const p = normalizeProjectName(item);
-        if (!p) continue;
-        if (allowedProjects && !allowedProjects.has(norm(p))) continue;
-
-        // talep
-        const reqNo = (item.TMSVehicleRequestDocumentNo || "").toString();
-        if (reqNo && !reqNo.toUpperCase().startsWith("BOS")) planReq.add(reqNo);
-
-        // despatch
-        const despNo = (item.TMSDespatchDocumentNo || "").toString();
-        const isSfr = despNo.startsWith("SFR") && !despNo.toUpperCase().startsWith("BOS");
-        if (!isSfr) continue;
-
-        const statu = toNum(item.OrderStatu);
-        if (statu === 200) {
-            iptalDesp.add(despNo);
-            continue;
-        }
-
-        tedDesp.add(despNo);
-
-        // timing (sefer açılış -> yükleme) üzerinden reqNo bazlı ok/late
-        const timing = getTimingInfo(item.TMSDespatchCreatedDate, item.PickupDate);
-        if (timing.hours != null && reqNo) {
-            if (timing.level === "ok") ontimeReq.add(reqNo);
-            if (timing.level === "late") lateReq.add(reqNo);
-        }
-    }
-
-    const plan = planReq.size;
-    const ted = tedDesp.size;
-    const iptal = iptalDesp.size;
-    const zamaninda = ontimeReq.size;
-    const gec = lateReq.size;
-    const perf = plan ? Math.round((zamaninda / plan) * 100) : 0;
-
-    return { plan, ted, iptal, zamaninda, gec, perf };
-};
-
-/* ------------------------ Takvim haftası yardımcıları (Pazartesi–Pazar) ------------------------ */
-export const startOfWeekMonday = (d) => {
-    const x = new Date(d);
-    x.setHours(0, 0, 0, 0);
-    const day = x.getDay(); // 0 Pazar, 1 Pzt...
-    const diff = day === 0 ? -6 : 1 - day; // Pazartesi
-    x.setDate(x.getDate() + diff);
-    return x;
-};
-
-export const endOfWeekSunday = (d) => {
-    const s = startOfWeekMonday(d);
-    const e = new Date(s);
-    e.setDate(e.getDate() + 6);
-    e.setHours(23, 59, 59, 999);
-    return e;
-};
-
-export const addMonths = (d, m) =>
-    new Date(d.getFullYear(), d.getMonth() + m, d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds());
-
-/* ------------------------ “İstediğim kadar analiz üret” ------------------------ */
-export const buildAnalysis = ({
-    data,
-    regionProjects, // Array<string>
-    dateField = "OrderCreatedDate",
-    now = new Date(),
-    lookbackMonths = [1, 2, 3, 6], // kaç ay geriye bakayım
-    includeAverages = [3, 6], // ortalamalar
-}) => {
-    const allowed = regionProjects?.length ? new Set(regionProjects.map((p) => norm(p))) : null;
-
-    // ✅ Bu hafta: takvim haftası (Pzt–Paz)
-    const thisWeek = { start: startOfWeekMonday(now), end: endOfWeekSunday(now) };
-    const kpiThisWeek = calcKpi({ data, ...thisWeek, dateField, allowedProjects: allowed });
-
-    // ✅ Geçmiş ayların "aynı hafta"si: (now - m ay) tarihinin bulunduğu takvim haftası
-    const seriesSameWeek = lookbackMonths.map((m) => {
-        const md = addMonths(now, -m);
-        const r = { start: startOfWeekMonday(md), end: endOfWeekSunday(md) };
-        return {
-            monthOffset: m,
-            label: `${m} ay önce (aynı hafta)`,
-            range: r,
-            kpi: calcKpi({ data, ...r, dateField, allowedProjects: allowed }),
-        };
+    // monthKey -> { total, w1..w5 }
+    const monthAgg = {};
+    monthsList.forEach((m) => {
+        monthAgg[m.key] = { key: m.key, total: 0, w1: 0, w2: 0, w3: 0, w4: 0, w5: 0 };
     });
 
-    // ✅ Ortalama: önceki N ayın (aynı hafta) KPI ortalaması
-    const averages = includeAverages.map((n) => {
-        const items = [];
-        for (let i = 1; i <= n; i++) {
-            const md = addMonths(now, -i);
-            const r = { start: startOfWeekMonday(md), end: endOfWeekSunday(md) };
-            items.push(calcKpi({ data, ...r, dateField, allowedProjects: allowed }));
-        }
+    // project bazlı istersen:
+    // monthProjectAgg[monthKey][project] = { total, w1..w5 }
+    const monthProjectAgg = {};
 
-        const avg = (key) => Math.round(items.reduce((a, x) => a + (x[key] || 0), 0) / items.length);
+    (Array.isArray(data) ? data : []).forEach((item) => {
+        const p = mapProjectName(item);
+        if (!p) return;
+        if (regionKey && !isInRegion(p, regionKey)) return;
 
-        return {
-            months: n,
-            label: `Önceki ${n} ay ort. (aynı hafta)`,
-            kpi: {
-                plan: avg("plan"),
-                ted: avg("ted"),
-                iptal: avg("iptal"),
-                zamaninda: avg("zamaninda"),
-                gec: avg("gec"),
-                perf: avg("perf"),
-            },
-        };
+        const d = asDate(item?.PickupDate);
+        if (!d) return;
+
+        const mk = monthKey(d);
+        if (!monthAgg[mk]) return;
+
+        const w = getWeekOfMonth(d); // 1..5
+        monthAgg[mk].total += 1;
+        monthAgg[mk][`w${w}`] += 1;
+
+        if (!monthProjectAgg[mk]) monthProjectAgg[mk] = {};
+        if (!monthProjectAgg[mk][p]) monthProjectAgg[mk][p] = { project: p, total: 0, w1: 0, w2: 0, w3: 0, w4: 0, w5: 0 };
+        monthProjectAgg[mk][p].total += 1;
+        monthProjectAgg[mk][p][`w${w}`] += 1;
     });
 
-    // ✅ Ek: Bu ayın ilk haftası (takvim haftasıyla değil, ayın 1'inin bulunduğu hafta)
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const thisFirstWeek = { start: startOfWeekMonday(monthStart), end: endOfWeekSunday(monthStart) };
+    const series = monthsList.map((m) => monthAgg[m.key]);
 
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastFirstWeek = { start: startOfWeekMonday(lastMonthStart), end: endOfWeekSunday(lastMonthStart) };
+    // Trend metrikleri
+    const last = series[series.length - 1]?.total ?? 0;
+    const prev = series[series.length - 2]?.total ?? 0;
+    const prev3Avg =
+        series.slice(-3).reduce((a, x) => a + (x.total || 0), 0) / Math.max(1, series.slice(-3).length);
 
-    const kpiThisFirst = calcKpi({ data, ...thisFirstWeek, dateField, allowedProjects: allowed });
-    const kpiLastFirst = calcKpi({ data, ...lastFirstWeek, dateField, allowedProjects: allowed });
+    const mom = prev ? Math.round(((last - prev) / prev) * 100) : null;
+
+    // YoY: 12 ay önce aynı ay
+    const yoyBase = series.length >= 13 ? series[series.length - 13]?.total ?? 0 : null;
+    const yoy = yoyBase ? Math.round(((last - yoyBase) / yoyBase) * 100) : null;
+
+    // basit slope (son 4 ay)
+    const last4 = series.slice(-4).map((x) => x.total || 0);
+    const slope = last4.length >= 2 ? (last4[last4.length - 1] - last4[0]) : 0;
+    const trend = slope > 0 ? "yukselis" : slope < 0 ? "azalis" : "stabil";
 
     return {
-        meta: {
-            dateField,
-            weekType: "calendar_week_monday_sunday",
-            thisYear: now.getFullYear(),
-            thisMonth: now.getMonth() + 1,
-        },
-        comparisons: {
-            // Ay başı haftası karşılaştırması
-            firstWeek: {
-                thisMonth: { range: thisFirstWeek, kpi: kpiThisFirst },
-                lastMonth: { range: lastFirstWeek, kpi: kpiLastFirst },
-            },
-
-            // Bu hafta + geçmiş ayların aynı takvim haftası
-            sameWeek: {
-                thisWeek: { range: thisWeek, kpi: kpiThisWeek },
-                history: seriesSameWeek,
-                averages,
-            },
-        },
+        series,              // ay ay total + w1..w5
+        monthProjectAgg,     // ay->proje kırılımı
+        meta: { monthsList },
+        kpi: { last, prev, mom, yoy, prev3Avg: Math.round(prev3Avg), trend, slope },
     };
-};
+}

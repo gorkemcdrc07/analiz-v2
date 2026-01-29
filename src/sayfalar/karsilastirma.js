@@ -1,1359 +1,1113 @@
 // src/sayfalar/karsilastirma.js
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Box,
-    AppBar,
-    Toolbar,
-    IconButton,
-    Typography,
     Stack,
-    Button,
-    Divider,
-    FormControl,
-    InputLabel,
+    Typography,
+    alpha,
+    useTheme,
+    Paper,
+    TextField,
+    InputAdornment,
     Select,
     MenuItem,
-    Chip,
-    CircularProgress,
-    Paper,
     Tooltip,
-    TextField,
-    Autocomplete,
-    ToggleButton,
-    ToggleButtonGroup,
-    InputAdornment,
-    useTheme,
-    Drawer,
-    useMediaQuery,
-    alpha,
+    IconButton,
+    Button,
+    Divider,
+    Table,
+    TableHead,
+    TableRow,
+    TableCell,
+    TableBody,
+    TableContainer,
+    Chip,
+    LinearProgress,
+    CircularProgress,
 } from "@mui/material";
+import { RiRefreshLine, RiBarChart2Line, RiSearch2Line, RiInformationLine } from "react-icons/ri";
+import { motion } from "framer-motion";
 
-import CloseIcon from "@mui/icons-material/Close";
-import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
-import RestartAltRoundedIcon from "@mui/icons-material/RestartAltRounded";
-import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
-import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
-import TableRowsRoundedIcon from "@mui/icons-material/TableRowsRounded";
-import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
-import SwapVertRoundedIcon from "@mui/icons-material/SwapVertRounded";
-import CompressRoundedIcon from "@mui/icons-material/CompressRounded";
-import ExpandRoundedIcon from "@mui/icons-material/ExpandRounded";
-import MenuIcon from "@mui/icons-material/Menu";
+import { BASE_URL } from "../ozellikler/yardimcilar/sabitler";
+import { extractItems } from "../ozellikler/yardimcilar/backend";
+import { REGIONS } from "../ozellikler/yardimcilar/veriKurallari";
+import { metniNormalizeEt } from "../ozellikler/yardimcilar/metin";
 
-// ✅ Excel export
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
+/* ------------------------ küçük tarih yardımcıları ------------------------ */
+const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
+const endOfMonth = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
 
-import { supabase } from "../supabaseClient";
-import { calcKpi } from "../utils/compareEngine";
+const fmtTR = (d) =>
+    d
+        ? new Date(d).toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric" })
+        : "-";
 
-/* ------------------------ REGIONS ------------------------ */
-const REGIONS = {
-    TRAKYA: [
-        "BUNGE LÜLEBURGAZ FTL",
-        "BUNGE GEBZE FTL",
-        "BUNGE PALET",
-        "REKA FTL",
-        "EKSUN GIDA FTL",
-        "SARUHAN FTL",
-        "PEPSİ FTL",
-        "PEPSİ FTL ÇORLU",
-        "TEKİRDAĞ UN FTL",
-        "AYDINLI MODA FTL",
-        "ADKOTURK FTL",
-        "ADKOTURK FTL ENERJİ İÇECEĞİ",
-        "SGS FTL",
-        "BSH FTL",
-        "ALTERNA GIDA FTL",
-        "BİLEŞİM KİMYA FTL",
-        "DERYA OFİS FTL",
-        "SAPRO FTL",
-        "MARMARA CAM FTL",
-        "FAKİR FTL",
-        "MODERN KARTON FTL",
-        "KÜÇÜKBAY TRAKYA FTL",
-        "MODERN BOBİN FTL",
-    ],
-    GEBZE: [
-        "HEDEF FTL",
-        "HEDEF DIŞ TEDARİK",
-        "PEPSİ FTL GEBZE",
-        "EBEBEK FTL GEBZE",
-        "FAKİR FTL GEBZE",
-        "MİLHANS FTL",
-        "AYDIN KURUYEMİŞ FTL",
-        "AVANSAS FTL",
-        "AVANSAS SPOT FTL",
-        "DSV ERNAMAŞ FTL",
-        "FLO FTL",
-        "ÇİÇEKÇİ FTL",
-        "ÇİZMECİ GIDA FTL",
-        "OTTONYA (HEDEFTEN AÇILIYOR)",
-        "GALEN ÇOCUK FTL",
-        "ENTAŞ FTL",
-    ],
-    DERİNCE: ["ARKAS PETROL OFİSİ DERİNCE FTL", "ARKAS PETROL OFİSİ DIŞ TERMİNAL FTL"],
-    İZMİR: [
-        "EURO GIDA FTL",
-        "EBEBEK FTL",
-        "KİPAŞ SÖKE FTL",
-        "CEYSU FTL",
-        "TAT GIDA FTL",
-        "ZER SALÇA",
-        "ANKUTSAN FTL",
-        "PELAGOS GIDA FTL",
-        "KÜÇÜKBAY İZMİR FTL",
-    ],
-    ÇUKUROVA: ["PEKER FTL", "GDP FTL", "ÖZMEN UN FTL", "KİPAŞ MARAŞ FTL", "TÜRK OLUKLU FTL", "İLKON TEKSTİL FTL", "BİM / MERSİN"],
-    ESKİŞEHİR: ["ES FTL", "ES GLOBAL FRİGO FTL", "KİPAŞ BOZÜYÜK FTL", "2A TÜKETİM FTL", "MODERN HURDA DÖNÜŞ FTL", "MODERN HURDA ZONGULDAK FTL", "ŞİŞECAM FTL", "DENTAŞ FTL"],
-    "İÇ ANADOLU": ["APAK FTL", "SER DAYANIKLI FTL", "UNIFO FTL", "UNIFO ASKERİ FTL"],
-    AFYON: ["BİM AFYON PLATFORM FTL"],
-};
-const allProjects = Object.values(REGIONS).flat();
+const fmtRange = (a, b) => `${fmtTR(a)} – ${fmtTR(b)}`;
 
-/* ------------------------ UI helpers ------------------------ */
-function SectionTitle({ icon, title, sub }) {
-    const theme = useTheme();
-    const isDark = theme.palette.mode === "dark";
-    const bd = alpha(theme.palette.divider, isDark ? 0.55 : 1);
+const fmtRangeShort = (a, b) =>
+    `${new Date(a).toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit" })}–${new Date(b).toLocaleDateString(
+        "tr-TR",
+        { day: "2-digit", month: "2-digit" }
+    )}`;
 
-    return (
-        <Stack direction="row" spacing={1.2} alignItems="center">
-            <Box
-                sx={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 999,
-                    display: "grid",
-                    placeItems: "center",
-                    bgcolor: alpha(theme.palette.text.primary, isDark ? 0.08 : 0.06),
-                    border: `1px solid ${bd}`,
-                    backdropFilter: "blur(10px)",
-                }}
-            >
-                {icon}
-            </Box>
-            <Box>
-                <Typography sx={{ fontWeight: 1200, letterSpacing: "-0.35px", lineHeight: 1.1 }}>{title}</Typography>
-                {sub ? (
-                    <Typography sx={{ fontWeight: 850, color: theme.palette.text.secondary, fontSize: "0.82rem", mt: 0.2 }}>
-                        {sub}
-                    </Typography>
-                ) : null}
-            </Box>
-        </Stack>
-    );
-}
-
-function fmtPct(n) {
-    if (n == null || !Number.isFinite(n)) return "-";
-    return `%${n}`;
-}
-function safePct(a, b) {
-    const aa = Number(a ?? 0);
-    const bb = Number(b ?? 0);
-    if (!bb) return null;
-    return Math.round((aa / bb) * 100);
-}
-function fmtInt(n) {
-    const x = Number(n ?? 0);
-    if (!Number.isFinite(x)) return "-";
-    return new Intl.NumberFormat("tr-TR").format(Math.round(x));
-}
-function pctChange(newVal, baseVal, { minBase = 5 } = {}) {
-    const n = Number(newVal);
-    const b = Number(baseVal);
-    if (!Number.isFinite(n) || !Number.isFinite(b)) return null;
-    if (b <= 0 || Math.abs(b) < minBase) return null;
-    return ((n - b) / b) * 100;
-}
-
-/* ------------------------ Mapping helpers (RAW -> Engine) ------------------------ */
-const STATUS_TEXT_TO_CODE = {
-    Bekliyor: 1,
-    Onaylandı: 2,
-    "Spot Araç Planlamada": 3,
-    "Araç Atandı": 4,
-    "Araç Yüklendi": 5,
-    "Araç Yolda": 6,
-    "Teslim Edildi": 7,
-    Tamamlandı: 8,
-    "Eksik Evrak": 10,
-    "Araç Boşaltmada": 80,
-    "Filo Araç Planlamada": 90,
-    İptal: 200,
-};
-const normalizeTR = (s) => (s ?? "").toString().trim().toLocaleUpperCase("tr-TR");
-
-function mapRawToEngineRow(r) {
-    const statusText = (r.siparis_durumu ?? "").toString().trim();
-    const statusCode = STATUS_TEXT_TO_CODE[statusText] ?? statusText;
-
-    const isPrintBool =
-        normalizeTR(r.sefer_hesap_ozeti) === "CHECKED" ||
-        normalizeTR(r.sefer_hesap_ozeti) === "TRUE" ||
-        r.sefer_hesap_ozeti === true;
-
-    return {
-        ProjectName: r.proje,
-        ServiceName: r.hizmet_tipi,
-        SubServiceName: r.hizmet_tipi ?? "",
-        TMSVehicleRequestDocumentNo: r.pozisyon_no,
-        TMSDespatchDocumentNo: r.sefer_no,
-        OrderStatu: statusCode,
-        PickupCityName: r.yukleme_ili,
-        PickupCountyName: r.yukleme_ilcesi,
-        DeliveryCityName: r.teslim_ili,
-        DeliveryCountyName: r.teslim_ilcesi,
-        VehicleWorkingName: r.arac_calisma_tipi,
-        IsPrint: isPrintBool,
-        TMSDespatchCreatedDate: r.sefer_acilis_zamani,
-        PickupDate: r.yukleme_tarihi,
-        OrderCreatedDate: r.effective_ts ?? r.yukleme_ts,
-        _raw: r,
-    };
-}
-
-/* ------------------------ Date helpers ------------------------ */
-function addMonths(d, m) {
+const clampDayStart = (d) => {
     const x = new Date(d);
-    x.setMonth(x.getMonth() + m);
+    x.setHours(0, 0, 0, 0);
     return x;
-}
-function addDays(d, n) {
+};
+
+const addDays = (d, n) => {
     const x = new Date(d);
     x.setDate(x.getDate() + n);
     return x;
-}
-function startOfMonth(d) {
+};
+
+// Pazartesi başlangıçlı hafta
+const startOfWeekMon = (d) => {
+    const x = clampDayStart(d);
+    const day = x.getDay(); // 0 pazar
+    const diff = (day + 6) % 7; // pazartesi=0
+    x.setDate(x.getDate() - diff);
+    return x;
+};
+
+const endOfWeekSun = (d) => {
+    const s = startOfWeekMon(d);
+    const e = new Date(s);
+    e.setDate(e.getDate() + 6);
+    e.setHours(23, 59, 59, 999);
+    return e;
+};
+
+// 0..6 (Pzt..Paz)
+const weekdayMon0 = (d) => (d.getDay() + 6) % 7;
+
+const eachDay = (a, b) => {
+    const out = [];
+    let cur = clampDayStart(a);
+    const end = clampDayStart(b);
+    while (cur <= end) {
+        out.push(new Date(cur));
+        cur = addDays(cur, 1);
+    }
+    return out;
+};
+
+const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+const monthLabelTR = (d) => d.toLocaleDateString("tr-TR", { year: "numeric", month: "long" });
+
+// ✅ haftalık çekim için ISO (Z)
+const isoStartOfDayZ = (d) => {
     const x = new Date(d);
-    x.setDate(1);
     x.setHours(0, 0, 0, 0);
-    return x;
-}
-function endOfMonth(d) {
-    const x = startOfMonth(d);
-    x.setMonth(x.getMonth() + 1);
-    x.setMilliseconds(-1);
-    return x;
-}
-function monthLabelTR(d) {
-    try {
-        return d.toLocaleDateString("tr-TR", { month: "long", year: "numeric" });
-    } catch {
-        return "";
+    return x.toISOString();
+};
+
+const isoEndOfDayZ = (d) => {
+    const x = new Date(d);
+    x.setHours(23, 59, 59, 999);
+    return x.toISOString();
+};
+
+// ✅ son N hafta (eski -> yeni)
+const buildWeekRanges = ({ weeksBack = 12, anchorDate = new Date() }) => {
+    const t0 = clampDayStart(anchorDate);
+    const week0Start = startOfWeekMon(t0); // bu haftanın pazartesi
+    const out = [];
+    for (let i = weeksBack - 1; i >= 0; i--) {
+        const s = addDays(week0Start, -7 * i);
+        const e = addDays(s, 6);
+        e.setHours(23, 59, 59, 999);
+        out.push({ start: s, end: e });
     }
+    return out;
+};
+
+/* ------------------------ veri alanları yardımcıları ------------------------ */
+// ✅ Sende farklıysa burayı düzelt
+function getPickupDate(item) {
+    const v =
+        item?.PickupDate ??
+        item?.pickupDate ??
+        item?.pickup_date ??
+        item?.pickup_datetime ??
+        item?.pickupDatetime ??
+        item?.pickup_time;
+    if (!v) return null;
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
 }
-function fmtRangeTR(start, end) {
-    try {
-        const s = start?.toLocaleDateString("tr-TR");
-        const e = end?.toLocaleDateString("tr-TR");
-        return `${s} - ${e}`;
-    } catch {
-        return "";
+
+// ✅ Sende farklıysa burayı düzelt
+function getProjectName(item) {
+    return (
+        item?.ProjectName ??
+        item?.projectName ??
+        item?.proje ??
+        item?.Proje ??
+        item?.Customer ??
+        item?.customer ??
+        item?.AccountName ??
+        item?.accountName ??
+        "—"
+    );
+}
+
+// Region filtresi: REGIONS[bolge] bir allowlist ise onu uygula
+function isInSelectedRegion(item, seciliBolge) {
+    const allow = REGIONS?.[seciliBolge];
+    if (!Array.isArray(allow) || allow.length === 0) return true;
+
+    const proj = getProjectName(item);
+    const norm = metniNormalizeEt(String(proj));
+    return allow.some((x) => metniNormalizeEt(String(x)) === norm);
+}
+
+/* ------------------------ forecast engine (history -> future) ------------------------ */
+function buildForecastTable({ data, seciliBolge, today }) {
+    const t0 = clampDayStart(today);
+
+    const week0Start = startOfWeekMon(t0);
+    const week0End = endOfWeekSun(t0);
+    const week1Start = addDays(week0Start, 7);
+    const week1End = endOfWeekSun(week1Start);
+    const week2Start = addDays(week0Start, 14);
+    const week2End = endOfWeekSun(week2Start);
+
+    const monthStartD = startOfMonth(t0);
+    const monthEndD = endOfMonth(t0);
+    monthEndD.setHours(23, 59, 59, 999);
+
+    const baselineDays = 28; // seviye
+    const weightWeeks = 12; // dağılım
+    const baselineStart = addDays(t0, -baselineDays + 1);
+    baselineStart.setHours(0, 0, 0, 0);
+
+    const weightsStart = addDays(week0Start, -weightWeeks * 7);
+    weightsStart.setHours(0, 0, 0, 0);
+
+    const filtered = (data || [])
+        .filter((it) => isInSelectedRegion(it, seciliBolge))
+        .map((it) => {
+            const d = getPickupDate(it);
+            if (!d) return null;
+            return { ...it, __pickup: d };
+        })
+        .filter(Boolean);
+
+    const byProject = new Map();
+    for (const it of filtered) {
+        const p = String(getProjectName(it) ?? "—");
+        if (!byProject.has(p)) byProject.set(p, []);
+        byProject.get(p).push(it);
     }
-}
 
-/**
- * ✅ Ay haftalarını 7'şer gün olarak böler:
- * W1: 1-7, W2: 8-14, W3: 15-21, W4: 22-28, W5: 29-... (ay sonu)
- */
-function monthWeeks7(d) {
-    const ms = startOfMonth(d);
-    const me = endOfMonth(d);
-    const weeks = [];
-    let cursor = new Date(ms);
+    const countActual = (list, a, b) => {
+        let c = 0;
+        for (const it of list) {
+            const d = it.__pickup;
+            if (d >= a && d <= b) c += 1;
+        }
+        return c;
+    };
 
-    let idx = 1;
-    while (cursor.getTime() <= me.getTime()) {
-        const wStart = new Date(cursor);
-        // ✅ Hafta başlangıcı 07:00
-        wStart.setHours(7, 0, 0, 0);
+    const buildBaselineDaily = (list) => {
+        const c = countActual(list, baselineStart, addDays(t0, 0));
+        return c / baselineDays;
+    };
 
-        const wEnd = addDays(wStart, 6);
+    const buildWeekdayWeights = (list) => {
+        const w = Array(7).fill(0);
+        let total = 0;
+        for (const it of list) {
+            const d = it.__pickup;
+            if (d < weightsStart || d > addDays(t0, 0)) continue;
+            w[weekdayMon0(d)] += 1;
+            total += 1;
+        }
+        if (total <= 0) return Array(7).fill(1);
+        const avg = total / 7;
+        return w.map((x) => (avg > 0 ? x / avg : 1));
+    };
 
-        // ✅ Ay sonunu geçiyorsa ay sonuna kırp
-        const cappedEnd = new Date(Math.min(wEnd.getTime(), me.getTime()));
+    const expectedForDates = (dailyBase, weights, dates) => {
+        if (!dailyBase || dailyBase <= 0) return 0;
+        let sum = 0;
+        for (const d of dates) sum += dailyBase * (weights[weekdayMon0(d)] || 1);
+        return sum;
+    };
 
-        // ✅ Hafta bitişi 23:55
-        cappedEnd.setHours(23, 55, 0, 0);
+    const series = [];
+    for (const [proje, list] of byProject.entries()) {
+        const dailyBase = buildBaselineDaily(list);
+        const weights = buildWeekdayWeights(list);
 
-        weeks.push({
-            key: `W${idx}`,
-            idx,
-            start: wStart,
-            end: cappedEnd,
-            rangeText: fmtRangeTR(wStart, cappedEnd),
-        });
+        const actualWeekToDate = countActual(list, week0Start, addDays(t0, 0));
+        const expWeekRemainder = expectedForDates(dailyBase, weights, eachDay(addDays(t0, 1), week0End));
+        const buHafta = Math.round(actualWeekToDate + expWeekRemainder);
 
-        idx += 1;
+        const gelecekHafta = Math.round(expectedForDates(dailyBase, weights, eachDay(week1Start, week1End)));
+        const digerHafta = Math.round(expectedForDates(dailyBase, weights, eachDay(week2Start, week2End)));
 
-        // ✅ bir sonraki hafta 7 gün sonra (yine 07:00’ı yukarıda setliyoruz)
-        cursor = addDays(new Date(cursor), 7);
-        cursor.setHours(0, 0, 0, 0); // sadece tarih kaydırma için
+        const actualMonthToDate = countActual(list, monthStartD, addDays(t0, 0));
+        const expMonthRemainder = expectedForDates(dailyBase, weights, eachDay(addDays(t0, 1), monthEndD));
+        const aySonunaKadar = Math.round(actualMonthToDate + expMonthRemainder);
+
+        const ayToplam = Math.round(expectedForDates(dailyBase, weights, eachDay(monthStartD, monthEndD)));
+
+        series.push({ bolge: seciliBolge, proje, buHafta, gelecekHafta, digerHafta, aySonunaKadar, ayToplam });
     }
 
-    // ✅ Ay başlangıcı da 07:00 olsun (toplam hesaplar için)
-    const monthStart = new Date(ms);
-    monthStart.setHours(7, 0, 0, 0);
-
-    // ✅ Ay sonu olduğu gibi kalsın (sadece hafta bitişlerini 23:55 yaptık)
-    return { monthStart, monthEnd: me, weeks };
+    return {
+        meta: {
+            today: t0,
+            week0Start,
+            week0End,
+            week1Start,
+            week1End,
+            week2Start,
+            week2End,
+            monthStart: monthStartD,
+            monthEnd: monthEndD,
+            baselineStart,
+            weightsStart,
+        },
+        series,
+    };
 }
 
-/* ------------------------ Forecast helpers ------------------------ */
-function clamp01(x) {
-    const n = Number(x);
-    if (!Number.isFinite(n)) return 0;
-    return Math.max(0, Math.min(1, n));
+/* ------------------------ tarihsel analiz (son 13 ay) ------------------------ */
+function buildMonthlyHistory({ data, seciliBolge, monthsBack = 13, anchorDate }) {
+    const t0 = clampDayStart(anchorDate);
+    const start = new Date(t0.getFullYear(), t0.getMonth() - (monthsBack - 1), 1);
+    const end = endOfMonth(t0);
+    end.setHours(23, 59, 59, 999);
+
+    const filtered = (data || [])
+        .filter((it) => isInSelectedRegion(it, seciliBolge))
+        .map((it) => {
+            const d = getPickupDate(it);
+            if (!d) return null;
+            return { ...it, __pickup: d };
+        })
+        .filter(Boolean);
+
+    const months = [];
+    for (let i = monthsBack - 1; i >= 0; i--) {
+        const md = new Date(t0.getFullYear(), t0.getMonth() - i, 1);
+        months.push(md);
+    }
+
+    const byProject = new Map();
+    for (const it of filtered) {
+        const d = it.__pickup;
+        if (d < start || d > end) continue;
+        const p = String(getProjectName(it) ?? "—");
+        const k = monthKey(d);
+        if (!byProject.has(p)) byProject.set(p, {});
+        byProject.get(p)[k] = (byProject.get(p)[k] || 0) + 1;
+    }
+
+    const rows = [];
+    for (const [proje, obj] of byProject.entries()) {
+        const counts = months.map((m) => obj[monthKey(m)] || 0);
+        const total = counts.reduce((a, b) => a + b, 0);
+        rows.push({ bolge: seciliBolge, proje, counts, total });
+    }
+
+    return { months, rows };
 }
-function forecastNextMonthTotal(monthTotalsOldestToNewest) {
-    const arr = (monthTotalsOldestToNewest || []).map(Number).filter((x) => Number.isFinite(x));
-    if (!arr.length) return 0;
-    if (arr.length === 1) return Math.max(0, Math.round(arr[0]));
 
-    const last3 = arr.slice(-3);
-    const avg3 = last3.reduce((a, b) => a + b, 0) / last3.length;
-
-    const slope = (arr[arr.length - 1] - arr[0]) / (arr.length - 1);
-    const last = arr[arr.length - 1];
-    const trendPoint = last + slope;
-
-    const blended = (avg3 + last + trendPoint) / 3;
-    return Math.max(0, Math.round(blended));
-}
-
-/**
- * ✅ Önceki ayın haftalık dağılım oranlarını alıp,
- * gelecek ay tahmin toplamını aynı oranlarla haftalara böler.
- * prevWeeksTotals: [W1, W2, ...] toplamları
- */
-function forecastWeekSplitsFromPrevMonth(prevWeeksTotals, prevFull, nextMonthTotal) {
-    const full = Number(prevFull ?? 0);
-    if (!full) return [];
-
-    const ratios = (prevWeeksTotals || []).map((v) => clamp01(Number(v ?? 0) / full));
-    return ratios.map((r) => Math.round(nextMonthTotal * r));
-}
-
-/* ------------------------ Aesthetic tokens ------------------------ */
-function useShellStyles() {
+/* ------------------------ KPI kart ------------------------ */
+function KpiCard({ label, value, hint, color = "#6366f1" }) {
     const theme = useTheme();
     const isDark = theme.palette.mode === "dark";
-
-    const border = `1px solid ${alpha(theme.palette.divider, isDark ? 0.55 : 1)}`;
-
-    const pageBg = isDark
-        ? `radial-gradient(1100px 700px at 10% 0%, ${alpha("#3b82f6", 0.18)}, transparent 55%),
-       radial-gradient(900px 600px at 90% 10%, ${alpha("#10b981", 0.12)}, transparent 55%),
-       radial-gradient(1000px 800px at 60% 95%, ${alpha("#f43f5e", 0.10)}, transparent 60%),
-       linear-gradient(180deg, ${alpha("#0b1220", 0.98)}, ${alpha("#070c16", 0.98)})`
-        : `radial-gradient(1100px 700px at 10% 0%, ${alpha("#3b82f6", 0.16)}, transparent 55%),
-       radial-gradient(900px 600px at 90% 10%, ${alpha("#10b981", 0.10)}, transparent 55%),
-       radial-gradient(1000px 800px at 60% 95%, ${alpha("#f43f5e", 0.08)}, transparent 60%),
-       linear-gradient(180deg, ${alpha("#ffffff", 0.96)}, ${alpha("#f8fafc", 0.96)})`;
-
-    const glass = (strength = 0.72) => ({
-        bgcolor: isDark ? alpha("#0b1220", strength) : alpha("#ffffff", strength),
-        border,
-        backdropFilter: "blur(16px)",
-        boxShadow: isDark ? "0 22px 70px rgba(0,0,0,0.55)" : "0 18px 60px rgba(15,23,42,0.10)",
-    });
-
-    const softInput = {
-        "& .MuiOutlinedInput-root": {
-            borderRadius: 3,
-            bgcolor: isDark ? alpha("#0b1220", 0.55) : alpha("#ffffff", 0.75),
-            backdropFilter: "blur(10px)",
-        },
-    };
-
-    const primaryBtn = {
-        borderRadius: 3,
-        fontWeight: 1100,
-        textTransform: "none",
-        px: 1.6,
-        ...(isDark
-            ? { bgcolor: "#e2e8f0", color: "#0b1220", "&:hover": { bgcolor: "#f1f5f9" } }
-            : { bgcolor: "#0f172a", color: "#fff", "&:hover": { bgcolor: "#111827" } }),
-    };
-
-    const outlineBtn = {
-        borderRadius: 3,
-        fontWeight: 1000,
-        textTransform: "none",
-        bgcolor: isDark ? alpha("#0b1220", 0.55) : alpha("#ffffff", 0.55),
-        borderColor: alpha(theme.palette.divider, isDark ? 0.6 : 1),
-        backdropFilter: "blur(12px)",
-    };
-
-    return { isDark, border, pageBg, glass, softInput, primaryBtn, outlineBtn };
-}
-
-/* ------------------------ Small UI bits ------------------------ */
-function KpiCard({ title, value, sub, tone = "neutral" }) {
-    const theme = useTheme();
-    const { isDark, glass } = useShellStyles();
-
-    const toneCfg =
-        tone === "good"
-            ? { bg: alpha("#10b981", isDark ? 0.16 : 0.10), fg: isDark ? "#86efac" : "#065f46", bd: alpha("#10b981", isDark ? 0.26 : 0.18) }
-            : tone === "warn"
-                ? { bg: alpha("#f59e0b", isDark ? 0.16 : 0.10), fg: isDark ? "#fcd34d" : "#92400e", bd: alpha("#f59e0b", isDark ? 0.26 : 0.18) }
-                : { bg: alpha(theme.palette.text.primary, isDark ? 0.06 : 0.04), fg: theme.palette.text.primary, bd: alpha(theme.palette.divider, isDark ? 0.55 : 1) };
+    const isPrimitive = typeof value === "string" || typeof value === "number";
 
     return (
         <Paper
             elevation={0}
             sx={{
-                p: 1.7,
-                borderRadius: 5,
-                ...glass(0.62),
-                border: `1px solid ${toneCfg.bd}`,
-                bgcolor: toneCfg.bg,
+                p: 2.2,
+                borderRadius: 24,
+                border: `1px solid ${alpha(color, isDark ? 0.25 : 0.18)}`,
+                bgcolor: isDark ? alpha("#0b1220", 0.65) : "#fff",
+                position: "relative",
+                overflow: "hidden",
+                minWidth: 190,
             }}
         >
-            <Typography sx={{ fontWeight: 900, color: theme.palette.text.secondary, fontSize: "0.80rem" }}>{title}</Typography>
-            <Typography sx={{ fontWeight: 1200, color: toneCfg.fg, fontSize: "1.55rem", mt: 0.25, letterSpacing: "-0.3px" }}>
-                {value}
+            <Box
+                sx={{
+                    position: "absolute",
+                    inset: -40,
+                    background: `radial-gradient(circle at 30% 20%, ${alpha(color, 0.18)} 0%, transparent 55%)`,
+                    pointerEvents: "none",
+                }}
+            />
+            <Typography sx={{ fontSize: "0.7rem", fontWeight: 950, letterSpacing: 0.9, color: "text.secondary" }}>
+                {label}
             </Typography>
-            {sub ? (
-                <Typography sx={{ fontWeight: 800, color: theme.palette.text.secondary, fontSize: "0.78rem", mt: 0.45 }}>{sub}</Typography>
+
+            {isPrimitive ? (
+                <Typography sx={{ mt: 0.5, fontSize: "1.6rem", fontWeight: 1000, color: "text.primary", letterSpacing: -0.6 }}>
+                    {value}
+                </Typography>
+            ) : (
+                <Box sx={{ mt: 0.8 }}>{value}</Box>
+            )}
+
+            {hint ? (
+                <Typography sx={{ mt: 0.6, fontSize: "0.75rem", fontWeight: 800, color: alpha(theme.palette.text.secondary, 0.9) }}>
+                    {hint}
+                </Typography>
             ) : null}
         </Paper>
     );
 }
 
-function TrendChip({ pct }) {
-    const { isDark } = useShellStyles();
-    if (pct == null || !Number.isFinite(pct) || pct === 0) return null;
-
-    const up = pct > 0;
-    const bg = up ? alpha("#10b981", isDark ? 0.22 : 0.14) : alpha("#ef4444", isDark ? 0.22 : 0.14);
-    const bd = up ? alpha("#10b981", isDark ? 0.3 : 0.22) : alpha("#ef4444", isDark ? 0.3 : 0.22);
-    const fg = up ? (isDark ? "#86efac" : "#065f46") : (isDark ? "#fca5a5" : "#991b1b");
-
+function TrendChip({ value }) {
+    const v = Number(value || 0);
+    const up = v > 0;
+    const down = v < 0;
+    const label = down ? `${v.toFixed(1)}% ↓` : up ? `+${v.toFixed(1)}% ↑` : "0%";
+    const color = down ? "#ef4444" : up ? "#10b981" : "#94a3b8";
     return (
         <Chip
             size="small"
-            label={`${up ? "▲" : "▼"} %${Math.abs(pct).toFixed(1)}`}
-            sx={{ height: 22, borderRadius: 999, fontWeight: 1100, bgcolor: bg, border: `1px solid ${bd}`, color: fg, ml: 1 }}
+            label={label}
+            sx={{
+                height: 22,
+                borderRadius: 999,
+                fontWeight: 1000,
+                bgcolor: alpha(color, 0.15),
+                border: `1px solid ${alpha(color, 0.35)}`,
+            }}
         />
     );
 }
 
-/* ------------------------ Table (Premium but clean) ------------------------ */
-function TedMatrixTablePretty({ title, subtitle, columns, rows, totals }) {
+/* ------------------------ sayfa ------------------------ */
+export default function Karsilastirma() {
     const theme = useTheme();
-    const { isDark, border, glass, softInput } = useShellStyles();
+    const isDark = theme.palette.mode === "dark";
 
-    const [showHistory, setShowHistory] = useState(false);
-    const [density, setDensity] = useState("comfortable"); // compact | comfortable
-    const [sortMode, setSortMode] = useState("none"); // none | forecast_desc | trend_desc
-    const [query, setQuery] = useState("");
-
-    const dims = useMemo(() => {
-        if (density === "compact") return { colW: 160, leftW: 420, headH: 56, rowH: 46 };
-        return { colW: 190, leftW: 460, headH: 60, rowH: 52 };
-    }, [density]);
-
-    const colW = dims.colW;
-    const leftW = dims.leftW;
-
-    const forecastCols = useMemo(() => columns.filter((c) => String(c.key).startsWith("F_")), [columns]);
-    const historyCols = useMemo(() => columns.filter((c) => !String(c.key).startsWith("F_")), [columns]);
-    const visibleCols = useMemo(() => (showHistory ? [...historyCols, ...forecastCols] : forecastCols), [showHistory, historyCols, forecastCols]);
-
-    const filteredRows = useMemo(() => {
-        const q = normalizeTR(query).replace(/\s+/g, " ").trim();
-        if (!q) return rows;
-        return (rows || []).filter((r) => normalizeTR(r.project).includes(q));
-    }, [rows, query]);
-
-    const sortedRows = useMemo(() => {
-        const arr = [...(filteredRows || [])];
-        if (sortMode === "forecast_desc") {
-            arr.sort((a, b) => Number(b.values?.F_NEXT ?? 0) - Number(a.values?.F_NEXT ?? 0));
-        } else if (sortMode === "trend_desc") {
-            arr.sort((a, b) => Number(b.trendMeta?.F_NEXT ?? -9999) - Number(a.trendMeta?.F_NEXT ?? -9999));
-        }
-        return arr;
-    }, [filteredRows, sortMode]);
-
-    // ✅ Excel Export: ekranda görünen (visibleCols + sortedRows) tabloyu indirir
-    const exportToExcel = () => {
-        const cols = visibleCols;
-        const dataRows = sortedRows;
-
-        const aoa = [["Proje", ...cols.map((c) => `${c.label}${c.sub ? " • " + c.sub : ""}`)]];
-
-        dataRows.forEach((r) => {
-            aoa.push([r.project, ...cols.map((c) => (r.values?.[c.key] == null ? "" : Number(r.values?.[c.key])))]);
-        });
-
-        aoa.push(["BÖLGE TOPLAM", ...cols.map((c) => Number(totals?.[c.key] ?? 0))]);
-
-        const ws = XLSX.utils.aoa_to_sheet(aoa);
-        ws["!cols"] = [{ wch: 42 }, ...cols.map(() => ({ wch: 16 }))];
-
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Ongoru");
-
-        const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-
-        const safeTitle = (title || "tablo").toString().replace(/[\\/:*?"<>|]/g, "-").slice(0, 120);
-        const fileName = `${safeTitle}.xlsx`;
-        saveAs(new Blob([out], { type: "application/octet-stream" }), fileName);
-    };
-
-    const shellBg = isDark ? alpha("#0b1220", 0.72) : alpha("#ffffff", 0.78);
-    const stickyBg = isDark ? alpha("#0b1220", 0.78) : alpha("#f8fafc", 0.86);
-    const rowOddBg = isDark ? alpha("#ffffff", 0.03) : alpha("#0f172a", 0.025);
-    const rowHoverBg = isDark ? alpha("#ffffff", 0.06) : alpha("#0f172a", 0.055);
-
-    // ✅ Tahmin kolonlarına karşılık gerçek değerler (tablo içinde küçük satır olarak göstermek için)
-    const realKeyForForecast = (k) => {
-        if (k === "F_NEXT") return "REAL_CM";
-        if (String(k).startsWith("F_W")) return `REAL_${String(k).slice(2)}`; // F_W1 -> REAL_W1
-        return null;
-    };
-
-    return (
-        <Paper elevation={0} sx={{ p: 1.6, borderRadius: 6, ...glass(0.62) }}>
-            {/* Header */}
-            <Stack direction={{ xs: "column", lg: "row" }} spacing={1.2} alignItems={{ lg: "center" }} justifyContent="space-between" sx={{ mb: 1.2 }}>
-                <SectionTitle icon={<TableRowsRoundedIcon fontSize="small" />} title={title} sub={subtitle} />
-
-                <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ md: "center" }}>
-                    <TextField
-                        size="small"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Projede ara…"
-                        sx={{ width: { xs: "100%", md: 260 }, ...softInput }}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchRoundedIcon fontSize="small" />
-                                </InputAdornment>
-                            ),
-                        }}
-                    />
-
-                    <ToggleButtonGroup
-                        exclusive
-                        size="small"
-                        value={density}
-                        onChange={(_, v) => v && setDensity(v)}
-                        sx={{ "& .MuiToggleButton-root": { borderRadius: 3, fontWeight: 1100, textTransform: "none" } }}
-                    >
-                        <ToggleButton value="compact">
-                            <Stack direction="row" spacing={0.7} alignItems="center">
-                                <CompressRoundedIcon fontSize="small" />
-                                <span>Kompakt</span>
-                            </Stack>
-                        </ToggleButton>
-                        <ToggleButton value="comfortable">
-                            <Stack direction="row" spacing={0.7} alignItems="center">
-                                <ExpandRoundedIcon fontSize="small" />
-                                <span>Rahat</span>
-                            </Stack>
-                        </ToggleButton>
-                    </ToggleButtonGroup>
-
-                    <ToggleButtonGroup
-                        exclusive
-                        size="small"
-                        value={sortMode}
-                        onChange={(_, v) => setSortMode(v ?? "none")}
-                        sx={{ "& .MuiToggleButton-root": { borderRadius: 3, fontWeight: 1100, textTransform: "none" } }}
-                    >
-                        <ToggleButton value="none">
-                            <Stack direction="row" spacing={0.7} alignItems="center">
-                                <SwapVertRoundedIcon fontSize="small" />
-                                <span>Normal</span>
-                            </Stack>
-                        </ToggleButton>
-                        <ToggleButton value="forecast_desc">Tahmin ↓</ToggleButton>
-                        <ToggleButton value="trend_desc">Trend ↓</ToggleButton>
-                    </ToggleButtonGroup>
-
-                    <Button
-                        variant={showHistory ? "contained" : "outlined"}
-                        onClick={() => setShowHistory((v) => !v)}
-                        sx={{
-                            borderRadius: 3,
-                            fontWeight: 1100,
-                            textTransform: "none",
-                            ...(showHistory
-                                ? isDark
-                                    ? { bgcolor: "#e2e8f0", color: "#0b1220", "&:hover": { bgcolor: "#f1f5f9" } }
-                                    : { bgcolor: "#0f172a", color: "#fff", "&:hover": { bgcolor: "#111827" } }
-                                : {}),
-                        }}
-                    >
-                        {showHistory ? "Detayı Gizle" : "Detay (Geçmiş)"}
-                    </Button>
-
-                    {/* ✅ Excel’e Aktar */}
-                    <Button variant="outlined" onClick={exportToExcel} sx={{ borderRadius: 3, fontWeight: 1100, textTransform: "none" }}>
-                        Excel’e Aktar
-                    </Button>
-                </Stack>
-            </Stack>
-
-            {/* Table shell */}
-            <Box sx={{ borderRadius: 5, border, bgcolor: shellBg, overflow: "hidden" }}>
-                <Box sx={{ overflowX: "auto" }}>
-                    <Box sx={{ minWidth: leftW + visibleCols.length * colW }}>
-                        {/* Header */}
-                        <Box
-                            sx={{
-                                position: "sticky",
-                                top: 0,
-                                zIndex: 5,
-                                display: "grid",
-                                gridTemplateColumns: `${leftW}px repeat(${visibleCols.length}, ${colW}px)`,
-                                bgcolor: stickyBg,
-                                backdropFilter: "blur(14px)",
-                                borderBottom: border,
-                                boxShadow: isDark ? "0 10px 26px rgba(0,0,0,0.35)" : "0 10px 22px rgba(15,23,42,0.08)",
-                                height: dims.headH,
-                            }}
-                        >
-                            <Box sx={{ px: 2, display: "flex", flexDirection: "column", justifyContent: "center", position: "sticky", left: 0, zIndex: 6, bgcolor: stickyBg, borderRight: border }}>
-                                <Typography sx={{ fontWeight: 1200, fontSize: "0.86rem" }}>Proje</Typography>
-                                <Typography sx={{ fontWeight: 850, fontSize: "0.74rem", color: theme.palette.text.secondary, mt: 0.15 }}>
-                                    Ort • Önceki Ay • Tahmin
-                                </Typography>
-                            </Box>
-
-                            {visibleCols.map((c) => (
-                                <Box key={c.key} sx={{ px: 1.2, display: "flex", flexDirection: "column", justifyContent: "center", textAlign: "center" }}>
-                                    <Typography sx={{ fontWeight: 1200, fontSize: "0.84rem" }}>{c.label}</Typography>
-                                    <Typography sx={{ fontWeight: 850, fontSize: "0.72rem", color: theme.palette.text.secondary, mt: 0.15 }}>
-                                        {c.sub || c.rangeText || ""}
-                                    </Typography>
-                                </Box>
-                            ))}
-                        </Box>
-
-                        {/* Body */}
-                        {sortedRows.map((r, idx) => {
-                            const avg3 = Number(r.values?.AVG_3M ?? 0);
-                            const pmFull = Number(r.values?.PM_FULL ?? 0);
-                            const fNext = Number(r.values?.F_NEXT ?? 0);
-                            const fTrend = r.trendMeta?.F_NEXT;
-
-                            return (
-                                <Box
-                                    key={r.project}
-                                    sx={{
-                                        display: "grid",
-                                        gridTemplateColumns: `${leftW}px repeat(${visibleCols.length}, ${colW}px)`,
-                                        borderBottom: `1px solid ${alpha(theme.palette.divider, isDark ? 0.45 : 0.7)}`,
-                                        bgcolor: idx % 2 === 0 ? rowOddBg : "transparent",
-                                        "&:hover": { bgcolor: rowHoverBg },
-                                        transition: "background 160ms ease",
-                                    }}
-                                >
-                                    {/* Left sticky */}
-                                    <Box
-                                        sx={{
-                                            px: 2,
-                                            height: dims.rowH,
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            justifyContent: "center",
-                                            position: "sticky",
-                                            left: 0,
-                                            zIndex: 4,
-                                            bgcolor: idx % 2 === 0 ? alpha(stickyBg, 0.55) : alpha(stickyBg, 0.72),
-                                            borderRight: border,
-                                        }}
-                                    >
-                                        <Typography sx={{ fontWeight: 1200, fontSize: density === "compact" ? "0.9rem" : "0.94rem", letterSpacing: "-0.15px" }}>
-                                            {r.project}
-                                        </Typography>
-                                        <Typography sx={{ fontWeight: 850, fontSize: "0.76rem", color: theme.palette.text.secondary, mt: 0.15, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 0.6 }}>
-                                            <span>Ort: {fmtInt(avg3)}</span>
-                                            <span>• Ö.Ay: {fmtInt(pmFull)}</span>
-                                            <span>• Tah: {fmtInt(fNext)}</span>
-                                            <TrendChip pct={fTrend} />
-                                        </Typography>
-                                    </Box>
-
-                                    {visibleCols.map((c) => {
-                                        const v = r.values?.[c.key];
-                                        const isForecast = String(c.key).startsWith("F_");
-                                        const trendPct = isForecast ? r.trendMeta?.[c.key] : null;
-
-                                        const realKey = isForecast ? realKeyForForecast(c.key) : null;
-                                        const realVal = realKey ? r.values?.[realKey] : null;
-
-                                        return (
-                                            <Box key={c.key} sx={{ height: dims.rowH, display: "grid", placeItems: "center", px: 1 }}>
-                                                <Tooltip
-                                                    title={
-                                                        isForecast && trendPct != null
-                                                            ? `Trend: %${Math.abs(trendPct).toFixed(1)} ${trendPct > 0 ? "artış" : "azalış"}`
-                                                            : ""
-                                                    }
-                                                    disableHoverListener={!isForecast || trendPct == null}
-                                                >
-                                                    <Box sx={{ textAlign: "center", lineHeight: 1.15 }}>
-                                                        <Typography
-                                                            sx={{
-                                                                fontWeight: isForecast ? 1250 : 1050,
-                                                                fontSize: density === "compact" ? "0.94rem" : "1.0rem",
-                                                                letterSpacing: "-0.15px",
-                                                            }}
-                                                        >
-                                                            {v == null ? "-" : fmtInt(v)}
-                                                        </Typography>
-
-                                                        {isForecast && realVal != null && (
-                                                            <Typography sx={{ fontSize: "0.72rem", fontWeight: 900, opacity: 0.75, mt: 0.2 }}>
-                                                                Ger: {fmtInt(realVal)}
-                                                            </Typography>
-                                                        )}
-                                                    </Box>
-                                                </Tooltip>
-                                            </Box>
-                                        );
-                                    })}
-                                </Box>
-                            );
-                        })}
-
-                        {/* Totals sticky */}
-                        <Box
-                            sx={{
-                                position: "sticky",
-                                bottom: 0,
-                                zIndex: 6,
-                                display: "grid",
-                                gridTemplateColumns: `${leftW}px repeat(${visibleCols.length}, ${colW}px)`,
-                                bgcolor: stickyBg,
-                                backdropFilter: "blur(16px)",
-                                borderTop: border,
-                                boxShadow: isDark ? "0 -14px 36px rgba(0,0,0,0.45)" : "0 -10px 26px rgba(15,23,42,0.10)",
-                            }}
-                        >
-                            <Box sx={{ px: 2, py: 1.15, position: "sticky", left: 0, zIndex: 7, bgcolor: stickyBg, borderRight: border }}>
-                                <Typography sx={{ fontWeight: 1250 }}>BÖLGE TOPLAM</Typography>
-                                <Typography sx={{ fontWeight: 850, color: theme.palette.text.secondary, fontSize: "0.78rem", mt: 0.15 }}>
-                                    Filtrelenmiş tablo toplamı
-                                </Typography>
-                            </Box>
-                            {visibleCols.map((c) => (
-                                <Box key={c.key} sx={{ px: 1, py: 1.15, display: "grid", placeItems: "center" }}>
-                                    <Typography sx={{ fontWeight: 1250, letterSpacing: "-0.15px" }}>{fmtInt(totals?.[c.key] ?? 0)}</Typography>
-                                </Box>
-                            ))}
-                        </Box>
-
-                        {!sortedRows.length ? (
-                            <Box sx={{ p: 2.2 }}>
-                                <Typography sx={{ fontWeight: 1100 }}>Sonuç yok</Typography>
-                                <Typography sx={{ fontWeight: 850, color: theme.palette.text.secondary, mt: 0.4 }}>
-                                    Arama filtresi nedeniyle eşleşen proje bulunamadı.
-                                </Typography>
-                            </Box>
-                        ) : null}
-                    </Box>
-                </Box>
-            </Box>
-        </Paper>
-    );
-}
-
-/* ------------------------ Supabase fetch (pagination) ------------------------ */
-async function fetchSiparislerRawV({ projects, startISO, endISO, dateField, pageSize = 1000, hardCap = null }) {
-    const selectCols = `
-    proje,
-    hizmet_tipi,
-    arac_calisma_tipi,
-    pozisyon_no,
-    sefer_no,
-    siparis_durumu,
-    sefer_acilis_zamani,
-    siparis_acilis_zamani,
-    yukleme_tarihi,
-    yukleme_ts,
-    effective_ts,
-    yukleme_ili,
-    yukleme_ilcesi,
-    teslim_ili,
-    teslim_ilcesi,
-    sefer_hesap_ozeti
-  `;
-
-    let all = [];
-    let from = 0;
-
-    while (true) {
-        const to = from + pageSize - 1;
-
-        const q = supabase
-            .from("siparisler_raw_v_eff")
-            .select(selectCols)
-            .in("proje", projects)
-            .gte(dateField, startISO)
-            .lte(dateField, endISO)
-            .order(dateField, { ascending: false })
-            .range(from, to);
-
-        const { data, error } = await q;
-        if (error) throw error;
-
-        const chunk = Array.isArray(data) ? data : [];
-        all = all.concat(chunk);
-
-        if (hardCap && all.length >= hardCap) {
-            all = all.slice(0, hardCap);
-            break;
-        }
-
-        if (chunk.length < pageSize) break;
-        from += pageSize;
-    }
-
-    return all;
-}
-
-/* ------------------------ Component ------------------------ */
-export default function KarsilastirmaPanel({ open, onClose, onApply }) {
-    const theme = useTheme();
-    const { isDark, pageBg, glass, softInput, primaryBtn, outlineBtn, border } = useShellStyles();
-    const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
-
-    const [region, setRegion] = useState("");
-    const [projects, setProjects] = useState([]);
-
-    const dbDateField = "effective_ts";
-    const engineDateField = "OrderCreatedDate";
-    const toNow = true;
-
-    const [result, setResult] = useState(null);
-    const [errorText, setErrorText] = useState("");
+    const [seciliBolge, setSeciliBolge] = useState("GEBZE");
+    const [arama, setArama] = useState("");
+    const [sirala, setSirala] = useState("buHafta");
     const [loading, setLoading] = useState(false);
-    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [raw, setRaw] = useState(null);
+    const [error, setError] = useState("");
+    const [userId] = useState(1);
 
-    const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+    const [viewMode, setViewMode] = useState("forecast"); // forecast | tarihsel
+    const [progress, setProgress] = useState({ done: 0, total: 0, failed: 0 });
 
-    const availableProjects = useMemo(() => (region ? REGIONS[region] || [] : allProjects), [region]);
+    // ✅ Kaç hafta çekilecek? (son ~3 ay)
+    const WEEKS_BACK = 12;
 
-    useEffect(() => {
-        setProjects((prev) => prev.filter((p) => availableProjects.includes(p)));
-    }, [availableProjects]);
-
-    useEffect(() => {
-        if (!open) return;
-        setResult(null);
-        setErrorText("");
-        setLoading(false);
-        setShowAdvanced(false);
-    }, [open]);
-
-    const selectedProjects = useMemo(() => projects, [projects]);
-    const canApply = selectedProjects.length > 0;
-
-    const allSelected = useMemo(() => {
-        const a = availableProjects || [];
-        if (!a.length) return false;
-        if ((projects?.length || 0) !== a.length) return false;
-        const setP = new Set(projects);
-        return a.every((x) => setP.has(x));
-    }, [projects, availableProjects]);
-
-    const resetFilters = () => {
-        setRegion("");
-        setProjects([]);
-        setResult(null);
-        setErrorText("");
-    };
-
-    const handleApply = async () => {
-        setErrorText("");
-        setResult(null);
-        if (!canApply) return;
-
-        const now = new Date();
-        const minStart = startOfMonth(addMonths(now, -6));
-        const maxEnd = toNow ? now : endOfMonth(now);
-
-        const startISO = minStart.toISOString();
-        const endISO = maxEnd.toISOString();
-
-        onApply?.({
-            region,
-            projects: selectedProjects,
-            dbDateField,
-            engineDateField,
-            periods: [],
-        });
-
+    const handleFetch = useCallback(async () => {
         setLoading(true);
+        setError("");
+        setProgress({ done: 0, total: 0, failed: 0 });
+
+        // kademeli yükleme: UI hemen veri görsün
+        setRaw({ items: [] });
+
+        const ranges = buildWeekRanges({ weeksBack: WEEKS_BACK, anchorDate: new Date() });
+        setProgress({ done: 0, total: ranges.length, failed: 0 });
+
+        const collected = [];
+
         try {
-            const raw = await fetchSiparislerRawV({
-                projects: selectedProjects,
-                startISO,
-                endISO,
-                dateField: dbDateField,
-                pageSize: 1000,
-                hardCap: null,
-            });
+            for (let i = 0; i < ranges.length; i++) {
+                const r = ranges[i];
 
-            const engineData = (raw || []).map(mapRawToEngineRow);
+                const body = {
+                    startDate: isoStartOfDayZ(r.start),
+                    endDate: isoEndOfDayZ(r.end),
+                    userId: Number(userId),
+                };
 
-            // Haftalık KPI (mevcut: Pazartesi bazlı değil; istersen ayrıca değiştiririz)
-            // Şimdilik "son 7 gün" gibi değil; senin eski mantığın gibi bırakıyorum: haftalık özet istersen ayrıca 1-7,8-14'e bağlarız.
-            const cmInfo = monthWeeks7(now);
-            const currentWeek = cmInfo.weeks.find(w => now >= w.start && now <= w.end) || cmInfo.weeks[0];
+                const controller = new AbortController();
+                const t = setTimeout(() => controller.abort(), 35_000);
 
-            const weekStart = currentWeek.start;
-            const weekEnd = toNow ? now : currentWeek.end;
+                try {
+                    const res = await fetch(`${BASE_URL}/tmsorders/week`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(body),
+                        signal: controller.signal,
+                    });
 
-            const allowedTotal = new Set(selectedProjects.map((p) => normalizeTR(p).replace(/\s+/g, " ")));
-            const weekKpi = calcKpi({
-                data: engineData,
-                start: weekStart,
-                end: weekEnd,
-                dateField: engineDateField,
-                allowedProjects: allowedTotal,
-            });
+                    const rawText = await res.text();
 
-            setResult({
-                fetchedCount: raw.length,
-                _engineData: engineData,
-                week: { start: weekStart, end: weekEnd, rangeText: fmtRangeTR(weekStart, weekEnd), kpi: weekKpi },
-                region,
-                projects: selectedProjects,
-            });
+                    let payload;
+                    try {
+                        payload = rawText ? JSON.parse(rawText) : null;
+                    } catch {
+                        payload = rawText;
+                    }
+
+                    if (!res.ok) {
+                        setProgress((p) => ({ ...p, done: p.done + 1, failed: p.failed + 1 }));
+                        console.warn("week failed", i, res.status, payload);
+                        continue;
+                    }
+
+                    const items = extractItems(payload);
+                    collected.push(...items);
+
+                    // ✅ kademeli güncelle
+                    setRaw({ items: [...collected] });
+                    setProgress((p) => ({ ...p, done: p.done + 1 }));
+                } catch (e) {
+                    setProgress((p) => ({ ...p, done: p.done + 1, failed: p.failed + 1 }));
+                    console.warn("week fetch aborted/failed", i, e?.message);
+                } finally {
+                    clearTimeout(t);
+                }
+            }
         } catch (e) {
-            setErrorText(e?.message ? String(e.message) : "Supabase/Analiz sırasında hata oluştu.");
+            setError(e?.message || "Bağlantı hatası");
         } finally {
             setLoading(false);
+            if (collected.length === 0) {
+                setError("Veri çekilemedi (haftalık istekler başarısız)");
+            }
         }
-    };
+    }, [userId]);
 
-    const tedMatrix = useMemo(() => {
-        if (!result?._engineData?.length || !result?.projects?.length) return null;
+    useEffect(() => {
+        handleFetch();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-        const now = new Date();
+    const data = useMemo(() => extractItems(raw), [raw]);
 
-        // ✅ 7'şer gün haftalar: 1-7, 8-14, ...
-        const pmInfo = monthWeeks7(addMonths(now, -1));
-        const cmInfo = monthWeeks7(now);
+    const forecast = useMemo(() => {
+        if (!data?.length) return null;
+        return buildForecastTable({ data, seciliBolge, today: new Date() });
+    }, [data, seciliBolge]);
 
-        const forecastMonthStart = startOfMonth(now);
-        const forecastMonthLabel = monthLabelTR(forecastMonthStart);
+    const history = useMemo(() => {
+        if (!data?.length) return null;
+        return buildMonthlyHistory({ data, seciliBolge, monthsBack: 13, anchorDate: new Date() });
+    }, [data, seciliBolge]);
 
-        const monthsBack = [6, 5, 4, 3, 2, 1].map((n) => {
-            const ms = startOfMonth(addMonths(now, -n));
-            return { start: ms, end: endOfMonth(ms) };
-        });
+    const forecastRows = useMemo(() => {
+        const base = forecast?.series || [];
+        const q = metniNormalizeEt(arama || "");
+        const filtered = !q ? base : base.filter((r) => metniNormalizeEt(r.proje).includes(q));
+        return [...filtered].sort((a, b) => Number(b?.[sirala] || 0) - Number(a?.[sirala] || 0));
+    }, [forecast, arama, sirala]);
 
-        const engineData = result._engineData;
+    const forecastTotals = useMemo(() => {
+        return forecastRows.reduce(
+            (acc, r) => {
+                acc.buHafta += r.buHafta || 0;
+                acc.gelecekHafta += r.gelecekHafta || 0;
+                acc.digerHafta += r.digerHafta || 0;
+                acc.aySonunaKadar += r.aySonunaKadar || 0;
+                acc.ayToplam += r.ayToplam || 0;
+                return acc;
+            },
+            { buHafta: 0, gelecekHafta: 0, digerHafta: 0, aySonunaKadar: 0, ayToplam: 0 }
+        );
+    }, [forecastRows]);
 
-        const calcTed = (allowedSet, start, end) => {
-            const kpi = calcKpi({
-                data: engineData,
-                start,
-                end,
-                dateField: engineDateField,
-                allowedProjects: allowedSet,
-            });
-            return Number(kpi?.ted ?? 0);
+    const historyRows = useMemo(() => {
+        const base = history?.rows || [];
+        const q = metniNormalizeEt(arama || "");
+        const filtered = !q ? base : base.filter((r) => metniNormalizeEt(r.proje).includes(q));
+        return [...filtered].sort((a, b) => (b.total || 0) - (a.total || 0));
+    }, [history, arama]);
+
+    const trendKpis = useMemo(() => {
+        if (!data?.length)
+            return { mom: 0, yoy: 0, w4: 0, thisMonth: 0, lastMonth: 0, lastYearSame: 0, prevW4: 0, w4trend: 0 };
+
+        const today = clampDayStart(new Date());
+        const thisMonthStart = startOfMonth(today);
+        const lastMonthStart = startOfMonth(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+        const lastMonthEnd = endOfMonth(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+        lastMonthEnd.setHours(23, 59, 59, 999);
+
+        const lastYearSameMonthStart = startOfMonth(new Date(today.getFullYear() - 1, today.getMonth(), 1));
+        const lastYearSameMonthEnd = endOfMonth(new Date(today.getFullYear() - 1, today.getMonth(), 1));
+        lastYearSameMonthEnd.setHours(23, 59, 59, 999);
+
+        const w4Start = addDays(today, -27);
+        const prevW4Start = addDays(today, -55);
+        const prevW4End = addDays(today, -28);
+
+        const items = (data || [])
+            .filter((it) => isInSelectedRegion(it, seciliBolge))
+            .map((it) => {
+                const d = getPickupDate(it);
+                if (!d) return null;
+                return { ...it, __pickup: d };
+            })
+            .filter(Boolean);
+
+        const count = (a, b) => {
+            let c = 0;
+            for (const it of items) {
+                const d = it.__pickup;
+                if (d >= a && d <= b) c += 1;
+            }
+            return c;
         };
 
-        const clampToNow = (d) => (toNow ? new Date(Math.min(d.getTime(), now.getTime())) : d);
+        const thisMonth = count(thisMonthStart, today);
+        const lastMonth = count(lastMonthStart, lastMonthEnd);
+        const lastYearSame = count(lastYearSameMonthStart, lastYearSameMonthEnd);
 
-        // ✅ Dinamik hafta kolonları (W1..W4/W5)
-        const weekKeys = cmInfo.weeks.map((w) => w.key); // W1..Wn
+        const w4 = count(w4Start, today);
+        const prevW4 = count(prevW4Start, prevW4End);
 
-        const columns = [
-            { key: "F_NEXT", label: "Tahmin", sub: forecastMonthLabel, rangeText: "" },
-            ...weekKeys.map((wk, i) => ({ key: `F_${wk}`, label: "Tahmin", sub: `${i + 1}. Hafta`, rangeText: cmInfo.weeks[i]?.rangeText || "" })),
+        const pct = (cur, prev) => (prev > 0 ? ((cur - prev) / prev) * 100 : cur > 0 ? 100 : 0);
 
-            { key: "AVG_3M", label: "Son 3 Ay", sub: "Ortalama", rangeText: "" },
+        return {
+            thisMonth,
+            lastMonth,
+            lastYearSame,
+            w4,
+            prevW4,
+            mom: pct(thisMonth, lastMonth),
+            yoy: pct(thisMonth, lastYearSame),
+            w4trend: pct(w4, prevW4),
+        };
+    }, [data, seciliBolge]);
 
-            ...weekKeys.map((wk, i) => ({ key: `PM_${wk}`, label: "Önceki Ay", sub: `${i + 1}. Hafta`, rangeText: pmInfo.weeks[i]?.rangeText || "" })),
-            { key: "PM_FULL", label: "Önceki Ay", sub: "Toplam", rangeText: fmtRangeTR(pmInfo.monthStart, pmInfo.monthEnd) },
-        ];
+    const meta = forecast?.meta;
 
-        const rows = result.projects.map((proj) => {
-            const allowed = new Set([normalizeTR(proj).replace(/\s+/g, " ")]);
-
-            // ✅ Önceki ay haftaları (1-7,8-14,...)
-            const pmWeekTotals = weekKeys.map((wk, idx) => {
-                const w = pmInfo.weeks[idx];
-                if (!w) return 0;
-                return calcTed(allowed, w.start, w.end);
-            });
-            const pmFull = calcTed(allowed, pmInfo.monthStart, pmInfo.monthEnd);
-
-            // ✅ Bu ay gerçek (1-7,8-14,... ay sonu)
-            const realThisMonth = calcTed(allowed, cmInfo.monthStart, toNow ? now : cmInfo.monthEnd);
-            const realWeekTotals = weekKeys.map((wk, idx) => {
-                const w = cmInfo.weeks[idx];
-                if (!w) return 0;
-                const end = clampToNow(w.end);
-                return calcTed(allowed, w.start, end);
-            });
-
-            // ✅ 6 aylık seri
-            const series6 = monthsBack.map((mr) => calcTed(allowed, mr.start, mr.end)); // oldest->newest
-            const last3 = series6.slice(-3);
-
-            const avg3mRaw = last3.length ? last3.reduce((a, b) => a + b, 0) / last3.length : 0;
-            const avg3m = Math.round(avg3mRaw);
-
-            // ✅ Tahmin
-            const nextTotal = forecastNextMonthTotal(series6);
-            const splits = forecastWeekSplitsFromPrevMonth(pmWeekTotals, pmFull, nextTotal); // [W1..Wn]
-
-            const values = {
-                REAL_CM: realThisMonth,
-                AVG_3M: avg3m,
-                PM_FULL: pmFull,
-                F_NEXT: nextTotal,
-            };
-
-            // W1..Wn setleri
-            weekKeys.forEach((wk, idx) => {
-                values[`REAL_${wk}`] = realWeekTotals[idx] ?? 0;
-                values[`PM_${wk}`] = pmWeekTotals[idx] ?? 0;
-                values[`F_${wk}`] = splits[idx] ?? null;
-            });
-
-            const trendMeta = {
-                F_NEXT: pctChange(nextTotal, avg3mRaw, { minBase: 5 }),
-            };
-            weekKeys.forEach((wk, idx) => {
-                trendMeta[`F_${wk}`] = pctChange(splits[idx], pmWeekTotals[idx], { minBase: 5 });
-            });
-
-            return { project: proj, values, trendMeta };
-        });
-
-        const totals = {};
-        columns.forEach((c) => {
-            totals[c.key] = rows.reduce((sum, r) => sum + Number(r.values?.[c.key] ?? 0), 0);
-        });
-
-        return { columns, rows, totals, forecastMonthLabel };
-    }, [result, engineDateField, toNow]);
-
-    const selectionBadge = useMemo(() => {
-        const r = region || "Tüm projeler";
-        const projCount = projects?.length || 0;
-        return `${r} • ${projCount} proje`;
-    }, [projects, region]);
-
-    const weekPills = useMemo(() => {
-        if (!result?.week?.kpi) return null;
-        const plan = Number(result.week.kpi.plan ?? 0);
-        const ted = Number(result.week.kpi.ted ?? 0);
-        const perf = Number(result.week.kpi.perf ?? 0);
-        const cov = safePct(ted, plan);
-        return { plan, ted, perf, cov, rangeText: result.week.rangeText };
-    }, [result]);
-
-    const FiltersPanel = (
-        <Box sx={{ p: 2 }}>
-            <Paper elevation={0} sx={{ p: 1.6, borderRadius: 6, ...glass(0.62) }}>
-                <Stack spacing={1.2}>
-                    <SectionTitle icon={<TuneRoundedIcon fontSize="small" />} title="Filtreler" sub="Bölge • Proje seçimi" />
-
-                    <FormControl fullWidth size="small">
-                        <InputLabel>Bölge</InputLabel>
-                        <Select
-                            label="Bölge"
-                            value={region}
-                            onChange={(e) => setRegion(e.target.value)}
-                            sx={{ borderRadius: 3, bgcolor: isDark ? alpha("#0b1220", 0.55) : alpha("#ffffff", 0.75), backdropFilter: "blur(10px)" }}
-                        >
-                            <MenuItem value="">
-                                <em>Tümü (Bölge seçilmedi)</em>
-                            </MenuItem>
-                            {Object.keys(REGIONS).map((r) => (
-                                <MenuItem key={r} value={r}>
-                                    {r}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-
-                    <Divider sx={{ borderColor: alpha(theme.palette.divider, isDark ? 0.55 : 1) }} />
-
-                    <Autocomplete
-                        multiple
-                        options={availableProjects}
-                        value={projects}
-                        onChange={(_, newValue) => setProjects(newValue)}
-                        disableCloseOnSelect
-                        renderInput={(params) => <TextField {...params} size="small" label="Projeler" placeholder="Yazıp ara…" sx={softInput} />}
-                        renderTags={(value, getTagProps) =>
-                            value.slice(0, 3).map((option, index) => (
-                                <Chip
-                                    {...getTagProps({ index })}
-                                    key={option}
-                                    label={option}
-                                    size="small"
-                                    sx={{
-                                        borderRadius: 2,
-                                        fontWeight: 900,
-                                        bgcolor: alpha(theme.palette.text.primary, isDark ? 0.1 : 0.06),
-                                        border: `1px solid ${alpha(theme.palette.divider, isDark ? 0.55 : 1)}`,
-                                    }}
-                                />
-                            ))
-                        }
-                    />
-
-                    <Stack direction="row" spacing={1}>
-                        <Button
-                            size="small"
-                            variant={allSelected ? "contained" : "outlined"}
-                            onClick={() => setProjects(availableProjects)}
-                            disabled={!availableProjects?.length}
-                            sx={{ borderRadius: 3, fontWeight: 1000, textTransform: "none" }}
-                        >
-                            Tümünü seç
-                        </Button>
-                        <Button size="small" variant="text" onClick={() => setProjects([])} sx={{ borderRadius: 3, fontWeight: 1000, textTransform: "none" }}>
-                            Temizle
-                        </Button>
-                    </Stack>
-
-                    {!canApply && (
-                        <Typography sx={{ fontSize: "0.85rem", color: "#ef4444", fontWeight: 1000 }}>
-                            Getir için en az 1 proje seçmelisin.
-                        </Typography>
-                    )}
-
-                    <Divider sx={{ borderColor: alpha(theme.palette.divider, isDark ? 0.55 : 1) }} />
-
-                    <Stack direction="row" spacing={1}>
-                        <Button variant="outlined" onClick={resetFilters} startIcon={<RestartAltRoundedIcon />} sx={outlineBtn}>
-                            Sıfırla
-                        </Button>
-                        <Button variant="contained" onClick={handleApply} disabled={!canApply || loading} startIcon={<BoltRoundedIcon />} sx={primaryBtn}>
-                            Getir
-                        </Button>
-                    </Stack>
-
-                    {showAdvanced ? (
-                        <Box sx={{ mt: 0.6, p: 1.2, borderRadius: 4, border, bgcolor: alpha(theme.palette.text.primary, isDark ? 0.06 : 0.03) }}>
-                            <Typography sx={{ fontWeight: 1000, fontSize: "0.86rem" }}>Gelişmiş (placeholder)</Typography>
-                            <Typography sx={{ fontWeight: 800, color: theme.palette.text.secondary, fontSize: "0.78rem", mt: 0.3 }}>
-                                Buraya tarih aralığı / hardCap / toNow gibi seçenekleri ekleyebiliriz.
-                            </Typography>
-                        </Box>
-                    ) : null}
-                </Stack>
-            </Paper>
-        </Box>
-    );
-
-    if (!open) return null;
+    const weekLabels = useMemo(() => {
+        if (!meta) return null;
+        return {
+            w0: fmtRange(meta.week0Start, meta.week0End),
+            w1: fmtRange(meta.week1Start, meta.week1End),
+            w2: fmtRange(meta.week2Start, meta.week2End),
+            month: fmtRange(meta.monthStart, meta.monthEnd),
+            w0Short: fmtRangeShort(meta.week0Start, meta.week0End),
+            w1Short: fmtRangeShort(meta.week1Start, meta.week1End),
+            w2Short: fmtRangeShort(meta.week2Start, meta.week2End),
+        };
+    }, [meta]);
 
     return (
-        <Box sx={{ position: "fixed", inset: 0, zIndex: 1300, display: "flex" }}>
-            {/* Background */}
-            <Box sx={{ position: "absolute", inset: 0, background: pageBg, zIndex: 0 }} />
-
-            {/* Top bar */}
-            <AppBar
-                position="fixed"
-                color="transparent"
-                elevation={0}
-                sx={{
-                    zIndex: 10,
-                    borderBottom: `1px solid ${alpha(theme.palette.divider, isDark ? 0.55 : 1)}`,
-                    bgcolor: isDark ? alpha("#0b1220", 0.55) : alpha("#ffffff", 0.6),
-                    backdropFilter: "blur(18px)",
-                }}
-            >
-                <Toolbar sx={{ gap: 1 }}>
-                    {!isMdUp ? (
-                        <IconButton
-                            onClick={() => setMobileDrawerOpen(true)}
-                            sx={{ bgcolor: alpha(theme.palette.text.primary, isDark ? 0.1 : 0.05), border: `1px solid ${alpha(theme.palette.divider, isDark ? 0.55 : 1)}` }}
-                        >
-                            <MenuIcon />
-                        </IconButton>
-                    ) : null}
-
-                    <Stack sx={{ flex: 1 }}>
-                        <Typography sx={{ fontWeight: 1250, letterSpacing: "-0.45px", lineHeight: 1.05 }}>
-                            Tedarik Öngörü Paneli
-                        </Typography>
-                        <Typography sx={{ fontWeight: 850, color: theme.palette.text.secondary, fontSize: "0.78rem", mt: 0.15 }}>
-                            1-7 / 8-14 / 15-21 / ... ay sonu • Filtre → Getir → Özet + Tablo
-                        </Typography>
-                    </Stack>
-
-                    <Chip
-                        size="small"
-                        label={selectionBadge}
+        <Box
+            sx={{
+                width: "100%",
+                minHeight: "100vh",
+                p: { xs: 2, md: 4 },
+                background: isDark
+                    ? `radial-gradient(circle at 50% 0%, ${alpha(theme.palette.primary.main, 0.12)} 0%, transparent 52%)`
+                    : `radial-gradient(circle at 50% 0%, ${alpha(theme.palette.primary.main, 0.06)} 0%, transparent 52%)`,
+            }}
+        >
+            {/* FULLSCREEN ANALİZ OVERLAY */}
+            {loading ? (
+                <Box
+                    sx={{
+                        position: "fixed",
+                        inset: 0,
+                        zIndex: 2500,
+                        display: "grid",
+                        placeItems: "center",
+                        bgcolor: isDark ? alpha("#000", 0.55) : alpha("#000", 0.25),
+                        backdropFilter: "blur(6px)",
+                    }}
+                >
+                    <Paper
+                        elevation={0}
                         sx={{
-                            height: 26,
-                            borderRadius: 999,
-                            fontWeight: 1100,
-                            bgcolor: alpha(theme.palette.text.primary, isDark ? 0.1 : 0.06),
-                            border: `1px solid ${alpha(theme.palette.divider, isDark ? 0.55 : 1)}`,
-                            backdropFilter: "blur(10px)",
-                        }}
-                    />
-
-                    {result?.fetchedCount != null ? (
-                        <Chip
-                            size="small"
-                            label={`Kayıt: ${fmtInt(result.fetchedCount)}`}
-                            sx={{
-                                height: 26,
-                                borderRadius: 999,
-                                fontWeight: 1100,
-                                bgcolor: alpha("#10b981", isDark ? 0.18 : 0.1),
-                                border: `1px solid ${alpha("#10b981", isDark ? 0.26 : 0.16)}`,
-                                color: isDark ? "#86efac" : "#065f46",
-                            }}
-                        />
-                    ) : null}
-
-                    <Tooltip title="Gelişmiş">
-                        <Button variant="outlined" onClick={() => setShowAdvanced((v) => !v)} startIcon={<TuneRoundedIcon />} sx={outlineBtn}>
-                            Ayarlar
-                        </Button>
-                    </Tooltip>
-
-                    <Button variant="outlined" onClick={resetFilters} startIcon={<RestartAltRoundedIcon />} sx={outlineBtn}>
-                        Sıfırla
-                    </Button>
-
-                    <Button variant="contained" onClick={handleApply} disabled={!canApply || loading} startIcon={<BoltRoundedIcon />} sx={primaryBtn}>
-                        Getir
-                    </Button>
-
-                    <IconButton
-                        onClick={onClose}
-                        sx={{
-                            bgcolor: alpha(theme.palette.text.primary, isDark ? 0.1 : 0.05),
-                            border: `1px solid ${alpha(theme.palette.divider, isDark ? 0.55 : 1)}`,
+                            px: 3,
+                            py: 2.5,
+                            borderRadius: 24,
+                            border: `1px solid ${alpha("#fff", isDark ? 0.12 : 0.08)}`,
+                            bgcolor: isDark ? alpha("#0b1220", 0.8) : alpha("#ffffff", 0.92),
+                            minWidth: 340,
+                            textAlign: "center",
                         }}
                     >
-                        <CloseIcon />
-                    </IconButton>
-                </Toolbar>
-
-                {(loading || errorText) && (
-                    <Box sx={{ px: 2, pb: 1 }}>
-                        {loading ? (
-                            <Stack direction="row" spacing={1} alignItems="center">
-                                <CircularProgress size={16} />
-                                <Typography sx={{ fontWeight: 850, color: theme.palette.text.secondary, fontSize: "0.85rem" }}>
-                                    Supabase’den çekiliyor ve analiz ediliyor…
-                                </Typography>
-                            </Stack>
-                        ) : null}
-
-                        {errorText ? (
-                            <Typography sx={{ mt: 0.6, fontSize: "0.85rem", color: "#ef4444", fontWeight: 1000 }}>
-                                {errorText}
+                        <Stack spacing={1.1} alignItems="center">
+                            <CircularProgress />
+                            <Typography sx={{ fontWeight: 1000, fontSize: "1.05rem" }}>Analiz yapılıyor, bekleyiniz…</Typography>
+                            <Typography sx={{ fontWeight: 800, color: "text.secondary", fontSize: "0.9rem" }}>
+                                Haftalık yükleniyor: {progress.done}/{progress.total} {progress.failed ? `• ${progress.failed} hata` : ""}
                             </Typography>
-                        ) : null}
-                    </Box>
-                )}
-            </AppBar>
 
-            {/* Left sidebar (desktop) */}
-            {isMdUp ? (
-                <Box sx={{ width: 420, flex: "0 0 420px", pt: "86px", position: "relative", zIndex: 2, overflow: "auto" }}>
-                    {FiltersPanel}
+                            {progress.total > 0 ? (
+                                <Box sx={{ width: "100%", mt: 0.5 }}>
+                                    <LinearProgress variant="determinate" value={(progress.done / progress.total) * 100} />
+                                </Box>
+                            ) : null}
+                        </Stack>
+                    </Paper>
                 </Box>
-            ) : (
-                <Drawer open={mobileDrawerOpen} onClose={() => setMobileDrawerOpen(false)}>
-                    <Box sx={{ width: 420, maxWidth: "92vw" }}>
-                        <Box sx={{ p: 1.5, borderBottom: `1px solid ${alpha(theme.palette.divider, isDark ? 0.55 : 1)}` }}>
-                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                <Typography sx={{ fontWeight: 1200 }}>Filtreler</Typography>
-                                <IconButton onClick={() => setMobileDrawerOpen(false)}>
-                                    <CloseIcon />
-                                </IconButton>
-                            </Stack>
-                        </Box>
-                        {FiltersPanel}
-                    </Box>
-                </Drawer>
-            )}
+            ) : null}
 
-            {/* Main */}
-            <Box sx={{ flex: 1, pt: "86px", position: "relative", zIndex: 1, overflow: "auto" }}>
-                <Box sx={{ p: { xs: 1.5, md: 2.2 }, maxWidth: 1700, mx: "auto" }}>
-                    {/* Empty state */}
-                    {!result && !loading ? (
-                        <Paper elevation={0} sx={{ p: 2.2, borderRadius: 6, ...glass(0.62) }}>
-                            <SectionTitle
-                                icon={<CalendarMonthRoundedIcon fontSize="small" />}
-                                title="Başlamak için"
-                                sub='Soldan proje(leri) seç ve “Getir” ile öngörü tablosunu oluştur.'
-                            />
-                            <Box sx={{ mt: 1.4, p: 1.6, borderRadius: 5, border, bgcolor: alpha(theme.palette.text.primary, isDark ? 0.06 : 0.03) }}>
-                                <Typography sx={{ fontWeight: 1100 }}>İpuçları</Typography>
-                                <Typography sx={{ fontWeight: 850, color: theme.palette.text.secondary, mt: 0.55, lineHeight: 1.6 }}>
-                                    • Haftalar artık <b>1-7, 8-14, 15-21, 22-28, 29-ay sonu</b> şeklinde hesaplanır <br />
-                                    • İlk ekranda sadece <b>Tahmin</b> kolonları görünür <br />
-                                    • “Detay (Geçmiş)” ile önceki ay haftaları açılır <br />
-                                    • Tahmin kolonlarında altta <b>Ger</b> gerçekleşen değeri görünür
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+                <Paper
+                    elevation={0}
+                    sx={{
+                        p: 2.2,
+                        borderRadius: 28,
+                        border: `1px solid ${isDark ? alpha("#fff", 0.08) : alpha("#0f172a", 0.08)}`,
+                        bgcolor: isDark ? alpha("#0b1220", 0.62) : alpha("#ffffff", 0.85),
+                        backdropFilter: "blur(16px)",
+                        boxShadow: isDark ? "0 24px 80px rgba(0,0,0,0.35)" : "0 24px 80px rgba(2,6,23,0.08)",
+                    }}
+                >
+                    <Stack direction={{ xs: "column", lg: "row" }} spacing={2} alignItems={{ lg: "center" }} justifyContent="space-between">
+                        <Stack direction="row" spacing={1.5} alignItems="center">
+                            <Box
+                                sx={{
+                                    width: 44,
+                                    height: 44,
+                                    borderRadius: 18,
+                                    display: "grid",
+                                    placeItems: "center",
+                                    bgcolor: isDark ? alpha("#fff", 0.08) : "#0f172a",
+                                    boxShadow: isDark ? "none" : "0 18px 45px rgba(2,6,23,0.22)",
+                                }}
+                            >
+                                <RiBarChart2Line size={22} color={isDark ? "#e2e8f0" : "#fff"} />
+                            </Box>
+
+                            <Box sx={{ minWidth: 0 }}>
+                                <Typography sx={{ fontWeight: 1000, fontSize: "1.25rem", letterSpacing: "-0.7px" }}>
+                                    KARŞILAŞTIRMA • FORECAST + ANALİZ
+                                </Typography>
+                                <Typography sx={{ fontWeight: 800, color: "text.secondary" }}>
+                                    Haftalık kademeli yükleme • Bölge bazlı • Forecast + Son 13 ay tarihsel tablo
                                 </Typography>
                             </Box>
-                        </Paper>
+
+                            <Tooltip title="Forecast: Son 28 gün seviye + son 12 hafta dağılımı ile hesaplanır. Tarihsel: son 13 ay gerçekleşen sipariş sayıları.">
+                                <IconButton
+                                    size="small"
+                                    sx={{
+                                        ml: "auto",
+                                        bgcolor: isDark ? alpha("#fff", 0.06) : alpha("#0f172a", 0.05),
+                                        border: isDark ? `1px solid ${alpha("#fff", 0.1)}` : "none",
+                                    }}
+                                >
+                                    <RiInformationLine />
+                                </IconButton>
+                            </Tooltip>
+                        </Stack>
+
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.2} alignItems="center">
+                            <Select
+                                size="small"
+                                value={viewMode}
+                                onChange={(e) => setViewMode(e.target.value)}
+                                sx={{
+                                    minWidth: 220,
+                                    borderRadius: 18,
+                                    bgcolor: isDark ? alpha("#0f172a", 0.5) : alpha("#0f172a", 0.03),
+                                    "& fieldset": { border: "none" },
+                                    fontWeight: 900,
+                                    fontSize: "0.85rem",
+                                }}
+                            >
+                                <MenuItem value="forecast">📍 Forecast görünümü</MenuItem>
+                                <MenuItem value="tarihsel">🗓️ Tarihsel analiz (13 ay)</MenuItem>
+                            </Select>
+
+                            <Button
+                                variant="contained"
+                                disableElevation
+                                onClick={handleFetch}
+                                disabled={loading}
+                                startIcon={loading ? null : <RiRefreshLine size={18} />}
+                                sx={{
+                                    borderRadius: 18,
+                                    px: 3,
+                                    py: 1.2,
+                                    fontWeight: 900,
+                                    textTransform: "none",
+                                    background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                                    boxShadow: `0 10px 24px ${alpha(theme.palette.primary.main, 0.28)}`,
+                                    "&:hover": { boxShadow: "none" },
+                                }}
+                            >
+                                {loading ? "Analiz..." : "Yenile"}
+                            </Button>
+                        </Stack>
+                    </Stack>
+
+                    {raw && !loading ? (
+                        <Box sx={{ mt: 1.6 }}>
+                            <LinearProgress sx={{ opacity: 0.15 }} />
+                        </Box>
                     ) : null}
 
-                    {/* Week KPI */}
-                    {result && weekPills ? (
-                        <Paper elevation={0} sx={{ p: 1.8, borderRadius: 6, ...glass(0.62), mb: 2 }}>
-                            <Stack direction={{ xs: "column", lg: "row" }} spacing={1.4} alignItems={{ lg: "center" }} justifyContent="space-between">
-                                <SectionTitle icon={<CalendarMonthRoundedIcon fontSize="small" />} title="Son 7 gün özet" sub={weekPills.rangeText} />
-                                <Chip
-                                    size="small"
-                                    label="KPI • canlı"
+                    {error ? (
+                        <Paper
+                            elevation={0}
+                            sx={{
+                                mt: 2,
+                                p: 2,
+                                borderRadius: 18,
+                                border: `1px solid ${alpha("#ef4444", 0.35)}`,
+                                bgcolor: alpha("#ef4444", isDark ? 0.14 : 0.08),
+                            }}
+                        >
+                            <Typography sx={{ fontWeight: 900, color: isDark ? "#fecaca" : "#b91c1c" }}>{error}</Typography>
+                        </Paper>
+                    ) : null}
+                </Paper>
+            </motion.div>
+
+            {/* Kontroller */}
+            <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ mt: 2.5 }} alignItems={{ lg: "center" }} justifyContent="space-between">
+                {/* Bölge seçimi */}
+                <Paper
+                    elevation={0}
+                    sx={{
+                        p: 1,
+                        borderRadius: 22,
+                        border: `1px solid ${isDark ? alpha("#fff", 0.08) : alpha("#0f172a", 0.08)}`,
+                        bgcolor: isDark ? alpha("#0b1220", 0.58) : alpha("#fff", 0.9),
+                        backdropFilter: "blur(14px)",
+                        overflowX: "auto",
+                    }}
+                >
+                    <Stack direction="row" spacing={1}>
+                        {Object.keys(REGIONS).map((r) => {
+                            const selected = seciliBolge === r;
+                            const count = REGIONS[r]?.length ?? 0;
+                            return (
+                                <Button
+                                    key={r}
+                                    onClick={() => setSeciliBolge(r)}
+                                    variant={selected ? "contained" : "text"}
+                                    disableElevation
                                     sx={{
-                                        height: 26,
-                                        borderRadius: 999,
-                                        fontWeight: 1100,
-                                        bgcolor: alpha(theme.palette.text.primary, isDark ? 0.1 : 0.06),
-                                        border: `1px solid ${alpha(theme.palette.divider, isDark ? 0.55 : 1)}`,
+                                        borderRadius: 16,
+                                        px: 2,
+                                        py: 1,
+                                        fontWeight: 900,
+                                        textTransform: "none",
+                                        whiteSpace: "nowrap",
+                                        ...(selected
+                                            ? { bgcolor: isDark ? "#fff" : "#0f172a", color: isDark ? "#000" : "#fff" }
+                                            : { color: isDark ? alpha("#fff", 0.75) : alpha("#0f172a", 0.78) }),
+                                    }}
+                                    endIcon={
+                                        <Chip
+                                            size="small"
+                                            label={String(count).padStart(2, "0")}
+                                            sx={{
+                                                height: 22,
+                                                fontWeight: 1000,
+                                                borderRadius: 999,
+                                                bgcolor: selected ? alpha("#22c55e", 0.2) : alpha(theme.palette.primary.main, 0.12),
+                                            }}
+                                        />
+                                    }
+                                >
+                                    {r}
+                                </Button>
+                            );
+                        })}
+                    </Stack>
+                </Paper>
+
+                {/* Arama + Sıralama */}
+                <Paper
+                    elevation={0}
+                    sx={{
+                        p: 1,
+                        borderRadius: 22,
+                        border: `1px solid ${isDark ? alpha("#fff", 0.08) : alpha("#0f172a", 0.08)}`,
+                        bgcolor: isDark ? alpha("#0b1220", 0.58) : alpha("#fff", 0.9),
+                        backdropFilter: "blur(14px)",
+                    }}
+                >
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1.2} alignItems="center">
+                        <TextField
+                            value={arama}
+                            onChange={(e) => setArama(e.target.value)}
+                            placeholder="Proje ara..."
+                            size="small"
+                            sx={{
+                                minWidth: { xs: "100%", sm: 320 },
+                                "& .MuiOutlinedInput-root": {
+                                    borderRadius: 18,
+                                    bgcolor: isDark ? alpha("#0f172a", 0.5) : alpha("#0f172a", 0.03),
+                                    "& fieldset": { border: "none" },
+                                },
+                            }}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <RiSearch2Line />
+                                    </InputAdornment>
+                                ),
+                            }}
+                        />
+
+                        {viewMode === "forecast" ? (
+                            <Select
+                                size="small"
+                                value={sirala}
+                                onChange={(e) => setSirala(e.target.value)}
+                                sx={{
+                                    minWidth: 220,
+                                    borderRadius: 18,
+                                    bgcolor: isDark ? alpha("#0f172a", 0.5) : alpha("#0f172a", 0.03),
+                                    "& fieldset": { border: "none" },
+                                    fontWeight: 800,
+                                    fontSize: "0.85rem",
+                                }}
+                            >
+                                <MenuItem value="buHafta">📍 Bu hafta</MenuItem>
+                                <MenuItem value="gelecekHafta">➡️ Gelecek hafta</MenuItem>
+                                <MenuItem value="digerHafta">⏭️ Diğer hafta</MenuItem>
+                                <MenuItem value="aySonunaKadar">🧾 Ay sonuna kadar</MenuItem>
+                                <MenuItem value="ayToplam">🧮 Ay toplam</MenuItem>
+                            </Select>
+                        ) : null}
+                    </Stack>
+                </Paper>
+            </Stack>
+
+            {/* KPI */}
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mt: 2.5, flexWrap: "wrap" }}>
+                <KpiCard
+                    label="SON 4 HAFTA TREND"
+                    value={<TrendChip value={trendKpis.w4trend} />}
+                    hint={`Son 28 gün: ${trendKpis.w4} | Önceki 28 gün: ${trendKpis.prevW4}`}
+                    color="#22c55e"
+                />
+                <KpiCard
+                    label="AYDAN AYA (MoM)"
+                    value={<TrendChip value={trendKpis.mom} />}
+                    hint={`Bu ay (to-date): ${trendKpis.thisMonth} | Geçen ay: ${trendKpis.lastMonth}`}
+                    color="#0ea5e9"
+                />
+                <KpiCard
+                    label="YILDAN YILA (YoY)"
+                    value={<TrendChip value={trendKpis.yoy} />}
+                    hint={`Bu ay (to-date): ${trendKpis.thisMonth} | Geçen yıl aynı ay: ${trendKpis.lastYearSame}`}
+                    color="#8b5cf6"
+                />
+
+                {viewMode === "forecast" ? (
+                    <>
+                        <KpiCard label="BU HAFTA" value={forecastTotals.buHafta} hint={meta ? fmtRange(meta.week0Start, meta.week0End) : ""} color="#0ea5e9" />
+                        <KpiCard label="GELECEK HAFTA" value={forecastTotals.gelecekHafta} hint={meta ? fmtRange(meta.week1Start, meta.week1End) : ""} color="#10b981" />
+                        {/* ✅ Ay sonuna kadar 01–31 göster */}
+                        <KpiCard label="AY SONUNA KADAR" value={forecastTotals.aySonunaKadar} hint={meta ? fmtRange(meta.monthStart, meta.monthEnd) : ""} color="#f59e0b" />
+                    </>
+                ) : null}
+            </Stack>
+
+            <Divider sx={{ my: 2.5, opacity: isDark ? 0.2 : 0.35 }} />
+
+            {/* TABLO */}
+            <Paper
+                elevation={0}
+                sx={{
+                    borderRadius: 28,
+                    border: `1px solid ${isDark ? alpha("#fff", 0.08) : alpha("#0f172a", 0.08)}`,
+                    bgcolor: isDark ? alpha("#0b1220", 0.58) : alpha("#fff", 0.92),
+                    overflow: "visible", // ✅ oval kesmeyi engelle
+                }}
+            >
+                <Box sx={{ position: "relative", mt: 2 }}>
+                    <Paper
+                        elevation={0}
+                        sx={{
+                            borderRadius: "24px",
+                            border: `1px solid ${isDark ? alpha("#fff", 0.08) : alpha("#0f172a", 0.05)}`,
+                            bgcolor: isDark ? alpha("#0f172a", 0.4) : alpha("#fff", 0.8),
+                            backdropFilter: "blur(12px)", // Cam efekti
+                            overflow: "hidden", // İçerideki border-radius'u korur
+                            boxShadow: isDark
+                                ? "0 20px 40px rgba(0,0,0,0.4)"
+                                : "0 20px 40px rgba(15, 23, 42, 0.06)",
+                        }}
+                    >
+                        {/* HEADER BÖLÜMÜ */}
+                        <Box sx={{
+                            px: 3, py: 2.5,
+                            borderBottom: `1px solid ${isDark ? alpha("#fff", 0.05) : alpha("#0f172a", 0.05)}`,
+                            background: isDark
+                                ? `linear-gradient(90deg, ${alpha("#1e293b", 0.3)}, transparent)`
+                                : `linear-gradient(90deg, ${alpha("#f8fafc", 0.7)}, transparent)`
+                        }}>
+                            <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }} justifyContent="space-between">
+                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                    <Box sx={{ width: 6, height: 24, bgcolor: "primary.main", borderRadius: 4 }} />
+                                    <Typography sx={{ fontWeight: 900, letterSpacing: "-0.02em", fontSize: "1.1rem" }}>
+                                        {seciliBolge}
+                                        <Box component="span" sx={{ opacity: 0.4, mx: 1.5, fontWeight: 300 }}>|</Box>
+                                        <Box component="span" sx={{ color: "text.secondary", fontSize: "0.95rem" }}>
+                                            {viewMode === "forecast" ? "Forecast Analizi" : "Tarihsel Trend (13 Ay)"}
+                                        </Box>
+                                    </Typography>
+                                </Stack>
+
+                                <Chip
+                                    label={(!raw || data.length === 0) ? "Veri Yok" : `${viewMode === "forecast" ? forecastRows.length : historyRows.length} Aktif Kayıt`}
+                                    size="small"
+                                    sx={{
+                                        fontWeight: 800,
+                                        bgcolor: isDark ? alpha("#38bdf8", 0.1) : alpha("#0284c7", 0.05),
+                                        color: isDark ? "#7dd3fc" : "#0369a1",
+                                        borderRadius: "8px",
+                                        border: `1px solid ${isDark ? alpha("#38bdf8", 0.2) : alpha("#0284c7", 0.1)}`
                                     }}
                                 />
                             </Stack>
+                        </Box>
 
-                            <Box sx={{ mt: 1.4, display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }, gap: 1.2 }}>
-                                <KpiCard title="Tedarik" value={fmtInt(weekPills.ted)} tone="good" />
-                                <KpiCard title="Talep" value={fmtInt(weekPills.plan)} />
-                                <KpiCard title="Ted/Talep" value={weekPills.cov == null ? "-" : fmtPct(weekPills.cov)} sub="Karşılama" tone={(weekPills.cov ?? 0) >= 90 ? "good" : "warn"} />
-                                <KpiCard title="Perf" value={fmtPct(weekPills.perf)} sub="Performans" tone={(weekPills.perf ?? 0) >= 90 ? "good" : "warn"} />
+                        {(!raw || data.length === 0) ? (
+                            <Box sx={{ py: 12, textAlign: "center" }}>
+                                <Typography sx={{ fontWeight: 900, fontSize: "1.2rem", color: "text.secondary", opacity: 0.5 }}>
+                                    Görüntülenecek veri bulunamadı.
+                                </Typography>
                             </Box>
-                        </Paper>
-                    ) : null}
+                        ) : (
+                            <TableContainer sx={{
+                                maxHeight: 640,
+                                overflow: "auto",
+                                "&::-webkit-scrollbar": { width: 8, height: 8 },
+                                "&::-webkit-scrollbar-thumb": { bgcolor: alpha("#94a3b8", 0.2), borderRadius: 8 }
+                            }}>
+                                <Table stickyHeader size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            {/* Sticky Header Hücreleri */}
+                                            {["Bölge", "Proje"].map((head, i) => (
+                                                <TableCell
+                                                    key={head}
+                                                    sx={{
+                                                        fontWeight: 800,
+                                                        bgcolor: isDark ? "#0f172a" : "#f8fafc",
+                                                        zIndex: 11,
+                                                        left: i === 0 ? 0 : 100, // Sabit sütun genişliği
+                                                        position: "sticky",
+                                                        borderBottom: `2px solid ${alpha("#94a3b8", 0.1)}`,
+                                                        fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: 0.5
+                                                    }}
+                                                >
+                                                    {head}
+                                                </TableCell>
+                                            ))}
 
-                    {/* Table */}
-                    {result && tedMatrix ? (
-                        <TedMatrixTablePretty
-                            title={`Tedarik Öngörü Tablosu • ${region || "Tümü"}`}
-                            subtitle="Hafta aralıkları: 1-7, 8-14, ... ay sonu • Arama/Sıralama/Density • Sticky toplam"
-                            columns={tedMatrix.columns}
-                            rows={tedMatrix.rows}
-                            totals={tedMatrix.totals}
-                        />
-                    ) : null}
+                                            {(viewMode === "forecast" ? ["Bu Hafta", "Haftaya", "Diğer", "Ay Sonu", "Toplam"] : [...(history?.months || []), "Toplam"]).map((col, idx) => (
+                                                <TableCell
+                                                    key={idx}
+                                                    align="right"
+                                                    sx={{
+                                                        fontWeight: 800,
+                                                        bgcolor: isDark ? "#0f172a" : "#f8fafc",
+                                                        borderBottom: `2px solid ${alpha("#94a3b8", 0.1)}`,
+                                                        fontSize: "0.85rem", textTransform: "uppercase"
+                                                    }}
+                                                >
+                                                    {typeof col === 'string' ? col : monthLabelTR(col)}
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
+                                    </TableHead>
 
-                    <Box sx={{ height: 18 }} />
-                </Box>
-            </Box>
-        </Box>
+                                    <TableBody>
+                                        {(viewMode === "forecast" ? forecastRows : historyRows).map((r, idx) => {
+                                            const isHot = viewMode === "forecast" && (r.ayToplam > 0);
+                                            return (
+                                                <TableRow
+                                                    key={idx}
+                                                    hover
+                                                    sx={{
+                                                        transition: "all 0.2s",
+                                                        "&:hover": { bgcolor: isDark ? alpha("#fff", 0.02) : alpha("#000", 0.01) }
+                                                    }}
+                                                >
+                                                    {/* Sabit Sütunlar (Sticky Columns) */}
+                                                    <TableCell sx={{
+                                                        position: "sticky", left: 0, zIndex: 5,
+                                                        bgcolor: isDark ? "#0b1220" : "#fff",
+                                                        borderRight: `1px solid ${alpha("#94a3b8", 0.05)}`
+                                                    }}>
+                                                        <Chip label={seciliBolge} size="small" sx={{ fontWeight: 900, fontSize: "0.7rem", height: 20 }} />
+                                                    </TableCell>
+
+                                                    <TableCell sx={{
+                                                        position: "sticky", left: 100, zIndex: 5,
+                                                        bgcolor: isDark ? "#0b1220" : "#fff",
+                                                        borderRight: `1px solid ${alpha("#94a3b8", 0.05)}`,
+                                                        whiteSpace: "nowrap"
+                                                    }}>
+                                                        <Typography sx={{ fontWeight: 700, fontSize: "0.9rem" }}>{r.proje}</Typography>
+                                                    </TableCell>
+
+                                                    {/* Dinamik Veri Hücreleri */}
+                                                    {viewMode === "forecast" ? (
+                                                        <>
+                                                            <TableCell align="right" sx={{ fontWeight: 600 }}>{r.buHafta}</TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 600 }}>{r.gelecekHafta}</TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 600 }}>{r.digerHafta}</TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 600 }}>{r.aySonunaKadar}</TableCell>
+                                                            <TableCell align="right">
+                                                                <Box sx={{
+                                                                    display: "inline-block", px: 1.2, py: 0.4, borderRadius: "6px",
+                                                                    bgcolor: isHot ? alpha(theme.palette.primary.main, 0.1) : "transparent",
+                                                                    color: isHot ? "primary.main" : "text.primary",
+                                                                    fontWeight: 900
+                                                                }}>
+                                                                    {r.ayToplam}
+                                                                </Box>
+                                                            </TableCell>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            {r.counts.map((c, i) => (
+                                                                <TableCell key={i} align="right" sx={{ fontWeight: 600, opacity: c === 0 ? 0.3 : 1 }}>{c}</TableCell>
+                                                            ))}
+                                                            <TableCell align="right" sx={{ fontWeight: 900, color: "primary.main" }}>{r.total}</TableCell>
+                                                        </>
+                                                    )}
+                                                </TableRow>
+                                            );
+                                        })}
+
+                                        {/* TOPLAM SATIRI */}
+                                        <TableRow sx={{ bgcolor: isDark ? alpha("#fff", 0.03) : alpha("#000", 0.02) }}>
+                                            <TableCell colSpan={2} sx={{
+                                                position: "sticky", left: 0, zIndex: 6,
+                                                bgcolor: isDark ? "#161d2b" : "#f1f5f9",
+                                                fontWeight: 900, color: "primary.main", fontSize: "0.9rem"
+                                            }}>
+                                                GENEL TOPLAM
+                                            </TableCell>
+                                            {viewMode === "forecast" ? (
+                                                <>
+                                                    <TableCell align="right" sx={{ fontWeight: 900 }}>{forecastTotals.buHafta}</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 900 }}>{forecastTotals.gelecekHafta}</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 900 }}>{forecastTotals.digerHafta}</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 900 }}>{forecastTotals.aySonunaKadar}</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 1000, fontSize: "1rem", color: "primary.main" }}>{forecastTotals.ayToplam}</TableCell>
+                                                </>
+                                            ) : (
+                                                <TableCell align="right" colSpan={history?.months?.length + 1} sx={{ fontWeight: 900 }}>
+                                                    {/* Buraya history toplamlarını mapleyebilirsin */}
+                                                </TableCell>
+                                            )}
+                                        </TableRow>
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
+                    </Paper>   
+                </Box>         
+            </Paper>         
+        </Box>             
     );
 }

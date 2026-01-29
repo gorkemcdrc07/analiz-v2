@@ -18,15 +18,16 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import MenuIcon from '@mui/icons-material/Menu';
 import HomeIcon from '@mui/icons-material/Home';
-import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 
-// ✅ yeni ikonlar
+// ✅ /backend-veri için ikon (ama yazı Tedarik Analiz olacak)
 import StorageIcon from '@mui/icons-material/Storage';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
+
+// ✅ Forecast menü ikonu
+import ShowChartIcon from '@mui/icons-material/ShowChart';
 
 import { useTheme } from '@mui/material/styles';
 
@@ -48,25 +49,25 @@ async function fetchAllRows({ startIso, endIso }) {
         const { data: page, error } = await supabase
             .from('siparisler_raw_v')
             .select(`
-                proje,
-                hizmet_tipi,
-                arac_calisma_tipi,
-                pozisyon_no,
-                sefer_no,
-                siparis_durumu,
-                yukleme_ili,
-                yukleme_ilcesi,
-                teslim_ili,
-                teslim_ilcesi,
-                yukleme_noktasi,
-                teslim_noktasi,
-                sipras_acan,
-                siparis_acilis_zamani,
-                sefer_acilis_zamani,
-                sefer_hesap_ozeti,
-                yukleme_tarihi,
-                yukleme_ts
-            `)
+        proje,
+        hizmet_tipi,
+        arac_calisma_tipi,
+        pozisyon_no,
+        sefer_no,
+        siparis_durumu,
+        yukleme_ili,
+        yukleme_ilcesi,
+        teslim_ili,
+        teslim_ilcesi,
+        yukleme_noktasi,
+        teslim_noktasi,
+        sipras_acan,
+        siparis_acilis_zamani,
+        sefer_acilis_zamani,
+        sefer_hesap_ozeti,
+        yukleme_tarihi,
+        yukleme_ts
+      `)
             .gte('yukleme_ts', startIso)
             .lte('yukleme_ts', endIso)
             .order('yukleme_ts', { ascending: false })
@@ -117,13 +118,13 @@ export default function Layout({ mode, setMode }) {
     const [detailOpen, setDetailOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
+    // ✅ üst bardaki başlık
     const screenTitle = useMemo(() => {
-        if (location.pathname === '/') return 'Anasayfa';
-        if (location.pathname.startsWith('/tedarik-analiz')) return 'Tedarik Analiz';
+        if (location.pathname === '/') return 'Ana Sayfa';
         if (location.pathname.startsWith('/siparis-analiz')) return 'Sipariş Analiz';
         if (location.pathname.startsWith('/proje-analiz')) return 'Proje Analiz';
-        if (location.pathname.startsWith('/veri-aktarim')) return 'Veri Aktarım';
-        if (location.pathname.startsWith('/backend-veri')) return 'Backend Veri'; // ✅ eklendi
+        if (location.pathname.startsWith('/backend-veri')) return 'Tedarik Analiz';
+        if (location.pathname.startsWith('/karsilastirma')) return 'Forecast';
         return '';
     }, [location.pathname]);
 
@@ -253,11 +254,7 @@ export default function Layout({ mode, setMode }) {
                 <Container maxWidth={false} disableGutters sx={{ px: 2 }}>
                     <Toolbar variant="dense" sx={{ justifyContent: 'space-between', height: 64 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                            <IconButton
-                                onClick={() => setSidebarOpen((p) => !p)}
-                                size="small"
-                                sx={{ color: textMain }}
-                            >
+                            <IconButton onClick={() => setSidebarOpen((p) => !p)} size="small" sx={{ color: textMain }}>
                                 <MenuIcon />
                             </IconButton>
 
@@ -335,107 +332,65 @@ export default function Layout({ mode, setMode }) {
                 <Box sx={{ height: 64 }} />
                 <Box sx={{ px: 2, py: 2 }}>
                     <Typography sx={{ fontWeight: 900, color: textMain }}>Menü</Typography>
-                    <Typography sx={{ fontSize: 12, color: textSub, fontWeight: 600 }}>
-                        Analiz ekranını seçin
-                    </Typography>
+                    <Typography sx={{ fontSize: 12, color: textSub, fontWeight: 600 }}>Analiz ekranını seçin</Typography>
                 </Box>
                 <Divider sx={{ borderColor: drawerBorder }} />
 
                 <List sx={{ px: 1, py: 1 }}>
-                    <ListItemButton
-                        selected={location.pathname === '/'}
-                        onClick={() => navigate('/')}
-                        sx={menuItemSx}
-                    >
+                    {/* ✅ Ana Sayfa */}
+                    <ListItemButton selected={location.pathname === '/'} onClick={() => navigate('/')} sx={menuItemSx}>
                         <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
                             <HomeIcon color={location.pathname === '/' ? 'primary' : 'inherit'} />
                         </ListItemIcon>
-                        <ListItemText
-                            primary="Anasayfa"
-                            primaryTypographyProps={{ fontWeight: 800, color: textMain }}
-                        />
+                        <ListItemText primary="Ana Sayfa" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
                     </ListItemButton>
 
-                    <ListItemButton
-                        selected={location.pathname.startsWith('/tedarik-analiz')}
-                        onClick={() => navigate('/tedarik-analiz')}
-                        sx={menuItemSx}
-                    >
-                        <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
-                            <LocalShippingIcon
-                                color={location.pathname.startsWith('/tedarik-analiz') ? 'primary' : 'inherit'}
-                            />
-                        </ListItemIcon>
-                        <ListItemText
-                            primary="Tedarik Analiz"
-                            primaryTypographyProps={{ fontWeight: 800, color: textMain }}
-                        />
-                    </ListItemButton>
-
+                    {/* ✅ Sipariş Analiz */}
                     <ListItemButton
                         selected={location.pathname.startsWith('/siparis-analiz')}
                         onClick={() => navigate('/siparis-analiz')}
                         sx={menuItemSx}
                     >
                         <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
-                            <ReceiptLongIcon
-                                color={location.pathname.startsWith('/siparis-analiz') ? 'primary' : 'inherit'}
-                            />
+                            <ReceiptLongIcon color={location.pathname.startsWith('/siparis-analiz') ? 'primary' : 'inherit'} />
                         </ListItemIcon>
-                        <ListItemText
-                            primary="Sipariş Analiz"
-                            primaryTypographyProps={{ fontWeight: 800, color: textMain }}
-                        />
+                        <ListItemText primary="Sipariş Analiz" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
                     </ListItemButton>
 
+                    {/* ✅ Proje Analiz */}
                     <ListItemButton
                         selected={location.pathname.startsWith('/proje-analiz')}
                         onClick={() => navigate('/proje-analiz')}
                         sx={menuItemSx}
                     >
                         <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
-                            <AssessmentIcon
-                                color={location.pathname.startsWith('/proje-analiz') ? 'primary' : 'inherit'}
-                            />
+                            <AssessmentIcon color={location.pathname.startsWith('/proje-analiz') ? 'primary' : 'inherit'} />
                         </ListItemIcon>
-                        <ListItemText
-                            primary="Proje Analiz"
-                            primaryTypographyProps={{ fontWeight: 800, color: textMain }}
-                        />
+                        <ListItemText primary="Proje Analiz" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
                     </ListItemButton>
 
-                    {/* ✅ Veri Aktarım (menüde yoktu, route var) */}
-                    <ListItemButton
-                        selected={location.pathname.startsWith('/veri-aktarim')}
-                        onClick={() => navigate('/veri-aktarim')}
-                        sx={menuItemSx}
-                    >
-                        <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
-                            <UploadFileIcon
-                                color={location.pathname.startsWith('/veri-aktarim') ? 'primary' : 'inherit'}
-                            />
-                        </ListItemIcon>
-                        <ListItemText
-                            primary="Veri Aktarım"
-                            primaryTypographyProps={{ fontWeight: 800, color: textMain }}
-                        />
-                    </ListItemButton>
-
-                    {/* ✅ Backend Veri */}
+                    {/* ✅ /backend-veri route'u kalsın ama menüde "Tedarik Analiz" yazsın */}
                     <ListItemButton
                         selected={location.pathname.startsWith('/backend-veri')}
                         onClick={() => navigate('/backend-veri')}
                         sx={menuItemSx}
                     >
                         <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
-                            <StorageIcon
-                                color={location.pathname.startsWith('/backend-veri') ? 'primary' : 'inherit'}
-                            />
+                            <StorageIcon color={location.pathname.startsWith('/backend-veri') ? 'primary' : 'inherit'} />
                         </ListItemIcon>
-                        <ListItemText
-                            primary="Backend Veri"
-                            primaryTypographyProps={{ fontWeight: 800, color: textMain }}
-                        />
+                        <ListItemText primary="Tedarik Analiz" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
+                    </ListItemButton>
+
+                    {/* ✅ Forecast (/karsilastirma) */}
+                    <ListItemButton
+                        selected={location.pathname.startsWith('/karsilastirma')}
+                        onClick={() => navigate('/karsilastirma')}
+                        sx={menuItemSx}
+                    >
+                        <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
+                            <ShowChartIcon color={location.pathname.startsWith('/karsilastirma') ? 'primary' : 'inherit'} />
+                        </ListItemIcon>
+                        <ListItemText primary="Forecast" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
                     </ListItemButton>
                 </List>
             </Drawer>
@@ -452,9 +407,7 @@ export default function Layout({ mode, setMode }) {
                 </Container>
             </Box>
 
-            {detailOpen && (
-                <DetayPaneli type={detailType} data={data} onClose={() => setDetailOpen(false)} />
-            )}
+            {detailOpen && <DetayPaneli type={detailType} data={data} onClose={() => setDetailOpen(false)} />}
         </>
     );
 }
