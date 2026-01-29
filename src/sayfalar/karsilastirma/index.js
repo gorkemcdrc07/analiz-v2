@@ -1,4 +1,4 @@
-﻿// src/sayfalar/karsilastirma/index.js
+// src/sayfalar/karsilastirma/index.js
 import React, { useEffect, useMemo, useState } from "react";
 import { Box, alpha, useTheme } from "@mui/material";
 

@@ -1,4 +1,4 @@
-﻿// src/sayfalar/karsilastirma/utils/date.js
+// src/sayfalar/karsilastirma/utils/date.js
 
 /* ------------------------ temel yardımcılar ------------------------ */
 

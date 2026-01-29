@@ -1,4 +1,4 @@
-﻿// src/sayfalar/karsilastirma/utils/domain.js
+// src/sayfalar/karsilastirma/utils/domain.js
 
 import { REGIONS } from "../../../ozellikler/yardimcilar/veriKurallari";
 import { metniNormalizeEt } from "../../../ozellikler/yardimcilar/metin";

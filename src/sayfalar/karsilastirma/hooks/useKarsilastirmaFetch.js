@@ -1,4 +1,4 @@
-﻿// src/sayfalar/karsilastirma/hooks/useKarsilastirmaFetch.js
+// src/sayfalar/karsilastirma/hooks/useKarsilastirmaFetch.js
 
 import { useCallback, useState } from "react";
 

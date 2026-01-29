@@ -1,4 +1,4 @@
-﻿// src/ozellikler/analiz-paneli/bilesenler/ProjeSatiri.jsx
+// src/ozellikler/analiz-paneli/bilesenler/ProjeSatiri.jsx
 import React, { useMemo, useState } from "react";
 import { Box, Chip, Collapse, Divider, Stack, Typography, alpha } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
@@ -507,3 +507,4 @@ export default function ProjeSatiri({
         </ProjeKarti>
     );
 }
+

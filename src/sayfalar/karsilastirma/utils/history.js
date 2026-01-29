@@ -1,4 +1,4 @@
-﻿// src/sayfalar/karsilastirma/utils/history.js
+// src/sayfalar/karsilastirma/utils/history.js
 
 import { endOfMonth } from "./date";
 import { getPickupDate, getProjectName, isInSelectedRegion } from "./domain";

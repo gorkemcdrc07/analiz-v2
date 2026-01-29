@@ -6,7 +6,9 @@
     "\\src\\ozellikler\\analiz-paneli",
     "\\src\\ozellikler\\analiz-paneli\\bilesenler",
     "\\src\\ozellikler\\stiller",
-    "\\src\\ozellikler\\yardimcilar"
+    "\\src\\ozellikler\\yardimcilar",
+    "\\src\\sayfalar"
   ],
+  "SelectedNode": "\\src\\sayfalar\\karsilastirma.js",
   "PreviewInSolutionExplorer": false
 }

@@ -582,18 +582,6 @@ export default function Karsilastirma() {
 
     const meta = forecast?.meta;
 
-    const weekLabels = useMemo(() => {
-        if (!meta) return null;
-        return {
-            w0: fmtRange(meta.week0Start, meta.week0End),
-            w1: fmtRange(meta.week1Start, meta.week1End),
-            w2: fmtRange(meta.week2Start, meta.week2End),
-            month: fmtRange(meta.monthStart, meta.monthEnd),
-            w0Short: fmtRangeShort(meta.week0Start, meta.week0End),
-            w1Short: fmtRangeShort(meta.week1Start, meta.week1End),
-            w2Short: fmtRangeShort(meta.week2Start, meta.week2End),
-        };
-    }, [meta]);
 
     return (
         <Box

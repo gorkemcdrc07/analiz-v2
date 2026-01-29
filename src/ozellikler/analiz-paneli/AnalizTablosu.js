@@ -5,15 +5,11 @@ import {
     Paper,
     Typography,
     Stack,
-    Chip,
     TextField,
     InputAdornment,
-    Divider,
     Select,
     MenuItem,
-    FormControl,
     Switch,
-    FormControlLabel,
     Tooltip,
     IconButton,
     alpha,
@@ -84,12 +80,6 @@ const parseTRDateTime = (v) => {
     return Number.isNaN(d2.getTime()) ? null : d2;
 };
 
-const hoursDiff = (a, b) => {
-    const d1 = parseTRDateTime(a);
-    const d2 = parseTRDateTime(b);
-    if (!d1 || !d2) return null;
-    return Math.abs(d2.getTime() - d1.getTime()) / (1000 * 60 * 60);
-};
 
 const isGecTedarik = (pickupDate, printedDate) => {
     const p = parseTRDateTime(pickupDate);

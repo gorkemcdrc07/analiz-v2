@@ -1,4 +1,4 @@
-﻿// src/sayfalar/karsilastirma/components/KpiSection.jsx
+// src/sayfalar/karsilastirma/components/KpiSection.jsx
 import React from "react";
 import { Box, Chip, Paper, Stack, Typography, alpha, useTheme } from "@mui/material";
 

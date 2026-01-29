@@ -1,4 +1,4 @@
-﻿// src/ozellikler/analiz-paneli/yardimcilar/veriKurallari.js
+// src/ozellikler/analiz-paneli/yardimcilar/veriKurallari.js
 import { metniNormalizeEt as norm } from "./metin";
 
 // ✅ Bölge listeleri (aynı içerik)
@@ -155,3 +155,4 @@ export function altDetaylariOlustur(projeAdi, tumVeri) {
         })
         .slice(0, 50);
 }
+

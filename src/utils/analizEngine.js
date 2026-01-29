@@ -1,4 +1,4 @@
-﻿// src/ozellikler/analiz-paneli/analizEngine.js
+// src/ozellikler/analiz-paneli/analizEngine.js
 
 /* ------------------------ Normalize & Parsers ------------------------ */
 export const metniNormalizeEt = (v) => {

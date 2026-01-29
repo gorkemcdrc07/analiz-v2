@@ -1,4 +1,4 @@
-﻿import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
+import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useMemo, useState } from "react";
 
@@ -44,3 +44,4 @@ export default function App() {
         </ThemeProvider>
     );
 }
+

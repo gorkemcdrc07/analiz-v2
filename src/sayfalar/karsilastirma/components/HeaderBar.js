@@ -1,4 +1,4 @@
-﻿// src/sayfalar/karsilastirma/components/HeaderBar.jsx
+// src/sayfalar/karsilastirma/components/HeaderBar.jsx
 import React from "react";
 import {
     Box,
