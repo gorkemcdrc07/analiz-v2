@@ -44,11 +44,6 @@ const fmtTR = (d) =>
 
 const fmtRange = (a, b) => `${fmtTR(a)} – ${fmtTR(b)}`;
 
-const fmtRangeShort = (a, b) =>
-    `${new Date(a).toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit" })}–${new Date(b).toLocaleDateString(
-        "tr-TR",
-        { day: "2-digit", month: "2-digit" }
-    )}`;
 
 const clampDayStart = (d) => {
     const x = new Date(d);
