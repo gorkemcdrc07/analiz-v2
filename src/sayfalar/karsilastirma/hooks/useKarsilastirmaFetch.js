@@ -1,19 +1,66 @@
 // src/sayfalar/karsilastirma/hooks/useKarsilastirmaFetch.js
-
 import { useCallback, useState } from "react";
 
 import { BASE_URL } from "../../../ozellikler/yardimcilar/sabitler";
 import { extractItems } from "../../../ozellikler/yardimcilar/backend";
-import { buildWeekRanges, isoStartOfDayZ, isoEndOfDayZ } from "../utils/date";
+import { isoStartOfDayZ, isoEndOfDayZ } from "../utils/date";
+
+/* ------------------------ küçük tarih yardımcıları ------------------------ */
+const clampDayStart = (d) => {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+};
+
+const addDays = (d, n) => {
+    const x = new Date(d);
+    x.setDate(x.getDate() + n);
+    return x;
+};
+
+// Pazartesi başlangıçlı hafta
+const startOfWeekMon = (d) => {
+    const x = clampDayStart(d);
+    const day = x.getDay(); // 0 pazar
+    const diff = (day + 6) % 7; // pazartesi=0
+    x.setDate(x.getDate() - diff);
+    return x;
+};
+
+// Seçilen (start-end) aralığını kapsayan haftaları üret
+const buildWeekRangesBetween = (startDate, endDate) => {
+    const s0 = clampDayStart(new Date(startDate));
+    const e0 = clampDayStart(new Date(endDate));
+
+    const firstWeekStart = startOfWeekMon(s0);
+    const out = [];
+
+    let cur = new Date(firstWeekStart);
+    while (cur <= e0) {
+        const wStart = new Date(cur);
+        const wEnd = addDays(wStart, 6);
+        wEnd.setHours(23, 59, 59, 999);
+
+        // aralık kesişimi
+        const a = new Date(Math.max(wStart.getTime(), s0.getTime()));
+        const b = new Date(Math.min(wEnd.getTime(), new Date(endDate).getTime()));
+
+        if (a <= b) out.push({ start: a, end: b });
+
+        cur = addDays(cur, 7);
+    }
+
+    return out;
+};
 
 /**
- * Haftalık kademeli veri çekme hook'u
+ * Son N gün (varsayılan 7) verisini kademeli çeker.
  *
  * @param {Object} params
  * @param {number} params.userId
- * @param {number} params.weeksBack
+ * @param {number} params.daysBack  - kaç gün geriye gidilecek (default 7)
  */
-export default function useKarsilastirmaFetch({ userId = 1, weeksBack = 12 } = {}) {
+export default function useKarsilastirmaFetch({ userId = 1, daysBack = 7 } = {}) {
     const [loading, setLoading] = useState(false);
     const [raw, setRaw] = useState(null);
     const [error, setError] = useState("");
@@ -27,7 +74,11 @@ export default function useKarsilastirmaFetch({ userId = 1, weeksBack = 12 } = {
         // UI hemen veri görsün
         setRaw({ items: [] });
 
-        const ranges = buildWeekRanges({ weeksBack, anchorDate: new Date() });
+        // ✅ Son N gün aralığı
+        const end = new Date();
+        const start = addDays(new Date(), -Math.max(1, Number(daysBack)));
+        const ranges = buildWeekRangesBetween(start, end);
+
         setProgress({ done: 0, total: ranges.length, failed: 0 });
 
         const collected = [];
@@ -64,13 +115,13 @@ export default function useKarsilastirmaFetch({ userId = 1, weeksBack = 12 } = {
 
                     if (!res.ok) {
                         setProgress((p) => ({ ...p, done: p.done + 1, failed: p.failed + 1 }));
-                        console.warn("week failed", i, res.status, payload);
+                        console.warn("range failed", i, res.status, payload);
                         continue;
                     }
 
                     const items = extractItems(payload);
 
-                    // ✅ bu haftadan gelenlere haftalık etiket ekle
+                    // ✅ range etiketi
                     const weekStart = new Date(r.start);
                     const weekEnd = new Date(r.end);
                     const weekKey = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(
@@ -85,12 +136,11 @@ export default function useKarsilastirmaFetch({ userId = 1, weeksBack = 12 } = {
                     }));
 
                     collected.push(...tagged);
-                    // ✅ kademeli güncelle
                     setRaw({ items: [...collected] });
                     setProgress((p) => ({ ...p, done: p.done + 1 }));
                 } catch (e) {
                     setProgress((p) => ({ ...p, done: p.done + 1, failed: p.failed + 1 }));
-                    console.warn("week fetch aborted/failed", i, e?.message);
+                    console.warn("range fetch aborted/failed", i, e?.message);
                 } finally {
                     clearTimeout(t);
                 }
@@ -100,10 +150,10 @@ export default function useKarsilastirmaFetch({ userId = 1, weeksBack = 12 } = {
         } finally {
             setLoading(false);
             if (collected.length === 0) {
-                setError("Veri çekilemedi (haftalık istekler başarısız)");
+                setError("Veri çekilemedi (son gün istekleri başarısız)");
             }
         }
-    }, [userId, weeksBack]);
+    }, [userId, daysBack]);
 
     return {
         raw,

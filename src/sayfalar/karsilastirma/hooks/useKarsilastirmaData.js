@@ -1,5 +1,4 @@
 // src/sayfalar/karsilastirma/hooks/useKarsilastirmaData.js
-
 import { useMemo } from "react";
 
 import { extractItems } from "../../../ozellikler/yardimcilar/backend";
@@ -9,11 +8,20 @@ import { buildForecastTable } from "../utils/forecast";
 import { buildMonthlyHistory } from "../utils/history";
 import { buildWeeklyHistory } from "../utils/weekly";
 
-import { clampDayStart, startOfMonth, endOfMonth, addDays, fmtRange, fmtRangeShort } from "../utils/date";
+import {
+    clampDayStart,
+    startOfMonth,
+    endOfMonth,
+    addDays,
+    fmtRange,
+    fmtRangeShort,
+} from "../utils/date";
+
 import { isInSelectedRegion, getPickupDate } from "../utils/domain";
 
 /**
  * Ham veriyi (raw) alır, forecast + history + weekly + rows/totals/kpis gibi tüm memo'ları üretir.
+ * Ayrıca: "önceki 7 gün" (dün → 7 gün önce) gün gün sayımlarını üretir.
  *
  * @param {Object} params
  * @param {Object|null} params.raw
@@ -24,6 +32,50 @@ import { isInSelectedRegion, getPickupDate } from "../utils/domain";
 export default function useKarsilastirmaData({ raw, seciliBolge, arama, sirala }) {
     // raw -> items
     const data = useMemo(() => extractItems(raw), [raw]);
+
+    /* ---------------------------------------------------------------------- */
+    /*                         Tarih / alan güvenli okuma                      */
+    /* ---------------------------------------------------------------------- */
+
+    // TMS’te pickup alanı farklıysa "hep 0" sorunu çıkıyor.
+    // getPickupDate null dönerse otomatik date/time alanlarını tarıyoruz.
+    const getPickupDateSafe = (it) => {
+        const d0 = getPickupDate(it);
+        if (d0 && !isNaN(d0.getTime())) return d0;
+
+        // fallback: objede date/time geçen ilk parse edilebilir alan
+        const obj = it || {};
+        for (const [k, v] of Object.entries(obj)) {
+            if (!v) continue;
+            if (!/(date|time)/i.test(k)) continue;
+            const d = new Date(v);
+            if (!isNaN(d.getTime())) return d;
+        }
+        return null;
+    };
+
+    // Proje adını hook içinde güvenli alalım (domain’de yoksa da çalışsın)
+    const getProjectNameSafe = (it) => {
+        const v =
+            it?.ProjectName ??
+            it?.projectName ??
+            it?.CustomerName ??
+            it?.customerName ??
+            it?.Customer ??
+            it?.customer ??
+            it?.AccountName ??
+            it?.accountName ??
+            it?.Client ??
+            it?.client ??
+            it?.Proje ??
+            it?.proje;
+
+        return String(v ?? "—");
+    };
+
+    /* ---------------------------------------------------------------------- */
+    /*                                 Engines                                 */
+    /* ---------------------------------------------------------------------- */
 
     const forecast = useMemo(() => {
         if (!data?.length) return null;
@@ -40,7 +92,10 @@ export default function useKarsilastirmaData({ raw, seciliBolge, arama, sirala }
         return buildWeeklyHistory({ data, seciliBolge, weeksBack: 12, anchorDate: new Date() });
     }, [data, seciliBolge]);
 
-    // -------- Forecast rows/totals --------
+    /* ---------------------------------------------------------------------- */
+    /*                             Forecast rows/totals                         */
+    /* ---------------------------------------------------------------------- */
+
     const forecastRows = useMemo(() => {
         const base = forecast?.series || [];
         const q = metniNormalizeEt(arama || "");
@@ -62,7 +117,10 @@ export default function useKarsilastirmaData({ raw, seciliBolge, arama, sirala }
         );
     }, [forecastRows]);
 
-    // -------- History rows --------
+    /* ---------------------------------------------------------------------- */
+    /*                                History rows                              */
+    /* ---------------------------------------------------------------------- */
+
     const historyRows = useMemo(() => {
         const base = history?.rows || [];
         const q = metniNormalizeEt(arama || "");
@@ -70,7 +128,10 @@ export default function useKarsilastirmaData({ raw, seciliBolge, arama, sirala }
         return [...filtered].sort((a, b) => (b.total || 0) - (a.total || 0));
     }, [history, arama]);
 
-    // -------- Weekly rows --------
+    /* ---------------------------------------------------------------------- */
+    /*                                 Weekly rows                              */
+    /* ---------------------------------------------------------------------- */
+
     const weeklyRows = useMemo(() => {
         const base = weekly?.rows || [];
         const q = metniNormalizeEt(arama || "");
@@ -78,7 +139,104 @@ export default function useKarsilastirmaData({ raw, seciliBolge, arama, sirala }
         return [...filtered].sort((a, b) => (b.total || 0) - (a.total || 0));
     }, [weekly, arama]);
 
-    // -------- KPI: son 4 hafta, MoM, YoY --------
+    /* ---------------------------------------------------------------------- */
+    /*                  ✅ Daily (önceki 7 gün) — gün gün sayım                  */
+    /* ---------------------------------------------------------------------- */
+    const dailyLast7 = useMemo(() => {
+        // Dün → 7 gün önce (bugün dahil değil)
+        const today0 = clampDayStart(new Date());
+        const days = Array.from({ length: 7 }, (_, i) => clampDayStart(addDays(today0, -(i + 1))));
+
+        const dayKeys = days.map((d) => {
+            // clampDayStart zaten 00:00, güvenli string key
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, "0");
+            const dd = String(d.getDate()).padStart(2, "0");
+            return `${yyyy}-${mm}-${dd}`;
+        });
+
+        const keyIndex = new Map(dayKeys.map((k, i) => [k, i]));
+
+        // region filtreli + pickup parse edilmiş liste
+        const items = (data || [])
+            .filter((it) => isInSelectedRegion(it, seciliBolge))
+            .map((it) => {
+                const d = getPickupDateSafe(it);
+                if (!d) return null;
+
+                const ds = clampDayStart(d);
+                const yyyy = ds.getFullYear();
+                const mm = String(ds.getMonth() + 1).padStart(2, "0");
+                const dd = String(ds.getDate()).padStart(2, "0");
+                const dk = `${yyyy}-${mm}-${dd}`;
+
+                return {
+                    __dayKey: dk,
+                    __proje: getProjectNameSafe(it),
+                };
+            })
+            .filter(Boolean);
+
+        // proje -> counts[7]
+        const byProject = new Map();
+
+        for (const it of items) {
+            const idx = keyIndex.get(it.__dayKey);
+            if (idx === undefined) continue; // sadece hedef 7 gün
+            const p = it.__proje || "—";
+            if (!byProject.has(p)) byProject.set(p, Array(7).fill(0));
+            byProject.get(p)[idx] += 1;
+        }
+
+        // arama filtresi (proje adına göre)
+        const q = metniNormalizeEt(arama || "");
+        let rows = [...byProject.entries()].map(([proje, counts]) => ({
+            bolge: seciliBolge,
+            proje,
+            counts,
+            total: counts.reduce((a, b) => a + b, 0),
+        }));
+
+        if (q) rows = rows.filter((r) => metniNormalizeEt(r.proje).includes(q));
+
+        // sıralama: en yakın gün (dün) büyükten küçüğe, sonra total, sonra isim
+        rows.sort((a, b) => {
+            const a0 = a.counts?.[0] || 0;
+            const b0 = b.counts?.[0] || 0;
+            if (b0 !== a0) return b0 - a0;
+            if ((b.total || 0) !== (a.total || 0)) return (b.total || 0) - (a.total || 0);
+            return String(a.proje).localeCompare(String(b.proje), "tr");
+        });
+
+        // totals: gün gün toplam
+        const totals = rows.reduce(
+            (acc, r) => {
+                for (let i = 0; i < 7; i++) acc.byDay[i] += r.counts[i] || 0;
+                acc.total += r.total || 0;
+                return acc;
+            },
+            { byDay: Array(7).fill(0), total: 0 }
+        );
+
+        // UI’da kolon etiketi basmak için (TR kısa tarih)
+        const labels = days.map((d) =>
+            d.toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit" })
+        );
+
+        return {
+            bolge: seciliBolge,
+            days,       // Date[]
+            dayKeys,    // "YYYY-MM-DD"[]
+            labels,     // "DD.MM"[]
+            rows,       // {bolge,proje,counts[7],total}[]
+            totals,     // {byDay[7], total}
+        };
+    }, [data, seciliBolge, arama]); // arama günlük tabloda da etkili olsun
+
+    /* ---------------------------------------------------------------------- */
+    /*                              KPI: son 4 hafta, MoM, YoY                  */
+    /* ---------------------------------------------------------------------- */
+
     const trendKpis = useMemo(() => {
         if (!data?.length) {
             return {
@@ -112,7 +270,7 @@ export default function useKarsilastirmaData({ raw, seciliBolge, arama, sirala }
         const items = (data || [])
             .filter((it) => isInSelectedRegion(it, seciliBolge))
             .map((it) => {
-                const d = getPickupDate(it);
+                const d = getPickupDateSafe(it);
                 if (!d) return null;
                 return { ...it, __pickup: d };
             })
@@ -175,6 +333,9 @@ export default function useKarsilastirmaData({ raw, seciliBolge, arama, sirala }
         forecastRows,
         historyRows,
         weeklyRows,
+
+        // ✅ daily
+        dailyLast7,
 
         // totals/kpis
         forecastTotals,

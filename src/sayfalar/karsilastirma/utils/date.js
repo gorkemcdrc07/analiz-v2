@@ -133,10 +133,7 @@ export function isoEndOfDayZ(d) {
 /**
  * Son N haftanın tarih aralıklarını üretir (eski → yeni)
  */
-export function buildWeekRanges({
-    weeksBack = 12,
-    anchorDate = new Date(),
-}) {
+export function buildWeekRanges({ weeksBack = 12, anchorDate = new Date() }) {
     const t0 = clampDayStart(anchorDate);
     const week0Start = startOfWeekMon(t0);
 
@@ -147,6 +144,37 @@ export function buildWeekRanges({
         e.setHours(23, 59, 59, 999);
         out.push({ start: s, end: e });
     }
+    return out;
+}
+
+/**
+ * ✅ (startDate-endDate) aralığını kapsayan haftaları üretir.
+ * /tmsorders/week endpoint'i için "son 7 gün" gibi aralık çekiminde kullanılır.
+ *
+ * Çıktı: [{start, end}] (kesişimli) — eski → yeni
+ */
+export function buildWeekRangesBetween({ startDate, endDate }) {
+    const s0 = clampDayStart(new Date(startDate));
+    const e0 = clampDayStart(new Date(endDate));
+
+    const firstWeekStart = startOfWeekMon(s0);
+    const out = [];
+
+    let cur = new Date(firstWeekStart);
+    while (cur <= e0) {
+        const wStart = new Date(cur);
+        const wEnd = addDays(wStart, 6);
+        wEnd.setHours(23, 59, 59, 999);
+
+        // aralık kesişimi
+        const a = new Date(Math.max(wStart.getTime(), s0.getTime()));
+        const b = new Date(Math.min(wEnd.getTime(), new Date(endDate).getTime()));
+
+        if (a <= b) out.push({ start: a, end: b });
+
+        cur = addDays(cur, 7);
+    }
+
     return out;
 }
 
@@ -167,4 +195,5 @@ export default {
     isoStartOfDayZ,
     isoEndOfDayZ,
     buildWeekRanges,
+    buildWeekRangesBetween,
 };

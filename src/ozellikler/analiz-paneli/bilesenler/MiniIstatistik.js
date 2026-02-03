@@ -1,139 +1,136 @@
-import React, { memo } from "react";
+ï»¿import React, { memo } from "react";
 import { Box, Typography, alpha, useTheme } from "@mui/material";
 import { motion } from "framer-motion";
 
 /**
- * MiniIstatistik
- * - deger: string | number | ReactNode (örn JSX)
- * - altMetin: optional küçük açýklama (string | ReactNode)
- * - renk: vurgu rengi
+ * MiniIstatistik (Sade)
+ * - etiket: string | ReactNode
+ * - deger: string | number | ReactNode
+ * - altMetin: optional aÃ§Ä±klama
+ * - renk: vurgu rengi (minimal kullanÄ±lÄ±r)
  */
 const MiniIstatistik = ({ etiket, deger, altMetin = null, renk = "#6366f1" }) => {
     const theme = useTheme();
     const isDark = theme.palette.mode === "dark";
 
+    /* ----------- SADE RENK PALETÄ° ----------- */
+    const cardBg = isDark ? alpha("#0b1220", 0.42) : alpha("#ffffff", 0.86);
+    const baseBorder = isDark ? alpha("#ffffff", 0.10) : alpha("#0f172a", 0.10);
+
+    const labelColor = isDark ? alpha("#ffffff", 0.72) : alpha("#0f172a", 0.68);
+    const valueColor = theme.palette.text.primary;
+    const subColor = isDark ? alpha("#ffffff", 0.78) : alpha("#0f172a", 0.72);
+
     return (
         <Box
             component={motion.div}
-            whileHover={{ scale: 1.05, y: -5 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.995 }}
+            transition={{ type: "spring", stiffness: 420, damping: 30 }}
             sx={{
                 position: "relative",
-                minWidth: { xs: 92, md: 120 },
-                px: 2,
-                py: 2.2,
-                borderRadius: "24px",
+                minWidth: { xs: 128, md: 150 },
+                px: { xs: 2, md: 2.2 },
+                py: { xs: 1.6, md: 1.8 },
+                borderRadius: "16px",
                 overflow: "hidden",
-                cursor: "pointer",
-                background: `linear-gradient(145deg, ${alpha(renk, 0.08)} 0%, ${alpha(renk, 0.02)} 100%)`,
+                userSelect: "none",
+                cursor: "default",
+
+                bgcolor: cardBg,
                 backdropFilter: "blur(10px)",
                 border: "1px solid",
-                borderColor: alpha(renk, 0.15),
+                borderColor: baseBorder,
+
+                boxShadow: isDark
+                    ? `0 10px 26px ${alpha("#000", 0.28)}`
+                    : `0 10px 26px ${alpha("#0f172a", 0.10)}`,
+
                 display: "flex",
                 flexDirection: "column",
-                alignItems: "center",
-                gap: 0.5,
+                alignItems: "flex-start",
+                gap: 0.55,
 
-                "&::before": {
+                // âœ… sadece hover'da hafif vurgu
+                "&::after": {
                     content: '""',
                     position: "absolute",
-                    top: "-50%",
-                    left: "-50%",
-                    width: "200%",
-                    height: "200%",
-                    background: `radial-gradient(circle, ${alpha(renk, 0.1)} 0%, transparent 50%)`,
+                    inset: 0,
+                    borderRadius: "16px",
+                    pointerEvents: "none",
+                    border: "1px solid",
+                    borderColor: alpha(renk, isDark ? 0.18 : 0.16),
                     opacity: 0,
-                    transition: "opacity 0.4s ease",
+                    transition: "opacity 160ms ease",
                 },
-                "&:hover::before": { opacity: 1 },
+                "&:hover::after": { opacity: 1 },
             }}
         >
-            {/* Üst vurgu çizgisi */}
-            <Box
-                sx={{
-                    position: "absolute",
-                    top: 0,
-                    width: "40%",
-                    height: "3px",
-                    background: `linear-gradient(90deg, transparent, ${renk}, transparent)`,
-                    boxShadow: `0 0 15px ${renk}`,
-                    borderRadius: "0 0 100px 100px",
-                }}
-            />
+            {/* ETÄ°KET */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, zIndex: 1 }}>
+                <Box
+                    sx={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        bgcolor: alpha(renk, 0.9),
+                        flexShrink: 0,
+                    }}
+                />
+                <Typography
+                    sx={{
+                        fontSize: "0.78rem",
+                        fontWeight: 900,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        color: labelColor,
+                        lineHeight: 1.15,
+                    }}
+                >
+                    {etiket}
+                </Typography>
+            </Box>
 
-            <Typography
-                sx={{
-                    fontSize: "0.6rem",
-                    fontWeight: 900,
-                    textTransform: "uppercase",
-                    letterSpacing: "1.5px",
-                    color: alpha(theme.palette.text.primary, 0.5),
-                    zIndex: 1,
-                    textAlign: "center",
-                    lineHeight: 1.2,
-                }}
-            >
-                {etiket}
-            </Typography>
-
-            {/* deger artýk JSX de olabilir */}
+            {/* DEÄžER */}
             {typeof deger === "string" || typeof deger === "number" ? (
                 <Typography
                     sx={{
-                        fontSize: "1.5rem",
-                        fontWeight: 1000,
-                        color: isDark ? "#fff" : "#000",
-                        lineHeight: 1,
-                        letterSpacing: "-1px",
                         zIndex: 1,
-                        textShadow: isDark ? `0 0 20px ${alpha(renk, 0.3)}` : "none",
-                        textAlign: "center",
+                        fontSize: { xs: "1.55rem", md: "1.75rem" },
+                        fontWeight: 1100,
+                        letterSpacing: "-0.03em",
+                        lineHeight: 1.05,
+                        color: valueColor,
                         whiteSpace: "nowrap",
                     }}
                 >
                     {deger}
                 </Typography>
             ) : (
-                <Box
-                    sx={{
-                        zIndex: 1,
-                        display: "grid",
-                        placeItems: "center",
-                        lineHeight: 1,
-                    }}
-                >
-                    {deger}
-                </Box>
+                <Box sx={{ zIndex: 1 }}>{deger}</Box>
             )}
 
-            {/* opsiyonel alt metin */}
+            {/* AÃ‡IKLAMA */}
             {altMetin != null && altMetin !== "" && (
                 <Typography
                     sx={{
-                        mt: 0.2,
-                        fontSize: "0.72rem",
-                        fontWeight: 900,
-                        color: alpha(theme.palette.text.primary, isDark ? 0.65 : 0.55),
                         zIndex: 1,
-                        textAlign: "center",
-                        lineHeight: 1.1,
+                        fontSize: "0.88rem",
+                        fontWeight: 800,
+                        color: subColor,
+                        lineHeight: 1.35,
+                        maxWidth: 220,
+
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
                     }}
                 >
                     {altMetin}
                 </Typography>
             )}
-
-            {/* Alt dekoratif nokta */}
-            <Box
-                sx={{
-                    width: 4,
-                    height: 4,
-                    borderRadius: "50%",
-                    backgroundColor: renk,
-                    mt: altMetin ? 0.6 : 1,
-                    boxShadow: `0 0 10px ${renk}`,
-                }}
-            />
         </Box>
     );
 };

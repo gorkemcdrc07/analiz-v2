@@ -12,6 +12,10 @@ import {
     MdAssignment,
     MdPerson,
     MdBolt,
+    MdShoppingCart,
+    MdCheckCircle,
+    MdDoNotDisturbAlt,
+    MdErrorOutline,
 } from "react-icons/md";
 
 import DurumRozeti from "./DurumRozeti";
@@ -33,7 +37,7 @@ import {
     RotaKutusu,
 } from "../../stiller/stilBilesenleri";
 
-// ✅ Tek tip pill/chip stili
+// ✅ Tek tip pill/chip stili (alt detay chip'leri için)
 const pillSX = ({ theme, isDark, color, solid = false }) => ({
     height: 24,
     borderRadius: 999,
@@ -82,7 +86,8 @@ const pickupPrintedZamanDurumu = (pickupDate, printedDate) => {
     const pr = printedDate ? new Date(printedDate) : null;
 
     if (!p || !pr) return { label: "Basım yok", color: "#64748b", lateMinutes: null };
-    if (Number.isNaN(p.getTime()) || Number.isNaN(pr.getTime())) return { label: "Basım yok", color: "#64748b", lateMinutes: null };
+    if (Number.isNaN(p.getTime()) || Number.isNaN(pr.getTime()))
+        return { label: "Basım yok", color: "#64748b", lateMinutes: null };
 
     const late = isGecTedarik(pickupDate, printedDate);
     const lateMinutes = late ? dakikaGecikme(pickupDate, printedDate) : 0;
@@ -105,6 +110,60 @@ const dakikaToSaatDakika = (mins) => {
     return `${h} saat ${r} dk`;
 };
 
+/** ✅ Yeni: Modern “stat pill” */
+const StatPill = ({ icon, label, value, tone = "#0ea5e9" }) => {
+    const theme = useTheme();
+    const isDark = theme.palette.mode === "dark";
+
+    const bg = isDark ? alpha(tone, 0.18) : alpha(tone, 0.12);
+    const bd = isDark ? alpha(tone, 0.30) : alpha(tone, 0.22);
+    const fg = isDark ? theme.palette.text.primary : tone;
+
+    return (
+        <Box
+            sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                px: 1.15,
+                py: 0.75,
+                borderRadius: 999,
+                border: `1px solid ${bd}`,
+                bgcolor: bg,
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)",
+                transition: "transform .15s ease, background-color .15s ease",
+                "&:hover": {
+                    transform: "translateY(-1px)",
+                    bgcolor: isDark ? alpha(tone, 0.22) : alpha(tone, 0.15),
+                },
+            }}
+        >
+            <Box
+                sx={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 999,
+                    display: "grid",
+                    placeItems: "center",
+                    bgcolor: isDark ? alpha("#fff", 0.06) : alpha("#0f172a", 0.06),
+                    border: isDark ? `1px solid ${alpha("#fff", 0.10)}` : `1px solid ${alpha("#0f172a", 0.06)}`,
+                }}
+            >
+                <Box sx={{ color: fg, display: "grid", placeItems: "center" }}>{icon}</Box>
+            </Box>
+
+            <Box sx={{ lineHeight: 1.05 }}>
+                <Typography sx={{ fontSize: "0.66rem", fontWeight: 900, color: theme.palette.text.secondary, letterSpacing: "0.4px" }}>
+                    {label}
+                </Typography>
+                <Typography sx={{ fontSize: "0.92rem", fontWeight: 1000, color: theme.palette.text.primary, letterSpacing: "-0.2px" }}>
+                    {value}
+                </Typography>
+            </Box>
+        </Box>
+    );
+};
 
 export default function ProjeSatiri({
     satir,
@@ -139,6 +198,14 @@ export default function ProjeSatiri({
         return count;
     }, [altDetaylar, printsMap]);
 
+    // ✅ Yeni: Tedarik edilmeyen (plan - ted)
+    const tedarikEdilmeyen = useMemo(() => {
+        const p = Number(satir?.plan ?? 0);
+        const t = Number(satir?.ted ?? 0);
+        const diff = p - t;
+        return Number.isFinite(diff) ? Math.max(0, diff) : 0;
+    }, [satir?.plan, satir?.ted]);
+
     // ✅ Her zaman: gecikenler en üstte, sonra gecikme dakikası büyük olan üstte
     const siraliAltDetaylar = useMemo(() => {
         const list = Array.isArray(altDetaylar) ? [...altDetaylar] : [];
@@ -172,6 +239,9 @@ export default function ProjeSatiri({
     }, [altDetaylar, printsMap]);
 
     const vurguRengi = satir.yuzde >= 90 ? "#10b981" : satir.yuzde >= 70 ? "#3b82f6" : "#f59e0b";
+
+    // ✅ Yeni: geç tedarik tonu (0 ise daha nötr)
+    const gecTone = printsLoading ? "#64748b" : gecTedarikSayisi > 0 ? "#ef4444" : "#64748b";
 
     return (
         <ProjeKarti
@@ -208,13 +278,32 @@ export default function ProjeSatiri({
                             {satir.name}
                         </Typography>
 
-                        {/* ✅ Ana satır chip'leri: Talep / Tedarik / Gecikme */}
-                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.7, flexWrap: "wrap", rowGap: 0.8 }}>
-                            <Hap pillcolor="#0ea5e9" label={`Talep: ${satir.plan}`} />
-                            <Hap pillcolor="#10b981" label={`Tedarik: ${satir.ted}`} />
-                            <Hap
-                                pillcolor={gecTedarikSayisi > 0 ? "#ef4444" : "#64748b"}
-                                label={printsLoading ? "Geç Tedarik: ..." : `Geç Tedarik: ${gecTedarikSayisi}`}
+                        {/* ✅ Modern özet alanı: Talep / Tedarik Edilen / Tedarik Edilmeyen / Geç Tedarik */}
+                        <Stack
+                            direction="row"
+                            spacing={1}
+                            alignItems="center"
+                            sx={{
+                                mt: 0.9,
+                                flexWrap: "wrap",
+                                rowGap: 0.9,
+                                // küçük ekranlarda daha dengeli dursun
+                                "& > *": { flexShrink: 0 },
+                            }}
+                        >
+                            <StatPill icon={<MdShoppingCart size={18} />} label="Talep" value={satir.plan} tone="#0ea5e9" />
+                            <StatPill icon={<MdCheckCircle size={18} />} label="Tedarik Edilen" value={satir.ted} tone="#10b981" />
+                            <StatPill
+                                icon={<MdDoNotDisturbAlt size={18} />}
+                                label="Tedarik Edilmeyen"
+                                value={tedarikEdilmeyen}
+                                tone={tedarikEdilmeyen > 0 ? "#f59e0b" : "#64748b"}
+                            />
+                            <StatPill
+                                icon={<MdErrorOutline size={18} />}
+                                label="Geç Tedarik"
+                                value={printsLoading ? "..." : gecTedarikSayisi}
+                                tone={gecTone}
                             />
                         </Stack>
                     </Box>
@@ -289,10 +378,6 @@ export default function ProjeSatiri({
                                                 {seferNo}
                                             </Typography>
 
-                                            {/* ✅ Üst chip satırı: (kırmızı dairedekiler kaldırıldı)
-                          - Saat chip'i KALDIRILDI
-                          - "Basım var/yok" chip'i KALDIRILDI
-                      */}
                                             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1, flexWrap: "wrap", rowGap: 0.9 }}>
                                                 <DurumRozeti durumId={item.OrderStatu} />
 
@@ -349,7 +434,7 @@ export default function ProjeSatiri({
                                                 </Stack>
                                             </Box>
 
-                                            {/* ✅ Yeni: GEÇ TEDARİK HESABI (Zaman Bilgileri'nin SOLUNDA) */}
+                                            {/* ✅ GEÇ TEDARİK HESABI */}
                                             <Box sx={{ flex: 1 }}>
                                                 <Typography sx={{ fontSize: "0.7rem", fontWeight: 950, color: theme.palette.text.secondary, letterSpacing: "0.6px" }}>
                                                     GEÇ TEDARİK HESABI
@@ -379,7 +464,7 @@ export default function ProjeSatiri({
                                                 </Stack>
                                             </Box>
 
-                                            {/* ZAMAN BİLGİLERİ (artık sadece sefer açılış + sipariş) */}
+                                            {/* ZAMAN BİLGİLERİ */}
                                             <Box sx={{ flex: 1 }}>
                                                 <Typography sx={{ fontSize: "0.7rem", fontWeight: 950, color: theme.palette.text.secondary, letterSpacing: "0.6px" }}>
                                                     ZAMAN BİLGİLERİ
@@ -507,4 +592,3 @@ export default function ProjeSatiri({
         </ProjeKarti>
     );
 }
-
