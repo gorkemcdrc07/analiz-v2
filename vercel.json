@@ -1,0 +1,8 @@
+﻿{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://tedarik-analiz-backend-clean.onrender.com/:path*"
+    }
+  ]
+}
