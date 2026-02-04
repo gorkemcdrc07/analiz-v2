@@ -23,7 +23,7 @@ export function getPickupDate(item) {
 }
 
 /**
- * Proje / müşteri adını normalize ederek döner
+ * Proje / müşteri adını güvenli döner
  */
 export function getProjectName(item) {
     return (
@@ -35,13 +35,13 @@ export function getProjectName(item) {
         item?.customer ??
         item?.AccountName ??
         item?.accountName ??
-        "—"
+        "BİLİNMİYOR"
     );
 }
 
 /**
  * Bölge filtresi
- * REGIONS[bolge] → allow-list ise, sadece listedeki projeler dahil edilir
+ * REGIONS[bolge] allow-list ise, sadece listedeki projeler dahil edilir
  */
 export function isInSelectedRegion(item, seciliBolge) {
     const allow = REGIONS?.[seciliBolge];
@@ -50,9 +50,7 @@ export function isInSelectedRegion(item, seciliBolge) {
     const proje = getProjectName(item);
     const norm = metniNormalizeEt(String(proje));
 
-    return allow.some(
-        (x) => metniNormalizeEt(String(x)) === norm
-    );
+    return allow.some((x) => metniNormalizeEt(String(x)) === norm);
 }
 
 export default {

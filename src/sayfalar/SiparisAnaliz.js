@@ -39,7 +39,7 @@ import jsPDF from "jspdf";
 const BASE_URL =
     process.env.REACT_APP_API_URL || "https://tedarik-analiz-backend-clean.onrender.com";
 
-/** Backend şu formatı döndürebilir:
+/** Backend �Yu formatı döndürebilir:
  * - { rid, ok, data }
  * - { rid, ok, items }
  * - Odak API: { Data: [...], Success: true }
@@ -54,7 +54,7 @@ function extractItems(payload) {
 }
 
 /* ---------------- CONST ---------------- */
-const PEOPLE = ["HALİT BAKACAK", "IŞIL GÖKÇE KATRAN", "YASEMİN YILMAZ", "İDİL ÇEVİK"];
+const PEOPLE = ["HALİT BAKACAK", "IŞIL G�-K�?E KATRAN", "YASEMİN YILMAZ", "İDİL �?EVİK"];
 const normTR = (s) =>
     (s ?? "").toString().trim().toLocaleUpperCase("tr-TR").replace(/\s+/g, " ");
 
@@ -67,7 +67,7 @@ const toInputDate = (d) => {
     return `${yyyy}-${mm}-${dd}`;
 };
 
-// date input string -> Date (local) başlangıç/bitiş
+// date input string -> Date (local) ba�Ylangıç/biti�Y
 const startOfDay = (yyyyMmDd) => new Date(`${yyyyMmDd}T00:00:00`);
 const endOfDay = (yyyyMmDd) => new Date(`${yyyyMmDd}T23:59:59.999`);
 
@@ -151,7 +151,7 @@ function PersonKPICard({ name, data, isSelected, onClick, diffDays }) {
                                 letterSpacing: 1,
                             }}
                         >
-                            OPERATÖR SKORU
+                            OPERAT�-R SKORU
                         </Typography>
                     </Box>
 
@@ -177,7 +177,7 @@ function PersonKPICard({ name, data, isSelected, onClick, diffDays }) {
                                     mb: 0.5,
                                 }}
                             >
-                                MANUEL GÜNLÜK
+                                MANUEL G�oNL�oK
                             </Typography>
                             <Typography sx={{ fontWeight: 900, color: theme.palette.text.primary, fontSize: "1.2rem" }}>
                                 {manualDailyAvg}
@@ -203,7 +203,7 @@ function PersonKPICard({ name, data, isSelected, onClick, diffDays }) {
                                     mb: 0.5,
                                 }}
                             >
-                                GERÇEK VERİM
+                                GER�?EK VERİM
                             </Typography>
                             <Typography sx={{ fontWeight: 900, color: color, fontSize: "1.2rem" }}>
                                 %{Math.min(100, (Number(manualDailyAvg) / 40) * 100).toFixed(0)}
@@ -215,7 +215,7 @@ function PersonKPICard({ name, data, isSelected, onClick, diffDays }) {
                 <Stack spacing={1} sx={{ mt: 3 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="flex-end">
                         <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: theme.palette.text.secondary }}>
-                            Efor Dağılımı
+                            Efor Da�Yılımı
                         </Typography>
                         <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: theme.palette.text.primary }}>
                             {manualCount} Manuel / {autoCount} Oto
@@ -261,7 +261,7 @@ export default function SiparisAnaliz() {
     const [loading, setLoading] = useState(false);
     const [exporting, setExporting] = useState(false);
 
-    // ✅ Date input’lar string tutuluyor (UTC bug yok)
+    // �o. Date input�?Tlar string tutuluyor (UTC bug yok)
     const [startStr, setStartStr] = useState(() => toInputDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)));
     const [endStr, setEndStr] = useState(() => toInputDate(new Date()));
 
@@ -273,7 +273,7 @@ export default function SiparisAnaliz() {
 
     const reportRef = useRef(null);
 
-    // ✅ diffDays artık string tarihlerden hesaplanıyor
+    // �o. diffDays artık string tarihlerden hesaplanıyor
     const diffDays = useMemo(() => {
         const s = startOfDay(startStr);
         const e = endOfDay(endStr);
@@ -285,7 +285,7 @@ export default function SiparisAnaliz() {
         setLoading(true);
         setError("");
         try {
-            // ✅ backend’in beklediği format:
+            // �o. backend�?Tin bekledi�Yi format:
             // startDate: "YYYY-MM-DDT00:00:00"
             // endDate:   "YYYY-MM-DDT23:59:59"
             const body = {
@@ -347,7 +347,7 @@ export default function SiparisAnaliz() {
                 const currentTime = new Date(r.OrderCreatedDate).getTime();
                 const lastTime = lastActionTimes[who] || 0;
 
-                // aynı kişi 10 saniye içinde ardışık kayıt girdiyse "oto" kabul
+                // aynı ki�Yi 10 saniye içinde ardı�Yık kayıt girdiyse "oto" kabul
                 const isAuto = currentTime - lastTime < 10000;
                 lastActionTimes[who] = currentTime;
 
@@ -454,7 +454,7 @@ export default function SiparisAnaliz() {
                             </Typography>
 
                             <Typography sx={{ mt: 0.8, fontSize: "0.75rem", color: theme.palette.text.secondary, fontWeight: 700 }}>
-                                Base URL: <b>{BASE_URL}</b> — Endpoint: <b>POST /tmsorders</b>
+                                Base URL: <b>{BASE_URL}</b> �?" Endpoint: <b>POST /tmsorders</b>
                             </Typography>
 
                             {error ? (
@@ -608,7 +608,7 @@ export default function SiparisAnaliz() {
                                             OTOMASYON
                                         </TableCell>
                                         <TableCell align="center" sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>
-                                            TÜR
+                                            T�oR
                                         </TableCell>
                                         <TableCell sx={{ fontWeight: 900, pr: 4, color: theme.palette.text.secondary }}>
                                             VERİMLİLİK
@@ -662,7 +662,7 @@ export default function SiparisAnaliz() {
 
                                                 <TableCell align="center">
                                                     {proj.auto > proj.manual ? (
-                                                        <Tooltip title="Bu projede yoğun otomasyon algılandı">
+                                                        <Tooltip title="Bu projede yo�Yun otomasyon algılandı">
                                                             <Chip
                                                                 label="SİSTEMSEL"
                                                                 size="small"

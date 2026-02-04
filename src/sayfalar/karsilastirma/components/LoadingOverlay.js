@@ -38,11 +38,11 @@ export default function LoadingOverlay({ loading, progress, isDark }) {
                 <Stack spacing={1.1} alignItems="center">
                     <CircularProgress />
                     <Typography sx={{ fontWeight: 1000, fontSize: "1.05rem" }}>
-                        Analiz yapılıyor, bekleyiniz…
+                        Analiz yapılıyor, bekleyiniz�?�
                     </Typography>
 
                     <Typography sx={{ fontWeight: 800, color: "text.secondary", fontSize: "0.9rem" }}>
-                        Haftalık yükleniyor: {done}/{total} {failed ? `• ${failed} hata` : ""}
+                        Haftalık yükleniyor: {done}/{total} {failed ? `�?� ${failed} hata` : ""}
                     </Typography>
 
                     {total > 0 ? (

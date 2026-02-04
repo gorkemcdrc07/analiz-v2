@@ -62,14 +62,14 @@ export default function HeaderBar({
 
                         <Box sx={{ minWidth: 0 }}>
                             <Typography sx={{ fontWeight: 1000, fontSize: "1.25rem", letterSpacing: "-0.7px" }}>
-                                KARŞILAŞTIRMA • FORECAST + ANALİZ
+                                KARŞILAŞTIRMA �?� FORECAST + ANALİZ
                             </Typography>
                             <Typography sx={{ fontWeight: 800, color: "text.secondary" }}>
-                                Haftalık kademeli yükleme • Bölge bazlı • Forecast + Son 13 ay tarihsel tablo
+                                Haftalık kademeli yükleme �?� Bölge bazlı �?� Forecast + Son 13 ay tarihsel tablo
                             </Typography>
                         </Box>
 
-                        <Tooltip title="Forecast: Son 28 gün seviye + son 12 hafta dağılımı ile hesaplanır. Tarihsel: son 13 ay gerçekleşen sipariş sayıları.">
+                        <Tooltip title="Forecast: Son 28 gün seviye + son 12 hafta da�Yılımı ile hesaplanır. Tarihsel: son 13 ay gerçekle�Yen sipari�Y sayıları.">
                             <IconButton
                                 size="small"
                                 sx={{
@@ -97,9 +97,9 @@ export default function HeaderBar({
                                 fontSize: "0.85rem",
                             }}
                         >
-                            <MenuItem value="forecast">📍 Forecast görünümü</MenuItem>
-                            <MenuItem value="tarihsel">🗓️ Tarihsel analiz (13 ay)</MenuItem>
-                            <MenuItem value="haftalik">📅 Haftalık (3 Ay)</MenuItem>
+                            <MenuItem value="forecast">gY"� Forecast görünümü</MenuItem>
+                            <MenuItem value="tarihsel">gY-"️ Tarihsel analiz (13 ay)</MenuItem>
+                            <MenuItem value="haftalik">gY". Haftalık (3 Ay)</MenuItem>
                         </Select>
 
                         <Button

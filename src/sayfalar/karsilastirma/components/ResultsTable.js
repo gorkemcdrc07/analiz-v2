@@ -138,7 +138,7 @@ export default function ResultsTable({
 
                                             {/* Dinamik Header */}
                                             {(viewMode === "forecast"
-                                                ? ["Bu Hafta", "Haftaya", "Diğer", "Ay Sonu", "Toplam"]
+                                                ? ["Bu Hafta", "Haftaya", "Di�Yer", "Ay Sonu", "Toplam"]
                                                 : [...(history?.months || []), "Toplam"]
                                             ).map((col, idx) => (
                                                 <TableCell

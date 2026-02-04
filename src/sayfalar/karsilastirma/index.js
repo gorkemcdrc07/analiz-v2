@@ -21,7 +21,7 @@ export default function Karsilastirma() {
     const [viewMode, setViewMode] = useState("forecast"); // forecast | tarihsel
     const [userId] = useState(1);
 
-    // ✅ viewMode'a göre veri kapsamı
+    // �o. viewMode'a göre veri kapsamı
     // forecast: hızlı (son ~3 ay)
     // tarihsel: 13 ay için ~56 hafta + buffer
     const weeksBack = useMemo(() => {
@@ -49,7 +49,7 @@ export default function Karsilastirma() {
         sirala,
     });
 
-    // ✅ İlk açılış + viewMode değişince otomatik yenile
+    // �o. İlk açılı�Y + viewMode de�Yi�Yince otomatik yenile
     useEffect(() => {
         refetch();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -75,7 +75,7 @@ export default function Karsilastirma() {
             {/* FULLSCREEN ANALİZ OVERLAY */}
             <LoadingOverlay loading={loading} progress={progress} isDark={isDark} />
 
-            {/* Üst Başlık + ViewMode + Yenile + Hata */}
+            {/* �ost Ba�Ylık + ViewMode + Yenile + Hata */}
             <HeaderBar
                 loading={loading}
                 raw={raw}

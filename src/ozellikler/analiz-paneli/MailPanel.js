@@ -14,7 +14,7 @@ const buildDefaultBody = ({ seciliBolge, satirlar }) => {
     const header = [
         "Merhaba,",
         "",
-        `${seciliBolge} bölgesi proje bazlı özet aşağıdadır:`,
+        `${seciliBolge} bölgesi proje bazlı özet a�Ya�Yıdadır:`,
         "",
         "Proje | Talep | Tedarik | Edilmeyen | Spot | Filo | Zamanında% | Gecikme",
         "----- | ----- | ------ | --------- | ---- | ---- | --------- | ------",
@@ -25,12 +25,12 @@ const buildDefaultBody = ({ seciliBolge, satirlar }) => {
         return `${r?.name ?? "-"} | ${r?.plan ?? 0} | ${r?.ted ?? 0} | ${r?.edilmeyen ?? 0} | ${r?.spot ?? 0} | ${r?.filo ?? 0} | ${perf} | ${r?.gec ?? 0}`;
     });
 
-    const footer = ["", "İyi çalışmalar."];
+    const footer = ["", "İyi çalı�Ymalar."];
 
     return [...header, ...bodyRows, ...footer].join("\n");
 };
 
-export default function MailPanel({ open, onClose, seciliBolge = "BÖLGE", satirlar = [] }) {
+export default function MailPanel({ open, onClose, seciliBolge = "B�-LGE", satirlar = [] }) {
     const theme = useTheme();
     const isDark = theme.palette.mode === "dark";
 
@@ -75,7 +75,7 @@ export default function MailPanel({ open, onClose, seciliBolge = "BÖLGE", satir
                 <Stack spacing={2}>
                     <Stack direction="row" alignItems="center" spacing={1}>
                         <Typography sx={{ fontWeight: 1000, fontSize: "1.05rem" }}>
-                            Mail Paneli • {seciliBolge}
+                            Mail Paneli �?� {seciliBolge}
                         </Typography>
                         <Box sx={{ flex: 1 }} />
                         <Button onClick={onClose} startIcon={<MdClose />} sx={{ fontWeight: 900 }}>
@@ -131,7 +131,7 @@ export default function MailPanel({ open, onClose, seciliBolge = "BÖLGE", satir
                         />
 
                         <TextField
-                            label="Mail İçeriği"
+                            label="Mail İçeri�Yi"
                             value={body}
                             onChange={(e) => setBody(e.target.value)}
                             fullWidth

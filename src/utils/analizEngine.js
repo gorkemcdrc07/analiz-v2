@@ -60,21 +60,21 @@ export const hoursDiff = (a, b) => {
     return Math.abs(d2.getTime() - d1.getTime()) / (1000 * 60 * 60);
 };
 
-/* ------------------------ ✅ REGIONS (Senin dosyadan birebir) ------------------------ */
+/* ------------------------ �o. REGIONS (Senin dosyadan birebir) ------------------------ */
 export const REGIONS = {
     TRAKYA: [
-        "BUNGE LÜLEBURGAZ FTL",
+        "BUNGE L�oLEBURGAZ FTL",
         "BUNGE GEBZE FTL",
         "BUNGE PALET",
         "REKA FTL",
         "EKSUN GIDA FTL",
         "SARUHAN FTL",
         "PEPSİ FTL",
-        "PEPSİ FTL ÇORLU",
+        "PEPSİ FTL �?ORLU",
         "TEKİRDAĞ UN FTL",
         "AYDINLI MODA FTL",
         "ADKOTURK FTL",
-        "ADKOTURK FTL ENERJİ İÇECEĞİ",
+        "ADKOTURK FTL ENERJİ İ�?ECEĞİ",
         "SGS FTL",
         "BSH FTL",
         "ALTERNA GIDA FTL",
@@ -84,7 +84,7 @@ export const REGIONS = {
         "MARMARA CAM FTL",
         "FAKİR FTL",
         "MODERN KARTON FTL",
-        "KÜÇÜKBAY TRAKYA FTL",
+        "K�o�?�oKBAY TRAKYA FTL",
         "MODERN BOBİN FTL",
         "SUDESAN FTL",
     ],
@@ -100,10 +100,10 @@ export const REGIONS = {
         "AVANSAS SPOT FTL",
         "DSV ERNAMAŞ FTL",
         "FLO FTL",
-        "ÇİÇEKÇİ FTL",
-        "ÇİZMECİ GIDA FTL",
-        "OTTONYA (HEDEFTEN AÇILIYOR)",
-        "GALEN ÇOCUK FTL",
+        "�?İ�?EK�?İ FTL",
+        "�?İZMECİ GIDA FTL",
+        "OTTONYA (HEDEFTEN A�?ILIYOR)",
+        "GALEN �?OCUK FTL",
         "ENTAŞ FTL",
         "NAZAR KİMYA FTL",
     ],
@@ -116,40 +116,40 @@ export const REGIONS = {
     "İZMİR": [
         "EURO GIDA FTL",
         "EBEBEK FTL",
-        "KİPAŞ SÖKE FTL",
+        "KİPAŞ S�-KE FTL",
         "CEYSU FTL",
         "TAT GIDA FTL",
-        "ZER SALÇA",
+        "ZER SAL�?A",
         "ANKUTSAN FTL",
         "PELAGOS GIDA FTL",
-        "KÜÇÜKBAY İZMİR FTL",
+        "K�o�?�oKBAY İZMİR FTL",
     ],
-    ÇUKUROVA: [
+    �?UKUROVA: [
         "PEKER FTL",
         "GDP FTL",
-        "ÖZMEN UN FTL",
+        "�-ZMEN UN FTL",
         "KİPAŞ MARAŞ FTL",
-        "TÜRK OLUKLU FTL",
+        "T�oRK OLUKLU FTL",
         "İLKON TEKSTİL FTL",
         "BİM / MERSİN",
     ],
     "ESKİŞEHİR": [
         "ES FTL",
         "ES GLOBAL FRİGO FTL",
-        "KİPAŞ BOZÜYÜK FTL",
-        "2A TÜKETİM FTL",
-        "MODERN HURDA DÖNÜŞ FTL",
+        "KİPAŞ BOZ�oY�oK FTL",
+        "2A T�oKETİM FTL",
+        "MODERN HURDA D�-N�oŞ FTL",
         "MODERN HURDA ZONGULDAK FTL",
         "ŞİŞECAM FTL",
         "DENTAŞ FTL",
         "MODERN AMBALAJ FTL",
     ],
-    "İÇ ANADOLU": ["APAK FTL", "SER DAYANIKLI FTL", "UNIFO FTL", "UNIFO ASKERİ FTL"],
+    "İ�? ANADOLU": ["APAK FTL", "SER DAYANIKLI FTL", "UNIFO FTL", "UNIFO ASKERİ FTL"],
     AFYON: ["BİM AFYON PLATFORM FTL"],
-    DİĞER: ["DOĞTAŞ İNEGÖL FTL", "AKTÜL FTL"],
+    DİĞER: ["DOĞTAŞ İNEG�-L FTL", "AKT�oL FTL"],
 };
 
-/* ------------------------ ✅ Senin altDetaylariOlustur (engine içine taşındı) ------------------------ */
+/* ------------------------ �o. Senin altDetaylariOlustur (engine içine ta�Yındı) ------------------------ */
 export function altDetaylariOlustur(projeAdi, tumVeri) {
     const seen = new Set();
     const rowNorm = metniNormalizeEt(projeAdi);
@@ -160,10 +160,10 @@ export function altDetaylariOlustur(projeAdi, tumVeri) {
             const isDirect = pNorm === rowNorm;
 
             const isPepsiCorlu =
-                rowNorm === metniNormalizeEt("PEPSİ FTL ÇORLU") &&
+                rowNorm === metniNormalizeEt("PEPSİ FTL �?ORLU") &&
                 pNorm === metniNormalizeEt("PEPSİ FTL") &&
                 metniNormalizeEt(item.PickupCityName) === metniNormalizeEt("TEKİRDAĞ") &&
-                metniNormalizeEt(item.PickupCountyName) === metniNormalizeEt("ÇORLU");
+                metniNormalizeEt(item.PickupCountyName) === metniNormalizeEt("�?ORLU");
 
             const isPepsiGebze =
                 rowNorm === metniNormalizeEt("PEPSİ FTL GEBZE") &&
@@ -183,11 +183,11 @@ export function altDetaylariOlustur(projeAdi, tumVeri) {
                 metniNormalizeEt(item.PickupCityName) === metniNormalizeEt("KOCAELİ") &&
                 metniNormalizeEt(item.PickupCountyName) === metniNormalizeEt("GEBZE");
 
-            const isOttonya = rowNorm === metniNormalizeEt("OTTONYA (HEDEFTEN AÇILIYOR)") && pNorm === metniNormalizeEt("OTTONYA");
+            const isOttonya = rowNorm === metniNormalizeEt("OTTONYA (HEDEFTEN A�?ILIYOR)") && pNorm === metniNormalizeEt("OTTONYA");
 
             const isKucukbayTrakya =
                 rowNorm.includes("TRAKYA") &&
-                pNorm === metniNormalizeEt("KÜÇÜKBAY FTL") &&
+                pNorm === metniNormalizeEt("K�o�?�oKBAY FTL") &&
                 new Set(["EDİRNE", "KIRKLARELİ", "TEKİRDAĞ"].map(metniNormalizeEt)).has(metniNormalizeEt(item.PickupCityName));
 
             const match = isDirect || isPepsiCorlu || isPepsiGebze || isEbebekGebze || isFakirGebze || isOttonya || isKucukbayTrakya;
@@ -212,11 +212,11 @@ export const projeAdiNormalizeKural = (item) => {
     let finalProjectName = item?.ProjectName;
     const pNorm = metniNormalizeEt(finalProjectName);
 
-    // KÜÇÜKBAY
-    if (pNorm === metniNormalizeEt("KÜÇÜKBAY FTL")) {
+    // K�o�?�oKBAY
+    if (pNorm === metniNormalizeEt("K�o�?�oKBAY FTL")) {
         const TRAKYA = new Set(["EDİRNE", "KIRKLARELİ", "TEKİRDAĞ"].map(metniNormalizeEt));
-        if (TRAKYA.has(metniNormalizeEt(item?.PickupCityName))) finalProjectName = "KÜÇÜKBAY TRAKYA FTL";
-        else if (metniNormalizeEt(item?.PickupCityName) === metniNormalizeEt("İZMİR")) finalProjectName = "KÜÇÜKBAY İZMİR FTL";
+        if (TRAKYA.has(metniNormalizeEt(item?.PickupCityName))) finalProjectName = "K�o�?�oKBAY TRAKYA FTL";
+        else if (metniNormalizeEt(item?.PickupCityName) === metniNormalizeEt("İZMİR")) finalProjectName = "K�o�?�oKBAY İZMİR FTL";
         else return null;
     }
 
@@ -224,7 +224,7 @@ export const projeAdiNormalizeKural = (item) => {
     if (pNorm === metniNormalizeEt("PEPSİ FTL")) {
         const c = metniNormalizeEt(item?.PickupCityName);
         const d = metniNormalizeEt(item?.PickupCountyName);
-        if (c === metniNormalizeEt("TEKİRDAĞ") && d === metniNormalizeEt("ÇORLU")) finalProjectName = "PEPSİ FTL ÇORLU";
+        if (c === metniNormalizeEt("TEKİRDAĞ") && d === metniNormalizeEt("�?ORLU")) finalProjectName = "PEPSİ FTL �?ORLU";
         else if (c === metniNormalizeEt("KOCAELİ") && d === metniNormalizeEt("GEBZE")) finalProjectName = "PEPSİ FTL GEBZE";
     }
 
@@ -243,7 +243,7 @@ export const projeAdiNormalizeKural = (item) => {
     }
 
     // OTTONYA
-    if (pNorm === metniNormalizeEt("OTTONYA")) finalProjectName = "OTTONYA (HEDEFTEN AÇILIYOR)";
+    if (pNorm === metniNormalizeEt("OTTONYA")) finalProjectName = "OTTONYA (HEDEFTEN A�?ILIYOR)";
 
     return finalProjectName;
 };
@@ -251,9 +251,9 @@ export const projeAdiNormalizeKural = (item) => {
 export const isInScope = (item) => {
     const service = metniNormalizeEt(item?.ServiceName);
     return (
-        service === metniNormalizeEt("YURTİÇİ FTL HİZMETLERİ") ||
-        service === metniNormalizeEt("FİLO DIŞ YÜK YÖNETİMİ") ||
-        service === metniNormalizeEt("YURTİÇİ FRİGO HİZMETLERİ")
+        service === metniNormalizeEt("YURTİ�?İ FTL HİZMETLERİ") ||
+        service === metniNormalizeEt("FİLO DIŞ Y�oK Y�-NETİMİ") ||
+        service === metniNormalizeEt("YURTİ�?İ FRİGO HİZMETLERİ")
     );
 };
 
@@ -315,7 +315,7 @@ export const buildProjectStats = (data) => {
         const vw = metniNormalizeEt(item?.VehicleWorkingName);
         const isFilo =
             vw === metniNormalizeEt("FİLO") ||
-            vw === metniNormalizeEt("ÖZMAL") ||
+            vw === metniNormalizeEt("�-ZMAL") ||
             vw === metniNormalizeEt("MODERN AMBALAJ FİLO");
         if (isFilo) s.filo.add(despKey);
         else s.spot.add(despKey);

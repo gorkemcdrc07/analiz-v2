@@ -12,21 +12,12 @@ import { getPickupDate, getProjectName, isInSelectedRegion } from "./domain";
  * @param {Number} params.monthsBack     - kaç ay geriye gidilecek
  * @param {Date}   params.anchorDate     - referans tarih (genelde today)
  */
-export function buildMonthlyHistory({
-    data,
-    seciliBolge,
-    monthsBack = 13,
-    anchorDate = new Date(),
-}) {
+export function buildMonthlyHistory({ data, seciliBolge, monthsBack = 13, anchorDate = new Date() }) {
     const today = new Date(anchorDate);
     today.setHours(0, 0, 0, 0);
 
     // Başlangıç: N ay öncesinin 1'i
-    const start = new Date(
-        today.getFullYear(),
-        today.getMonth() - (monthsBack - 1),
-        1
-    );
+    const start = new Date(today.getFullYear(), today.getMonth() - (monthsBack - 1), 1);
 
     // Bitiş: bu ayın son günü
     const end = endOfMonth(today);
@@ -42,7 +33,7 @@ export function buildMonthlyHistory({
         })
         .filter(Boolean);
 
-    // Ay listesi (soldan sağa: eski → yeni)
+    // Ay listesi (soldan sağa: eski -> yeni)
     const months = [];
     for (let i = monthsBack - 1; i >= 0; i--) {
         months.push(new Date(today.getFullYear(), today.getMonth() - i, 1));
@@ -55,11 +46,12 @@ export function buildMonthlyHistory({
         const d = it.__pickup;
         if (d < start || d > end) continue;
 
-        const proje = String(getProjectName(it) ?? "—");
+        const proje = String(getProjectName(it) ?? "BİLİNMİYOR");
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
         if (!byProject.has(proje)) byProject.set(proje, {});
-        byProject.get(proje)[key] = (byProject.get(proje)[key] || 0) + 1;
+        const obj = byProject.get(proje);
+        obj[key] = (obj[key] || 0) + 1;
     }
 
     // Tablo satırları
@@ -81,7 +73,7 @@ export function buildMonthlyHistory({
     }
 
     return {
-        months, // Date[] → header'da kullanılıyor
+        months, // Date[] -> header'da kullanılıyor
         rows,   // tablo verisi
     };
 }

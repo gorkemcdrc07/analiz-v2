@@ -21,7 +21,7 @@ import { isInSelectedRegion, getPickupDate } from "../utils/domain";
 
 /**
  * Ham veriyi (raw) alır, forecast + history + weekly + rows/totals/kpis gibi tüm memo'ları üretir.
- * Ayrıca: "önceki 7 gün" (dün → 7 gün önce) gün gün sayımlarını üretir.
+ * Ayrıca: "önceki 7 gün" (dünden başlayarak 7 gün) gün gün sayımlarını üretir.
  *
  * @param {Object} params
  * @param {Object|null} params.raw
@@ -37,13 +37,11 @@ export default function useKarsilastirmaData({ raw, seciliBolge, arama, sirala }
     /*                         Tarih / alan güvenli okuma                      */
     /* ---------------------------------------------------------------------- */
 
-    // TMS’te pickup alanı farklıysa "hep 0" sorunu çıkıyor.
-    // getPickupDate null dönerse otomatik date/time alanlarını tarıyoruz.
+    // getPickupDate null dönerse otomatik date/time alanlarını tarar (fallback)
     const getPickupDateSafe = (it) => {
         const d0 = getPickupDate(it);
         if (d0 && !isNaN(d0.getTime())) return d0;
 
-        // fallback: objede date/time geçen ilk parse edilebilir alan
         const obj = it || {};
         for (const [k, v] of Object.entries(obj)) {
             if (!v) continue;
@@ -54,7 +52,7 @@ export default function useKarsilastirmaData({ raw, seciliBolge, arama, sirala }
         return null;
     };
 
-    // Proje adını hook içinde güvenli alalım (domain’de yoksa da çalışsın)
+    // Proje adını hook içinde güvenli alalım
     const getProjectNameSafe = (it) => {
         const v =
             it?.ProjectName ??
@@ -70,7 +68,7 @@ export default function useKarsilastirmaData({ raw, seciliBolge, arama, sirala }
             it?.Proje ??
             it?.proje;
 
-        return String(v ?? "—");
+        return String(v ?? "BİLİNMİYOR");
     };
 
     /* ---------------------------------------------------------------------- */
@@ -140,15 +138,15 @@ export default function useKarsilastirmaData({ raw, seciliBolge, arama, sirala }
     }, [weekly, arama]);
 
     /* ---------------------------------------------------------------------- */
-    /*                  ✅ Daily (önceki 7 gün) — gün gün sayım                  */
+    /*                   Daily (önceki 7 gün) gün gün sayım                     */
     /* ---------------------------------------------------------------------- */
+
     const dailyLast7 = useMemo(() => {
-        // Dün → 7 gün önce (bugün dahil değil)
+        // Dünden başlayarak 7 gün (bugün dahil değil)
         const today0 = clampDayStart(new Date());
         const days = Array.from({ length: 7 }, (_, i) => clampDayStart(addDays(today0, -(i + 1))));
 
         const dayKeys = days.map((d) => {
-            // clampDayStart zaten 00:00, güvenli string key
             const yyyy = d.getFullYear();
             const mm = String(d.getMonth() + 1).padStart(2, "0");
             const dd = String(d.getDate()).padStart(2, "0");
@@ -183,7 +181,10 @@ export default function useKarsilastirmaData({ raw, seciliBolge, arama, sirala }
         for (const it of items) {
             const idx = keyIndex.get(it.__dayKey);
             if (idx === undefined) continue; // sadece hedef 7 gün
-            const p = it.__proje || "—";
+
+            // ✅ HATA BURADAYDI: bozuk string vardı. Düzeltildi.
+            const p = it.__proje || "BİLİNMİYOR";
+
             if (!byProject.has(p)) byProject.set(p, Array(7).fill(0));
             byProject.get(p)[idx] += 1;
         }
@@ -199,7 +200,7 @@ export default function useKarsilastirmaData({ raw, seciliBolge, arama, sirala }
 
         if (q) rows = rows.filter((r) => metniNormalizeEt(r.proje).includes(q));
 
-        // sıralama: en yakın gün (dün) büyükten küçüğe, sonra total, sonra isim
+        // sıralama: dün büyükten küçüğe, sonra total, sonra isim
         rows.sort((a, b) => {
             const a0 = a.counts?.[0] || 0;
             const b0 = b.counts?.[0] || 0;
@@ -218,20 +219,20 @@ export default function useKarsilastirmaData({ raw, seciliBolge, arama, sirala }
             { byDay: Array(7).fill(0), total: 0 }
         );
 
-        // UI’da kolon etiketi basmak için (TR kısa tarih)
+        // UI'da kolon etiketi basmak için (TR kısa tarih)
         const labels = days.map((d) =>
             d.toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit" })
         );
 
         return {
             bolge: seciliBolge,
-            days,       // Date[]
-            dayKeys,    // "YYYY-MM-DD"[]
-            labels,     // "DD.MM"[]
-            rows,       // {bolge,proje,counts[7],total}[]
-            totals,     // {byDay[7], total}
+            days, // Date[]
+            dayKeys, // "YYYY-MM-DD"[]
+            labels, // "DD.MM"[]
+            rows, // {bolge,proje,counts[7],total}[]
+            totals, // {byDay[7], total}
         };
-    }, [data, seciliBolge, arama]); // arama günlük tabloda da etkili olsun
+    }, [data, seciliBolge, arama]);
 
     /* ---------------------------------------------------------------------- */
     /*                              KPI: son 4 hafta, MoM, YoY                  */
@@ -334,7 +335,7 @@ export default function useKarsilastirmaData({ raw, seciliBolge, arama, sirala }
         historyRows,
         weeklyRows,
 
-        // ✅ daily
+        // daily
         dailyLast7,
 
         // totals/kpis

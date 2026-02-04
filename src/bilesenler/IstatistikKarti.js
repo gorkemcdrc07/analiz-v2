@@ -48,7 +48,7 @@ const StyledCard = styled(Paper, {
             }
             : {}),
 
-        // Sağ üst köşeye hafif bir renk dokunuşu
+        // Sa�Y üst kö�Yeye hafif bir renk dokunu�Yu
         '&::before': {
             content: '""',
             position: 'absolute',
@@ -79,7 +79,7 @@ export default function IstatistikKarti({ baslik, deger, renk = 'neutral', onCli
 
     return (
         <StyledCard elevation={0} onClick={clickable ? onClick : undefined} renkConfig={activeConfig} clickable={clickable}>
-            {/* Üst Satır: Başlık ve İkon */}
+            {/* �ost Satır: Ba�Ylık ve İkon */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <Typography
                     sx={{
@@ -111,7 +111,7 @@ export default function IstatistikKarti({ baslik, deger, renk = 'neutral', onCli
                 </Box>
             </Box>
 
-            {/* Orta Satır: Değer */}
+            {/* Orta Satır: De�Yer */}
             <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
                 <Typography
                     sx={{

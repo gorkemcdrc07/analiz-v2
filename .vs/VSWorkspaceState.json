@@ -7,8 +7,10 @@
     "\\src\\ozellikler\\analiz-paneli\\bilesenler",
     "\\src\\ozellikler\\stiller",
     "\\src\\ozellikler\\yardimcilar",
-    "\\src\\sayfalar"
+    "\\src\\sayfalar",
+    "\\src\\sayfalar\\karsilastirma",
+    "\\src\\sayfalar\\karsilastirma\\hooks"
   ],
-  "SelectedNode": "\\src\\ozellikler\\yardimcilar\\veriKurallari.js",
+  "SelectedNode": "\\src\\yardimcilar",
   "PreviewInSolutionExplorer": false
 }

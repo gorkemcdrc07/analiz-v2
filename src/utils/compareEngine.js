@@ -15,7 +15,7 @@ const monthEnd = (y, m0) => new Date(y, m0 + 1, 0, 23, 59, 59, 999);
 const getWeekOfMonth = (d) => {
     // 1..5 (ayın kaçıncı haftası)
     const first = new Date(d.getFullYear(), d.getMonth(), 1);
-    const dayOffset = first.getDay() === 0 ? 6 : first.getDay() - 1; // pazartesi başlangıç
+    const dayOffset = first.getDay() === 0 ? 6 : first.getDay() - 1; // pazartesi ba�Ylangıç
     const index = Math.floor((d.getDate() + dayOffset - 1) / 7) + 1;
     return Math.min(5, Math.max(1, index));
 };
@@ -36,24 +36,24 @@ const listLastMonths = (endDate, count) => {
     return out.reverse(); // eski -> yeni
 };
 
-// ---- proje mapping: AnalizTablosu’ndaki aynı kurallar
+// ---- proje mapping: AnalizTablosu�?Tndaki aynı kurallar
 export function mapProjectName(item) {
     let name = item?.ProjectName;
     const pNorm = norm(name);
 
-    // KÜÇÜKBAY
-    if (pNorm === norm("KÜÇÜKBAY FTL")) {
+    // K�o�?�oKBAY
+    if (pNorm === norm("K�o�?�oKBAY FTL")) {
         const TRAKYA = new Set(["EDİRNE", "KIRKLARELİ", "TEKİRDAĞ"].map(norm));
-        if (TRAKYA.has(norm(item?.PickupCityName))) return "KÜÇÜKBAY TRAKYA FTL";
-        if (norm(item?.PickupCityName) === norm("İZMİR")) return "KÜÇÜKBAY İZMİR FTL";
-        return null; // kapsam dışı
+        if (TRAKYA.has(norm(item?.PickupCityName))) return "K�o�?�oKBAY TRAKYA FTL";
+        if (norm(item?.PickupCityName) === norm("İZMİR")) return "K�o�?�oKBAY İZMİR FTL";
+        return null; // kapsam dı�Yı
     }
 
     // PEPSİ
     if (pNorm === norm("PEPSİ FTL")) {
         const c = norm(item?.PickupCityName);
         const d = norm(item?.PickupCountyName);
-        if (c === norm("TEKİRDAĞ") && d === norm("ÇORLU")) return "PEPSİ FTL ÇORLU";
+        if (c === norm("TEKİRDAĞ") && d === norm("�?ORLU")) return "PEPSİ FTL �?ORLU";
         if (c === norm("KOCAELİ") && d === norm("GEBZE")) return "PEPSİ FTL GEBZE";
         return "PEPSİ FTL";
     }
@@ -75,7 +75,7 @@ export function mapProjectName(item) {
     }
 
     // OTTONYA
-    if (pNorm === norm("OTTONYA")) return "OTTONYA (HEDEFTEN AÇILIYOR)";
+    if (pNorm === norm("OTTONYA")) return "OTTONYA (HEDEFTEN A�?ILIYOR)";
 
     return name || null;
 }

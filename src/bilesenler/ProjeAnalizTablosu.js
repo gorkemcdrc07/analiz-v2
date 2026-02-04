@@ -11,7 +11,7 @@ import {
 } from 'react-icons/md';
 import { motion } from 'framer-motion';
 
-// --- STATÜ EŞLEME ---
+// --- STAT�o EŞLEME ---
 const STATUS_MAP = {
     1: { label: "Bekliyor", color: "#64748b" },
     2: { label: "Onaylandı", color: "#0ea5e9" },
@@ -25,8 +25,8 @@ const STATUS_MAP = {
     20: { label: "Teslim Edildi", color: "#059669" },
     30: { label: "Tamamlandı", color: "#0f172a" },
     40: { label: "Orjinal Evrak Geldi", color: "#6366f1" },
-    50: { label: "Evrak Arşivlendi", color: "#475569" },
-    80: { label: "Araç Boşaltmada", color: "#f97316" },
+    50: { label: "Evrak Ar�Yivlendi", color: "#475569" },
+    80: { label: "Araç Bo�Yaltmada", color: "#f97316" },
     90: { label: "Filo Araç Planlamada", color: "#ec4899" },
     200: { label: "İptal", color: "#b91c1c" }
 };
@@ -191,7 +191,7 @@ function ProjectRow({ row, allData }) {
     const isDark = theme.palette.mode === "dark";
     const [open, setOpen] = useState(false);
 
-    // ✅ Bölgesel kırma yok: SADECE ProjectName eşitliği
+    // �o. Bölgesel kırma yok: SADECE ProjectName e�Yitli�Yi
     const subDetails = useMemo(() => {
         const seenRequests = new Set();
         const rowNorm = norm(row.name);
@@ -278,8 +278,8 @@ function ProjectRow({ row, allData }) {
 
                 <TableCell align="center">
                     <Stack direction="row" spacing={3} justifyContent="center">
-                        <StatBox label="SHÖ BASILAN" value={row.sho_b} color="#059669" />
-                        <StatBox label="SHÖ BASILMAYAN" value={row.sho_bm} color="#f97316" />
+                        <StatBox label="SH�- BASILAN" value={row.sho_b} color="#059669" />
+                        <StatBox label="SH�- BASILMAYAN" value={row.sho_bm} color="#f97316" />
                     </Stack>
                 </TableCell>
 
@@ -337,7 +337,7 @@ function ProjectRow({ row, allData }) {
                                                 {getStatusBadge(item.OrderStatu, theme)}
                                             </Box>
 
-                                            <TimeBadge label="SEFER AÇILIŞ ZAMANI" value={formatDate(item.TMSDespatchCreatedDate)} icon={MdHistory} />
+                                            <TimeBadge label="SEFER A�?ILIŞ ZAMANI" value={formatDate(item.TMSDespatchCreatedDate)} icon={MdHistory} />
                                         </Box>
 
                                         <Stack direction="row" sx={{ flexGrow: 1 }} spacing={2} alignItems="center">
@@ -353,7 +353,7 @@ function ProjectRow({ row, allData }) {
                                                         gap: 0.5
                                                     }}
                                                 >
-                                                    <MdPinDrop /> YÜKLEME NOKTASI
+                                                    <MdPinDrop /> Y�oKLEME NOKTASI
                                                 </Typography>
 
                                                 <Typography sx={{ fontWeight: 1000, color: theme.palette.text.primary }}>
@@ -382,7 +382,7 @@ function ProjectRow({ row, allData }) {
                                                     </Typography>
 
                                                     <Box sx={{ mt: 2 }}>
-                                                        <TimeBadge label="PLANLANAN YÜKLEME" value={formatDate(item.PickupDate)} icon={MdOutlineTimer} color="#10b981" />
+                                                        <TimeBadge label="PLANLANAN Y�oKLEME" value={formatDate(item.PickupDate)} icon={MdOutlineTimer} color="#10b981" />
                                                     </Box>
                                                 </Box>
                                             </RouteStop>
@@ -489,7 +489,7 @@ function ProjectRow({ row, allData }) {
     );
 }
 
-// --- ANA TABLO: TÜM PROJELER ---
+// --- ANA TABLO: T�oM PROJELER ---
 export default function ProjeAnalizTablosu({ data }) {
     const theme = useTheme();
     const isDark = theme.palette.mode === "dark";
@@ -529,7 +529,7 @@ export default function ProjeAnalizTablosu({ data }) {
                 } else {
                     s.ted.add(despNo);
 
-                    if (["FİLO", "ÖZMAL", "MODERN AMBALAJ FİLO"].includes(item.VehicleWorkingName)) {
+                    if (["FİLO", "�-ZMAL", "MODERN AMBALAJ FİLO"].includes(item.VehicleWorkingName)) {
                         s.filo.add(despNo);
                     } else {
                         s.spot.add(despNo);
@@ -589,7 +589,7 @@ export default function ProjeAnalizTablosu({ data }) {
                     </Stack>
 
                     <Typography sx={{ color: theme.palette.text.secondary, fontSize: '0.9rem', fontWeight: 600, mt: 0.5 }}>
-                        Bölgesel sekme yok — tüm ProjectName değerleri listelenir.
+                        Bölgesel sekme yok �?" tüm ProjectName de�Yerleri listelenir.
                     </Typography>
                 </Box>
             </Stack>
@@ -600,7 +600,7 @@ export default function ProjeAnalizTablosu({ data }) {
                         <TableHead sx={{ bgcolor: isDark ? alpha('#ffffff', 0.04) : '#f8fafc' }}>
                             <TableRow>
                                 <TableCell sx={{ fontWeight: 900, color: theme.palette.text.secondary, pl: 4, py: 2.5 }}>
-                                    MÜŞTERİ / PROJE ODAĞI
+                                    M�oŞTERİ / PROJE ODAĞI
                                 </TableCell>
                                 <TableCell align="center" sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>
                                     TALEP
@@ -612,7 +612,7 @@ export default function ProjeAnalizTablosu({ data }) {
                                     KAYNAK
                                 </TableCell>
                                 <TableCell align="center" sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>
-                                    SHÖ
+                                    SH�-
                                 </TableCell>
                                 <TableCell align="center" sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>
                                     İPTAL

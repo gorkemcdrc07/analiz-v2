@@ -66,7 +66,7 @@ const fmtTR = (d) =>
     });
 
 /* -------------------------------------------------------------------------- */
-/*                     🔥 KESİN TARİH OKUYUCU (FIX)                            */
+/*                     gY"� KESİN TARİH OKUYUCU (FIX)                            */
 /* -------------------------------------------------------------------------- */
 
 function getPickupDate(item) {
@@ -91,7 +91,7 @@ function getPickupDate(item) {
         if (!isNaN(d.getTime())) return d;
     }
 
-    // 🔥 fallback: objede date/time geçen ilk alan
+    // gY"� fallback: objede date/time geçen ilk alan
     for (const [k, v] of Object.entries(item || {})) {
         if (!v) continue;
         if (!/(date|time)/i.test(k)) continue;
@@ -109,7 +109,6 @@ function getProjectName(item) {
         item?.customer ??
         item?.ProjectName ??
         item?.projectName ??
-        "—"
     );
 }
 
@@ -128,7 +127,7 @@ function matchAllowlist(projectNorm, allowList) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                       MODEL: DÜN → 7 GÜN ÖNCE                               */
+/*                       MODEL: D�oN �?' 7 G�oN �-NCE                               */
 /* -------------------------------------------------------------------------- */
 
 function buildModel(items) {
@@ -250,10 +249,10 @@ export default function Karsilastirma() {
     return (
         <Box sx={{ p: 3 }}>
             <Typography sx={{ fontWeight: 900, mb: 2 }}>
-                Karşılaştırma – Gün Gün (Dün → 7 Gün Önce)
+                Kar�Yıla�Ytırma �?" Gün Gün (Dün �?' 7 Gün �-nce)
             </Typography>
 
-            {loading && <Typography>Yükleniyor…</Typography>}
+            {loading && <Typography>Yükleniyor�?�</Typography>}
             {error && <Typography color="error">{error}</Typography>}
 
             {model.map((r) => (

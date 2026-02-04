@@ -10,6 +10,7 @@ import {
     weekdayMon0,
     eachDay,
 } from "./date";
+
 import { getPickupDate, getProjectName, isInSelectedRegion } from "./domain";
 
 /**
@@ -55,7 +56,7 @@ export function buildForecastTable({ data, seciliBolge, today = new Date() }) {
 
     const byProject = new Map();
     for (const it of filtered) {
-        const p = String(getProjectName(it) ?? "—");
+        const p = String(getProjectName(it) ?? "BİLİNMİYOR");
         if (!byProject.has(p)) byProject.set(p, []);
         byProject.get(p).push(it);
     }
@@ -99,40 +100,27 @@ export function buildForecastTable({ data, seciliBolge, today = new Date() }) {
     };
 
     const series = [];
+
     for (const [proje, list] of byProject.entries()) {
         const dailyBase = buildBaselineDaily(list);
         const weights = buildWeekdayWeights(list);
 
         // Bu hafta: gerçekleşen + kalan beklenen
         const actualWeekToDate = countActual(list, week0Start, addDays(t0, 0));
-        const expWeekRemainder = expectedForDates(
-            dailyBase,
-            weights,
-            eachDay(addDays(t0, 1), week0End)
-        );
+        const expWeekRemainder = expectedForDates(dailyBase, weights, eachDay(addDays(t0, 1), week0End));
         const buHafta = Math.round(actualWeekToDate + expWeekRemainder);
 
         // Gelecek hafta / diğer hafta
-        const gelecekHafta = Math.round(
-            expectedForDates(dailyBase, weights, eachDay(week1Start, week1End))
-        );
-        const digerHafta = Math.round(
-            expectedForDates(dailyBase, weights, eachDay(week2Start, week2End))
-        );
+        const gelecekHafta = Math.round(expectedForDates(dailyBase, weights, eachDay(week1Start, week1End)));
+        const digerHafta = Math.round(expectedForDates(dailyBase, weights, eachDay(week2Start, week2End)));
 
         // Ay sonuna kadar: ay içi gerçekleşen + kalan beklenen
         const actualMonthToDate = countActual(list, monthStartD, addDays(t0, 0));
-        const expMonthRemainder = expectedForDates(
-            dailyBase,
-            weights,
-            eachDay(addDays(t0, 1), monthEndD)
-        );
+        const expMonthRemainder = expectedForDates(dailyBase, weights, eachDay(addDays(t0, 1), monthEndD));
         const aySonunaKadar = Math.round(actualMonthToDate + expMonthRemainder);
 
         // Ay toplam: ayın tamamı beklenen
-        const ayToplam = Math.round(
-            expectedForDates(dailyBase, weights, eachDay(monthStartD, monthEndD))
-        );
+        const ayToplam = Math.round(expectedForDates(dailyBase, weights, eachDay(monthStartD, monthEndD)));
 
         series.push({
             bolge: seciliBolge,

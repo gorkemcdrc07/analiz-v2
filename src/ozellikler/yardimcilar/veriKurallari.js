@@ -1,7 +1,7 @@
 // src/ozellikler/analiz-paneli/yardimcilar/veriKurallari.js
 import { metniNormalizeEt as norm } from "./metin";
 
-// ✅ Bölge listeleri (aynı içerik)
+// �o. Bölge listeleri (aynı içerik)
 export const REGIONS = {
     TRAKYA: [
         "BUNGE LÜLEBURGAZ FTL",
@@ -11,11 +11,11 @@ export const REGIONS = {
         "EKSUN GIDA FTL",
         "SARUHAN FTL",
         "PEPSİ FTL",
-        "PEPSİ FTL ÇORLU",
+        "PEPSİ FTL �?ORLU",
         "TEKİRDAĞ UN FTL",
         "AYDINLI MODA FTL",
         "ADKOTURK FTL",
-        "ADKOTURK FTL ENERJİ İÇECEĞİ",
+        "ADKOTURK FTL ENERJİ İ�?ECEĞİ",
         "SGS FTL",
         "BSH FTL",
         "ALTERNA GIDA FTL",
@@ -41,9 +41,9 @@ export const REGIONS = {
         "AVANSAS SPOT FTL",
         "DSV ERNAMAŞ FTL",
         "FLO FTL",
-        "ÇİÇEKÇİ FTL",
+        "ÇİÇEKCİ FTL",
         "ÇİZMECİ GIDA FTL",
-        "OTTONYA (HEDEFTEN AÇILIYOR)",
+        "OTTONYA (HEDEFTEN A�?ILIYOR)",
         "GALEN ÇOCUK FTL",
         "ENTAŞ FTL",
         "NAZAR KİMYA FTL",
@@ -77,9 +77,9 @@ export const REGIONS = {
     ESKİŞEHİR: [
         "ES FTL",
         "ES GLOBAL FRİGO FTL",
-        "KİPAŞ BOZÜYÜK FTL",
+        "KİPAŞ BOZ�oY�oK FTL",
         "2A TÜKETİM FTL",
-        "MODERN HURDA DÖNÜŞ FTL",
+        "MODERN HURDA D�-N�oŞ FTL",
         "MODERN HURDA ZONGULDAK FTL",
         "ŞİŞECAM FTL",
         "DENTAŞ FTL",
@@ -89,10 +89,10 @@ export const REGIONS = {
     ],
     "İÇ ANADOLU": ["APAK FTL", "SER DAYANIKLI FTL", "UNIFO FTL", "UNIFO ASKERİ FTL"],
     AFYON: ["BİM AFYON PLATFORM FTL"],
-    DİĞER: ["DOĞTAŞ İNEGÖL FTL", "AKTÜL FTL"],
+    DİĞER: ["DOĞTAŞ İNEG�-L FTL", "AKT�oL FTL"],
 };
 
-// ✅ Eski buildSubDetails -> Türkçe isim
+// �o. Eski buildSubDetails -> Türkçe isim
 export function altDetaylariOlustur(projeAdi, tumVeri) {
     const seen = new Set();
     const rowNorm = norm(projeAdi);
@@ -103,10 +103,10 @@ export function altDetaylariOlustur(projeAdi, tumVeri) {
             const isDirect = pNorm === rowNorm;
 
             const isPepsiCorlu =
-                rowNorm === norm("PEPSİ FTL ÇORLU") &&
+                rowNorm === norm("PEPSİ FTL �?ORLU") &&
                 pNorm === norm("PEPSİ FTL") &&
                 norm(item.PickupCityName) === norm("TEKİRDAĞ") &&
-                norm(item.PickupCountyName) === norm("ÇORLU");
+                norm(item.PickupCountyName) === norm("�?ORLU");
 
             const isPepsiGebze =
                 rowNorm === norm("PEPSİ FTL GEBZE") &&
@@ -137,7 +137,7 @@ export function altDetaylariOlustur(projeAdi, tumVeri) {
                 norm(item.PickupCityName) === norm("TEKİRDAĞ");
 
 
-            const isOttonya = rowNorm === norm("OTTONYA (HEDEFTEN AÇILIYOR)") && pNorm === norm("OTTONYA");
+            const isOttonya = rowNorm === norm("OTTONYA (HEDEFTEN A�?ILIYOR)") && pNorm === norm("OTTONYA");
 
             const isKucukbayTrakya =
                 rowNorm.includes("TRAKYA") &&

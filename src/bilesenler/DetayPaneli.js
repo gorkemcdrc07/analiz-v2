@@ -287,7 +287,7 @@ export default function DetayPaneli({ type, data, onClose }) {
                                                         fontSize: "0.9rem",
                                                     }}
                                                 >
-                                                    {item.CurrentAccountTitle?.substring(0, 30) || "Müşteri Belirtilmemiş"}...
+                                                    {item.CurrentAccountTitle?.substring(0, 30) || "Mü�Yteri Belirtilmemi�Y"}...
                                                 </Typography>
 
                                                 <Typography
@@ -328,7 +328,7 @@ export default function DetayPaneli({ type, data, onClose }) {
                                         }}
                                     >
                                         <Box>
-                                            <LocationLabel>YÜKLEME</LocationLabel>
+                                            <LocationLabel>Y�oKLEME</LocationLabel>
                                             <Typography
                                                 sx={{
                                                     fontWeight: 700,

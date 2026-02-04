@@ -1,9 +1,9 @@
 // yardimcilar/tarihIslemleri.js
 
 // Supabase filtreleri için güvenli ISO üretimi
-// - start: gün başı 00:00:00
+// - start: gün ba�Yı 00:00:00
 // - end: gün sonu 23:59:59
-// Not: toISOString() UTC döner. Eğer Supabase tarafında timestamptz kullanıyorsan en problemsiz seçenek budur.
+// Not: toISOString() UTC döner. E�Yer Supabase tarafında timestamptz kullanıyorsan en problemsiz seçenek budur.
 export function formatDate(date, end = false) {
     if (!date) return null;
 
@@ -30,7 +30,7 @@ export function formatDateTR(dateString) {
     return `${day}.${month}.${year}`;
 }
 
-// TR büyük harf dönüşümü + null safe + özel isim eşleştirme
+// TR büyük harf dönü�Yümü + null safe + özel isim e�Yle�Ytirme
 export function normalizeName(name) {
     if (!name) return '';
 
@@ -40,7 +40,7 @@ export function normalizeName(name) {
     const lowered = raw.toLocaleLowerCase('tr-TR');
 
     if (lowered === 'alper ulu') return 'ALPER ULU';
-    if (lowered === 'mert ulutaş') return 'MERT ULUTAŞ';
+    if (lowered === 'mert uluta�Y') return 'MERT ULUTAŞ';
 
     return raw.toLocaleUpperCase('tr-TR');
 }

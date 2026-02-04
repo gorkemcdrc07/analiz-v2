@@ -56,7 +56,7 @@ function TrendChip({ value }) {
     const v = Number(value || 0);
     const up = v > 0;
     const down = v < 0;
-    const label = down ? `${v.toFixed(1)}% ↓` : up ? `+${v.toFixed(1)}% ↑` : "0%";
+    const label = down ? `${v.toFixed(1)}% �?"` : up ? `+${v.toFixed(1)}% �?'` : "0%";
     const color = down ? "#ef4444" : up ? "#10b981" : "#94a3b8";
 
     return (
@@ -81,7 +81,7 @@ export default function KpiSection({ viewMode, trendKpis, forecastTotals, meta }
             <KpiCard
                 label="SON 4 HAFTA TREND"
                 value={<TrendChip value={trendKpis?.w4trend} />}
-                hint={`Son 28 gün: ${trendKpis?.w4 ?? 0} | Önceki 28 gün: ${trendKpis?.prevW4 ?? 0}`}
+                hint={`Son 28 gün: ${trendKpis?.w4 ?? 0} | �-nceki 28 gün: ${trendKpis?.prevW4 ?? 0}`}
                 color="#22c55e"
             />
 

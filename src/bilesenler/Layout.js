@@ -23,10 +23,10 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 
-// ✅ /backend-veri için ikon (ama yazı Tedarik Analiz olacak)
+// �o. /backend-veri için ikon (ama yazı Tedarik Analiz olacak)
 import StorageIcon from '@mui/icons-material/Storage';
 
-// ✅ Forecast menü ikonu
+// �o. Forecast menü ikonu
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 
 import { useTheme } from '@mui/material/styles';
@@ -95,7 +95,7 @@ const STATUS_TEXT_TO_CODE = {
     'Teslim Edildi': 7,
     Tamamlandı: 8,
     'Eksik Evrak': 10,
-    'Araç Boşaltmada': 80,
+    'Araç Bo�Yaltmada': 80,
     'Filo Araç Planlamada': 90,
     İptal: 200,
 };
@@ -118,10 +118,10 @@ export default function Layout({ mode, setMode }) {
     const [detailOpen, setDetailOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
-    // ✅ üst bardaki başlık
+    // �o. üst bardaki ba�Ylık
     const screenTitle = useMemo(() => {
         if (location.pathname === '/') return 'Ana Sayfa';
-        if (location.pathname.startsWith('/siparis-analiz')) return 'Sipariş Analiz';
+        if (location.pathname.startsWith('/siparis-analiz')) return 'Sipari�Y Analiz';
         if (location.pathname.startsWith('/proje-analiz')) return 'Proje Analiz';
         if (location.pathname.startsWith('/backend-veri')) return 'Tedarik Analiz';
         if (location.pathname.startsWith('/karsilastirma')) return 'Forecast';
@@ -188,7 +188,7 @@ export default function Layout({ mode, setMode }) {
 
             setData(mapped);
         } catch (err) {
-            console.error('❌ Veri çekme hatası:', err);
+            console.error('�O Veri çekme hatası:', err);
             setData([]);
         } finally {
             setLoading(false);
@@ -337,7 +337,7 @@ export default function Layout({ mode, setMode }) {
                 <Divider sx={{ borderColor: drawerBorder }} />
 
                 <List sx={{ px: 1, py: 1 }}>
-                    {/* ✅ Ana Sayfa */}
+                    {/* �o. Ana Sayfa */}
                     <ListItemButton selected={location.pathname === '/'} onClick={() => navigate('/')} sx={menuItemSx}>
                         <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
                             <HomeIcon color={location.pathname === '/' ? 'primary' : 'inherit'} />
@@ -345,7 +345,7 @@ export default function Layout({ mode, setMode }) {
                         <ListItemText primary="Ana Sayfa" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
                     </ListItemButton>
 
-                    {/* ✅ Sipariş Analiz */}
+                    {/* �o. Sipari�Y Analiz */}
                     <ListItemButton
                         selected={location.pathname.startsWith('/siparis-analiz')}
                         onClick={() => navigate('/siparis-analiz')}
@@ -354,10 +354,10 @@ export default function Layout({ mode, setMode }) {
                         <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
                             <ReceiptLongIcon color={location.pathname.startsWith('/siparis-analiz') ? 'primary' : 'inherit'} />
                         </ListItemIcon>
-                        <ListItemText primary="Sipariş Analiz" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
+                        <ListItemText primary="Sipari�Y Analiz" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
                     </ListItemButton>
 
-                    {/* ✅ Proje Analiz */}
+                    {/* �o. Proje Analiz */}
                     <ListItemButton
                         selected={location.pathname.startsWith('/proje-analiz')}
                         onClick={() => navigate('/proje-analiz')}
@@ -369,7 +369,7 @@ export default function Layout({ mode, setMode }) {
                         <ListItemText primary="Proje Analiz" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
                     </ListItemButton>
 
-                    {/* ✅ /backend-veri route'u kalsın ama menüde "Tedarik Analiz" yazsın */}
+                    {/* �o. /backend-veri route'u kalsın ama menüde "Tedarik Analiz" yazsın */}
                     <ListItemButton
                         selected={location.pathname.startsWith('/backend-veri')}
                         onClick={() => navigate('/backend-veri')}
@@ -381,7 +381,7 @@ export default function Layout({ mode, setMode }) {
                         <ListItemText primary="Tedarik Analiz" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
                     </ListItemButton>
 
-                    {/* ✅ Forecast (/karsilastirma) */}
+                    {/* �o. Forecast (/karsilastirma) */}
                     <ListItemButton
                         selected={location.pathname.startsWith('/karsilastirma')}
                         onClick={() => navigate('/karsilastirma')}

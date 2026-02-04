@@ -25,7 +25,7 @@ import LojistikKontrolMerkezi from "../bilesenler/BilgiPanelleri";
 
 const KEY_COLS = ["tms_order_id", "siparis_numarasi"];
 
-// ---------- Helpers (Mantık Değişmedi) ----------
+// ---------- Helpers (Mantık De�Yi�Ymedi) ----------
 const normalizeCell = (v) => (v === undefined || v === null ? null : typeof v === "string" ? (v.trim() === "" ? null : v.trim()) : v);
 const normKey = (v) => (normalizeCell(v) ?? "").toString().trim();
 const chunk = (arr, size) => Array.from({ length: Math.ceil(arr.length / size) }, (v, i) => arr.slice(i * size, i * size + size));
@@ -33,8 +33,8 @@ const chunk = (arr, size) => Array.from({ length: Math.ceil(arr.length / size) }
 const normalizeHeader = (h) => {
     if (!h) return "";
     return String(h).trim().toLowerCase()
-        .replace(/[ıİ]/g, "i").replace(/[şŞ]/g, "s").replace(/[ğĞ]/g, "g")
-        .replace(/[üÜ]/g, "u").replace(/[öÖ]/g, "o").replace(/[çÇ]/g, "c")
+        .replace(/[ıİ]/g, "i").replace(/[�YŞ]/g, "s").replace(/[�YĞ]/g, "g")
+        .replace(/[ü�o]/g, "u").replace(/[ö�-]/g, "o").replace(/[ç�?]/g, "c")
         .replace(/[\s-]+/g, "_").replace(/_+/g, "_");
 };
 
@@ -127,7 +127,7 @@ export default function VeriAktarim() {
 
     return (
         <Box sx={{ bgcolor: "#f8fafc", minHeight: "100vh" }}>
-            {/* ✅ ÜST PANEL (butonlar burada) */}
+            {/* �o. �oST PANEL (butonlar burada) */}
             <LojistikKontrolMerkezi
                 hideDate={true}
                 handleFilter={null}
@@ -161,7 +161,7 @@ export default function VeriAktarim() {
                                 fontWeight: 800,
                                 boxShadow: "0 10px 20px -6px rgba(37, 99, 235, 0.35)"}}
                         >
-                            {busy ? "Yükleniyor…" : "Dosya Seç"}
+                            {busy ? "Yükleniyor�?�" : "Dosya Seç"}
                             <input
                                 type="file"
                                 accept=".xlsx,.xls"
@@ -173,7 +173,7 @@ export default function VeriAktarim() {
                 }
             />
 
-            {/* ✅ SAYFA İÇERİĞİ */}
+            {/* �o. SAYFA İ�?ERİĞİ */}
             <Container maxWidth="md" sx={{ py: 6 }}>
                 <Paper
                     elevation={0}
@@ -207,12 +207,12 @@ export default function VeriAktarim() {
                                 color: "#166534",
                                 border: "1px solid #bbf7d0"}}
                         >
-                            İşlem tamamlandı! <strong>{result.fileRows}</strong> satır işlendi,{" "}
+                            İ�Ylem tamamlandı! <strong>{result.fileRows}</strong> satır i�Ylendi,{" "}
                             <strong>{result.affected}</strong> kayıt güncellendi.
                         </Alert>
                     )}
 
-                    {/* İçerik başlık (mini) */}
+                    {/* İçerik ba�Ylık (mini) */}
                     <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 3 }}>
                         <Box>
                             <Typography sx={{ fontWeight: 900, color: "#0f172a", fontSize: "1.15rem" }}>
@@ -273,8 +273,8 @@ export default function VeriAktarim() {
                         </Typography>
 
                         <ul style={{ margin: 0, paddingLeft: 20, color: "#64748b", fontSize: "0.88rem", lineHeight: 1.7 }}>
-                            <li>Kolon isimleri otomatik eşleştirilir (örn: "Sefer No" → "sefer_no").</li>
-                            <li>Tarihler otomatik olarak <b>GG.AA.YYYY</b> formatına dönüştürülür.</li>
+                            <li>Kolon isimleri otomatik e�Yle�Ytirilir (örn: "Sefer No" �?' "sefer_no").</li>
+                            <li>Tarihler otomatik olarak <b>GG.AA.YYYY</b> formatına dönü�Ytürülür.</li>
                             <li>Var olan kayıtlar güncellenir, olmayanlar yeni kayıt olarak eklenir.</li>
                         </ul>
                     </Box>

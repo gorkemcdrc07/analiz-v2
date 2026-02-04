@@ -153,7 +153,7 @@ export default function AnalizPaneli() {
         }
     }, [range.start, range.end, userId]);
 
-    const data = useMemo(() => extractItems(raw), [raw]);
+    const data = useMemo(() => (raw?.items ? raw.items : extractItems(raw)), [raw]);
 
     // TMS içinden SFR listesi
     const docNos = useMemo(() => {
@@ -422,3 +422,4 @@ export default function AnalizPaneli() {
         </Box>
     );
 }
+

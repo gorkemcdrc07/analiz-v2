@@ -23,7 +23,7 @@ export const Root = styled(Box)(({ theme }) => {
 
 export const Wide = styled(Box)({
     width: "100%",
-    maxWidth: "100%", // 30000 yerine daha güvenli bir değer
+    maxWidth: "100%", // 30000 yerine daha güvenli bir de�Yer
     marginLeft: "auto",
     marginRight: "auto",
 });

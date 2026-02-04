@@ -15,9 +15,7 @@ export function buildWeeklyHistory({ data, seciliBolge, weeksBack = 12, anchorDa
 
     const weeks = ranges.map((r) => {
         const s = new Date(r.start);
-        const key = `${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, "0")}-${String(
-            s.getDate()
-        ).padStart(2, "0")}`;
+        const key = `${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, "0")}-${String(s.getDate()).padStart(2, "0")}`;
 
         return {
             key,
@@ -39,7 +37,7 @@ export function buildWeeklyHistory({ data, seciliBolge, weeksBack = 12, anchorDa
         const wk = it?.__weekKey;
         if (!wk || !weekIndex.has(wk)) continue;
 
-        const proje = String(getProjectName(it) ?? "—");
+        const proje = String(getProjectName(it) ?? "BİLİNMİYOR");
 
         if (!byProject.has(proje)) {
             byProject.set(proje, Array(weeksBack).fill(0));

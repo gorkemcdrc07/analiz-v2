@@ -94,7 +94,7 @@ export default function YukleniyorEkrani() {
         >
             <GlassContainer>
                 <SpinnerWrapper>
-                    {/* Arka plandaki yumuşak halka */}
+                    {/* Arka plandaki yumu�Yak halka */}
                     <CircularProgress
                         variant="determinate"
                         value={100}

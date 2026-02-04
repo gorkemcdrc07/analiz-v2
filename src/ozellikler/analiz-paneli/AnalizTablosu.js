@@ -63,7 +63,7 @@ const parseTRDateTime = (v) => {
     const s0 = String(v).trim();
     if (!s0) return null;
 
-    // ✅ ISO ama fractional seconds 3'ten uzun (örn .7643056) ise 3 haneye kırp
+    //  o. ISO ama fractional seconds 3'ten uzun (örn .7643056) ise 3 haneye kırp
     // 2026-02-02T09:26:13.7643056  -> 2026-02-02T09:26:13.764
     // 2026-02-02T09:26:13.7        -> 2026-02-02T09:26:13.700 (opsiyonel)
     const isoFix = (s) => {
@@ -72,7 +72,7 @@ const parseTRDateTime = (v) => {
 
         const base = m[1];
         const frac = m[3] || "";
-        const tz = m[4] || ""; // Z / +03:00 / boş
+        const tz = m[4] || ""; // Z / +03:00 / bo Y
 
         if (!frac) return base + tz;
 
@@ -83,7 +83,7 @@ const parseTRDateTime = (v) => {
 
     const s = isoFix(s0);
 
-    // ✅ dd.mm.yyyy [HH:MM[:SS]] (Excel/TR)
+    //  o. dd.mm.yyyy [HH:MM[:SS]] (Excel/TR)
     const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
     if (m) {
         const dd = Number(m[1]);
@@ -96,7 +96,7 @@ const parseTRDateTime = (v) => {
         return Number.isNaN(d.getTime()) ? null : d;
     }
 
-    // ✅ ISO / diğer
+    //  o. ISO / di Yer
     const d2 = new Date(s);
     return Number.isNaN(d2.getTime()) ? null : d2;
 };
@@ -106,7 +106,7 @@ const isGecTedarik = (seferAcilisTarihi, yuklemeTarihi) => {
     const load = parseTRDateTime(yuklemeTarihi);
     if (!open || !load) return false;
 
-    const diffMs = open.getTime() - load.getTime(); // ✅ açılış - yükleme
+    const diffMs = open.getTime() - load.getTime(); //  o. açılı Y - yükleme
     const diffHours = diffMs / (1000 * 60 * 60);
 
     return diffHours > 30;
@@ -149,7 +149,7 @@ const uiTokens = (isDark) => ({
     shadowSoft: isDark ? "0 10px 30px rgba(0,0,0,0.45)" : "0 10px 30px rgba(2,6,23,0.08)",
 });
 
-// Excel hücre değeri Date / number / string olabilir -> ISO string'e çevir
+// Excel hücre de Yeri Date / number / string olabilir -> ISO string'e çevir
 const excelCellToISO = (cellVal) => {
     if (cellVal == null || cellVal === "") return null;
 
@@ -345,7 +345,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
     const [sirala, setSirala] = useState("perf"); // perf | plan | late
     const [sadeceGecikenler, setSadeceGecikenler] = useState(false);
 
-    // ✅ yeni: tedarik edilmeyenler filtresi
+    //  o. yeni: tedarik edilmeyenler filtresi
     const [sadeceTedarikEdilmeyenler, setSadeceTedarikEdilmeyenler] = useState(false);
 
     const [excelTarihleriSeferBazli, setExcelTarihleriSeferBazli] = useState({});
@@ -377,12 +377,12 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                         if (!seferKey) return;
 
                         const nextObj = {
-                            yukleme_varis: excelCellToISO(pickColumn(r, ["Yükleme Noktası Varış Zamanı", "Yükleme Varış"])),
-                            yukleme_giris: excelCellToISO(pickColumn(r, ["Yükleme Noktasına Giriş Zamanı", "Yükleme Giriş"])),
-                            yukleme_cikis: excelCellToISO(pickColumn(r, ["Yükleme Noktası Çıkış Zamanı", "Yükleme Çıkış"])),
-                            teslim_varis: excelCellToISO(pickColumn(r, ["Teslim Noktası Varış Zamanı", "Teslim Varış"])),
-                            teslim_giris: excelCellToISO(pickColumn(r, ["Teslim Noktasına Giriş Zamanı", "Teslim Giriş"])),
-                            teslim_cikis: excelCellToISO(pickColumn(r, ["Teslim Noktası Çıkış Zamanı", "Teslim Çıkış"])),
+                            yukleme_varis: excelCellToISO(pickColumn(r, ["Yükleme Noktası Varı Y Zamanı", "Yükleme Varı Y"])),
+                            yukleme_giris: excelCellToISO(pickColumn(r, ["Yükleme Noktasına Giri Y Zamanı", "Yükleme Giri Y"])),
+                            yukleme_cikis: excelCellToISO(pickColumn(r, ["Yükleme Noktası  ?ıkı Y Zamanı", "Yükleme  ?ıkı Y"])),
+                            teslim_varis: excelCellToISO(pickColumn(r, ["Teslim Noktası Varı Y Zamanı", "Teslim Varı Y"])),
+                            teslim_giris: excelCellToISO(pickColumn(r, ["Teslim Noktasına Giri Y Zamanı", "Teslim Giri Y"])),
+                            teslim_cikis: excelCellToISO(pickColumn(r, ["Teslim Noktası  ?ıkı Y Zamanı", "Teslim  ?ıkı Y"])),
                         };
 
                         map[seferKey] = mergeKeepFilled(map[seferKey], nextObj);
@@ -429,7 +429,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
             if (pNorm === norm("PEPSİ FTL")) {
                 const c = norm(item.PickupCityName);
                 const d = norm(item.PickupCountyName);
-                if (c === norm("TEKİRDAĞ") && d === norm("ÇORLU")) finalProjectName = "PEPSİ FTL ÇORLU";
+                if (c === norm("TEKİRDAĞ") && d === norm("ÇORLU")) finalProjectName = "PEPSİ FTL  ÇORLU";
                 else if (c === norm("KOCAELİ") && d === norm("GEBZE")) finalProjectName = "PEPSİ FTL GEBZE";
             }
 
@@ -445,17 +445,17 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                 if (c === norm("KOCAELİ") && d === norm("GEBZE")) finalProjectName = "FAKİR FTL GEBZE";
             }
 
-            // ✅ MODERN BOBİN FTL split kuralı
+            //  o. MODERN BOBİN FTL split kuralı
             if (pNorm === norm("MODERN BOBİN FTL")) {
                 const c = norm(item.PickupCityName);
 
                 if (c === norm("ZONGULDAK")) finalProjectName = "MODERN BOBİN ZONGULDAK FTL";
                 else if (c === norm("TEKİRDAĞ")) finalProjectName = "MODERN BOBİN TEKİRDAĞ FTL";
-                else return; // bu iki şehir dışındaysa panelde sayma (istersen kaldırırız)
+                else return; // bu iki  Yehir dı Yındaysa panelde sayma (istersen kaldırırız)
             }
 
 
-            if (pNorm === norm("OTTONYA")) finalProjectName = "OTTONYA (HEDEFTEN AÇILIYOR)";
+            if (pNorm === norm("OTTONYA")) finalProjectName = "OTTONYA (HEDEFTEN A ?ILIYOR)";
 
             const key = norm(finalProjectName);
 
@@ -502,17 +502,17 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
             s.ted.add(despKey);
 
             const vw = norm(item.VehicleWorkingName);
-            const isFilo = vw === norm("FİLO") || vw === norm("ÖZMAL") || vw === norm("MODERN AMBALAJ FİLO");
+            const isFilo = vw === norm("FİLO") || vw === norm(" -ZMAL") || vw === norm("MODERN AMBALAJ FİLO");
             if (isFilo) s.filo.add(despKey);
             else s.spot.add(despKey);
 
             if (booleanCevir(item.IsPrint)) s.sho_b.add(despKey);
             else s.sho_bm.add(despKey);
 
-            // ✅ Sefer açılış = TMSDespatchCreatedDate
+            //  o. Sefer açılı Y = TMSDespatchCreatedDate
             const seferAcilis = item.TMSDespatchCreatedDate;
 
-            // ✅ Yükleme = PickupDate
+            //  o. Yükleme = PickupDate
             const yukleme = item.PickupDate;
 
             if (isGecTedarik(seferAcilis, yukleme)) {
@@ -544,14 +544,14 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                 const ted = s.ted?.size ?? 0;
                 const iptal = s.iptal?.size ?? 0;
 
-                // ✅ tedarik edilmeyen = talep - (tedarik + iptal)
+                //  o. tedarik edilmeyen = talep - (tedarik + iptal)
                 const edilmeyen = Math.max(0, plan - (ted + iptal));
 
                 // gec / zamaninda bilgileri aynen kalsın (kart içi geç tedarik vs için)
                 const gec = s.gec_tedarik?.size ?? 0;
                 const zamaninda = Math.max(0, ted - gec);
 
-                // ✅ YENİ yüzde: talep bazlı, "edilmeyen oranı"
+                //  o. YENİ yüzde: talep bazlı, "edilmeyen oranı"
                 // yüzde = 100 - (edilmeyen / plan)*100
                 const yuzde =
                     plan > 0 ? Math.max(0, Math.min(100, Math.round(100 - (edilmeyen / plan) * 100))) : 0;
@@ -603,7 +603,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
             { plan: 0, ted: 0, edilmeyen: 0, spot: 0, filo: 0, gec: 0, zamaninda: 0 }
         );
 
-        // ✅ KPI Tedarik Oranı da talep bazlı olsun:
+        //  o. KPI Tedarik Oranı da talep bazlı olsun:
         sum.perf = sum.plan ? Math.max(0, Math.min(100, Math.round(100 - (sum.edilmeyen / sum.plan) * 100))) : 0;
 
         return sum;
@@ -1026,7 +1026,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                 <Wide>
                     <TopBar elevation={0}>
                         <Grid>
-                            {/* Sol: Başlık + KPI */}
+                            {/* Sol: Ba Ylık + KPI */}
                             <Stack spacing={1.2}>
                                 <Stack direction="row" spacing={1.2} alignItems="center">
                                     <Box
@@ -1049,11 +1049,11 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                             ANALİZ PANELİ
                                         </Typography>
                                         <Typography sx={{ fontWeight: 800, color: t.subtext }}>
-                                            Kart görünümü • Filtreleme • Zaman analizi • Rota
+                                            Kart görünümü  ?  Filtreleme  ?  Zaman analizi  ?  Rota
                                         </Typography>
                                     </Box>
 
-                                    <Tooltip title="Bu panel, sefer açılışından yüklemeye kadar geçen süreyi (30 saat kuralı) baz alır.">
+                                    <Tooltip title="Bu panel, sefer açılı Yından yüklemeye kadar geçen süreyi (30 saat kuralı) baz alır.">
                                         <IconButton
                                             size="small"
                                             sx={{
@@ -1125,7 +1125,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                 </Box>
                             </Stack>
 
-                            {/* Sağ: Kontroller */}
+                            {/* Sa Y: Kontroller */}
                             <Stack spacing={1.5} alignItems="stretch" justifyContent="space-between">
                                 {/* Region Selector */}
                                 <Box
@@ -1185,10 +1185,10 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                                                 opacity: selected ? 1 : 0.7,
                                                                 paddingLeft: "8px",
                                                                 borderLeft: `1px solid ${selected
-                                                                        ? isDark
-                                                                            ? "rgba(0,0,0,0.18)"
-                                                                            : "rgba(255,255,255,0.22)"
-                                                                        : t.borderSoft
+                                                                    ? isDark
+                                                                        ? "rgba(0,0,0,0.18)"
+                                                                        : "rgba(255,255,255,0.22)"
+                                                                    : t.borderSoft
                                                                     }`,
                                                             }}
                                                         >
@@ -1259,12 +1259,12 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                             color: t.text,
                                         }}
                                     >
-                                        <MenuItem value="perf">⚡ Performans</MenuItem>
-                                        <MenuItem value="plan">📊 Talep</MenuItem>
-                                        <MenuItem value="late">⚠️ Gecikme</MenuItem>
+                                        <MenuItem value="perf"> s  Performans</MenuItem>
+                                        <MenuItem value="plan">gY"S Talep</MenuItem>
+                                        <MenuItem value="late"> s ️ Gecikme</MenuItem>
                                     </Select>
 
-                                    {/* ✅ Gecikenler */}
+                                    {/*  o. Gecikenler */}
                                     <Box
                                         sx={{
                                             display: "flex",
@@ -1292,7 +1292,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                         />
                                     </Box>
 
-                                    {/* ✅ Tedarik Edilmeyenler */}
+                                    {/*  o. Tedarik Edilmeyenler */}
                                     <Box
                                         sx={{
                                             display: "flex",
@@ -1323,7 +1323,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                     <Stack direction="row" spacing={1}>
                                         {[
                                             { label: "Reel Tarihler", icon: <MdHistory />, action: exceldenTarihleriIceriAl, loading: excelOkunuyor },
-                                            { label: "Dışa Aktar", icon: <MdDownload />, action: bolgeyiExceleAktar },
+                                            { label: "Dı Ya Aktar", icon: <MdDownload />, action: bolgeyiExceleAktar },
                                         ].map((btn, i) => (
                                             <Tooltip key={i} title={btn.label}>
                                                 <Box
@@ -1385,7 +1385,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                             </Typography>
                                         </Stack>
                                         <Typography sx={{ fontWeight: 700, fontSize: "0.75rem", color: t.subtext, opacity: 0.9 }}>
-                                            Detaylar için kart etkileşimlerini kullanın • Sefer & Rota
+                                            Detaylar için kart etkile Yimlerini kullanın  ?  Sefer & Rota
                                         </Typography>
                                     </Stack>
 
@@ -1422,7 +1422,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
 
                                             <MdDownload size={16} color={t.accent} />
                                             <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: t.accent }}>
-                                                {Object.keys(excelTarihleriSeferBazli || {}).length} Eşleşme
+                                                {Object.keys(excelTarihleriSeferBazli || {}).length} E Yle Yme
                                             </Typography>
                                         </Box>
 
@@ -1482,7 +1482,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                             >
                                 <Typography sx={{ fontWeight: 1000, color: t.text, fontSize: "1.2rem" }}>Sonuç bulunamadı</Typography>
                                 <Typography sx={{ fontWeight: 800, color: t.subtext, mt: 0.6 }}>
-                                    Arama kriterini değiştir veya filtreleri kapat.
+                                    Arama kriterini de Yi Ytir veya filtreleri kapat.
                                 </Typography>
                             </Paper>
                         )}

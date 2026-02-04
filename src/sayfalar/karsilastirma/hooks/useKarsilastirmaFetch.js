@@ -18,7 +18,7 @@ const addDays = (d, n) => {
     return x;
 };
 
-// Pazartesi başlangıçlı hafta
+// Pazartesi ba�Ylangıçlı hafta
 const startOfWeekMon = (d) => {
     const x = clampDayStart(d);
     const day = x.getDay(); // 0 pazar
@@ -27,7 +27,7 @@ const startOfWeekMon = (d) => {
     return x;
 };
 
-// Seçilen (start-end) aralığını kapsayan haftaları üret
+// Seçilen (start-end) aralı�Yını kapsayan haftaları üret
 const buildWeekRangesBetween = (startDate, endDate) => {
     const s0 = clampDayStart(new Date(startDate));
     const e0 = clampDayStart(new Date(endDate));
@@ -41,7 +41,7 @@ const buildWeekRangesBetween = (startDate, endDate) => {
         const wEnd = addDays(wStart, 6);
         wEnd.setHours(23, 59, 59, 999);
 
-        // aralık kesişimi
+        // aralık kesi�Yimi
         const a = new Date(Math.max(wStart.getTime(), s0.getTime()));
         const b = new Date(Math.min(wEnd.getTime(), new Date(endDate).getTime()));
 
@@ -74,7 +74,7 @@ export default function useKarsilastirmaFetch({ userId = 1, daysBack = 7 } = {})
         // UI hemen veri görsün
         setRaw({ items: [] });
 
-        // ✅ Son N gün aralığı
+        // �o. Son N gün aralı�Yı
         const end = new Date();
         const start = addDays(new Date(), -Math.max(1, Number(daysBack)));
         const ranges = buildWeekRangesBetween(start, end);
@@ -121,7 +121,7 @@ export default function useKarsilastirmaFetch({ userId = 1, daysBack = 7 } = {})
 
                     const items = extractItems(payload);
 
-                    // ✅ range etiketi
+                    // �o. range etiketi
                     const weekStart = new Date(r.start);
                     const weekEnd = new Date(r.end);
                     const weekKey = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(
@@ -146,11 +146,11 @@ export default function useKarsilastirmaFetch({ userId = 1, daysBack = 7 } = {})
                 }
             }
         } catch (e) {
-            setError(e?.message || "Bağlantı hatası");
+            setError(e?.message || "Ba�Ylantı hatası");
         } finally {
             setLoading(false);
             if (collected.length === 0) {
-                setError("Veri çekilemedi (son gün istekleri başarısız)");
+                setError("Veri çekilemedi (son gün istekleri ba�Yarısız)");
             }
         }
     }, [userId, daysBack]);

@@ -12,7 +12,7 @@ export default function Anasayfa() {
             }}
         >
             <Typography sx={{ fontWeight: 700 }}>
-                Anasayfa (boş)
+                Anasayfa (bo�Y)
             </Typography>
         </Box>
     );

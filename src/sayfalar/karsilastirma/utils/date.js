@@ -2,7 +2,7 @@
 
 /* ------------------------ temel yardımcılar ------------------------ */
 
-/** Gün başlangıcına çeker (00:00:00.000) */
+/** Gün ba�Ylangıcına çeker (00:00:00.000) */
 export function clampDayStart(d) {
     const x = new Date(d);
     x.setHours(0, 0, 0, 0);
@@ -19,7 +19,7 @@ export function addDays(d, n) {
 /* ------------------------ hafta yardımcıları ------------------------ */
 
 /**
- * Pazartesi başlangıçlı hafta
+ * Pazartesi ba�Ylangıçlı hafta
  * Pazartesi = 0, Pazar = 6
  */
 export function startOfWeekMon(d) {
@@ -30,7 +30,7 @@ export function startOfWeekMon(d) {
     return x;
 }
 
-/** Pazar bitişli hafta */
+/** Pazar biti�Yli hafta */
 export function endOfWeekSun(d) {
     const s = startOfWeekMon(d);
     const e = new Date(s);
@@ -96,17 +96,17 @@ export function fmtTR(d) {
     });
 }
 
-/** Tarih aralığı (uzun) */
+/** Tarih aralı�Yı (uzun) */
 export function fmtRange(a, b) {
-    return `${fmtTR(a)} – ${fmtTR(b)}`;
+    return `${fmtTR(a)} �?" ${fmtTR(b)}`;
 }
 
-/** Tarih aralığı (kısa) */
+/** Tarih aralı�Yı (kısa) */
 export function fmtRangeShort(a, b) {
     return `${new Date(a).toLocaleDateString("tr-TR", {
         day: "2-digit",
         month: "2-digit",
-    })}–${new Date(b).toLocaleDateString("tr-TR", {
+    })}�?"${new Date(b).toLocaleDateString("tr-TR", {
         day: "2-digit",
         month: "2-digit",
     })}`;
@@ -114,14 +114,14 @@ export function fmtRangeShort(a, b) {
 
 /* ------------------------ ISO yardımcıları ------------------------ */
 
-/** Gün başlangıcı ISO (UTC/Z) */
+/** Gün ba�Ylangıcı ISO (UTC/Z) */
 export function isoStartOfDayZ(d) {
     const x = new Date(d);
     x.setHours(0, 0, 0, 0);
     return x.toISOString();
 }
 
-/** Gün bitişi ISO (UTC/Z) */
+/** Gün biti�Yi ISO (UTC/Z) */
 export function isoEndOfDayZ(d) {
     const x = new Date(d);
     x.setHours(23, 59, 59, 999);
@@ -131,7 +131,7 @@ export function isoEndOfDayZ(d) {
 /* ------------------------ haftalık range builder ------------------------ */
 
 /**
- * Son N haftanın tarih aralıklarını üretir (eski → yeni)
+ * Son N haftanın tarih aralıklarını üretir (eski �?' yeni)
  */
 export function buildWeekRanges({ weeksBack = 12, anchorDate = new Date() }) {
     const t0 = clampDayStart(anchorDate);
@@ -148,10 +148,10 @@ export function buildWeekRanges({ weeksBack = 12, anchorDate = new Date() }) {
 }
 
 /**
- * ✅ (startDate-endDate) aralığını kapsayan haftaları üretir.
+ * �o. (startDate-endDate) aralı�Yını kapsayan haftaları üretir.
  * /tmsorders/week endpoint'i için "son 7 gün" gibi aralık çekiminde kullanılır.
  *
- * Çıktı: [{start, end}] (kesişimli) — eski → yeni
+ * �?ıktı: [{start, end}] (kesi�Yimli) �?" eski �?' yeni
  */
 export function buildWeekRangesBetween({ startDate, endDate }) {
     const s0 = clampDayStart(new Date(startDate));
@@ -166,7 +166,7 @@ export function buildWeekRangesBetween({ startDate, endDate }) {
         const wEnd = addDays(wStart, 6);
         wEnd.setHours(23, 59, 59, 999);
 
-        // aralık kesişimi
+        // aralık kesi�Yimi
         const a = new Date(Math.max(wStart.getTime(), s0.getTime()));
         const b = new Date(Math.min(wEnd.getTime(), new Date(endDate).getTime()));
 

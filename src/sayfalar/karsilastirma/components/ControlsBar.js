@@ -141,11 +141,11 @@ export default function ControlsBar({
                                 fontSize: "0.85rem",
                             }}
                         >
-                            <MenuItem value="buHafta">📍 Bu hafta</MenuItem>
+                            <MenuItem value="buHafta">gY"� Bu hafta</MenuItem>
                             <MenuItem value="gelecekHafta">➡️ Gelecek hafta</MenuItem>
-                            <MenuItem value="digerHafta">⏭️ Diğer hafta</MenuItem>
-                            <MenuItem value="aySonunaKadar">🧾 Ay sonuna kadar</MenuItem>
-                            <MenuItem value="ayToplam">🧮 Ay toplam</MenuItem>
+                            <MenuItem value="digerHafta">⏭️ Di�Yer hafta</MenuItem>
+                            <MenuItem value="aySonunaKadar">gY�� Ay sonuna kadar</MenuItem>
+                            <MenuItem value="ayToplam">gY�� Ay toplam</MenuItem>
                         </Select>
                     ) : (
                         <Box sx={{ minWidth: 220 }} />

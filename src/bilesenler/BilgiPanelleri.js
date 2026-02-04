@@ -8,12 +8,12 @@ import { FaSync, FaCalendarAlt, FaSlidersH, FaBalanceScale } from "react-icons/f
 import { MdUploadFile } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
 
-// ✅ Panel (modal) bileşeni
+// �o. Panel (modal) bile�Yeni
 import KarsilastirmaPanel from "../sayfalar/karsilastirma";
 
 /**
  * NOTE:
- * styled() içinde theme'yi kullanabilmek için callback ( { theme } ) şeklinde yazıyoruz.
+ * styled() içinde theme'yi kullanabilmek için callback ( { theme } ) �Yeklinde yazıyoruz.
  */
 
 const GlassHeader = styled(Box)(({ theme }) => ({
@@ -168,10 +168,10 @@ export default function BilgiPanelleri({
     const theme = useTheme();
     const navigate = useNavigate();
 
-    // ✅ Karşılaştırma modal state
+    // �o. Kar�Yıla�Ytırma modal state
     const [compareOpen, setCompareOpen] = useState(false);
 
-    // ✅ Tarih seçimi otomatik veri çekmesin diye: draft state
+    // �o. Tarih seçimi otomatik veri çekmesin diye: draft state
     const [draftStart, setDraftStart] = useState(startDate);
     const [draftEnd, setDraftEnd] = useState(endDate);
 
@@ -229,7 +229,7 @@ export default function BilgiPanelleri({
                     </Typography>
                 </Stack>
 
-                {/* Sağ */}
+                {/* Sa�Y */}
                 <Stack direction="row" spacing={2} alignItems="center">
                     {!hideDate && (
                         <>
@@ -268,7 +268,7 @@ export default function BilgiPanelleri({
                                 </StyledPicker>
                             </DatePickerWrapper>
 
-                            <Tooltip title="Gelişmiş Filtreler">
+                            <Tooltip title="Geli�Ymi�Y Filtreler">
                                 <Box
                                     sx={{
                                         p: 1.5,
@@ -299,14 +299,14 @@ export default function BilgiPanelleri({
                         </>
                     )}
 
-                    {/* ✅ Karşılaştırma butonu -> modal açar */}
+                    {/* �o. Kar�Yıla�Ytırma butonu -> modal açar */}
                     {showCompareButton && (
                         <CompareButton startIcon={<FaBalanceScale />} onClick={handleCompareClick}>
-                            Karşılaştırma Yap
+                            Kar�Yıla�Ytırma Yap
                         </CompareButton>
                     )}
 
-                    {/* ✅ Veri Aktarım */}
+                    {/* �o. Veri Aktarım */}
                     {showVeriAktarimButton && (
                         <UploadButton startIcon={<MdUploadFile />} onClick={() => navigate("/veri-aktarim")}>
                             Veri Aktarım
@@ -315,7 +315,7 @@ export default function BilgiPanelleri({
 
                     {uploadActions ? <Box sx={{ display: "flex", alignItems: "center" }}>{uploadActions}</Box> : null}
 
-                    {/* ✅ Artık sadece butona basınca uygular/çeker */}
+                    {/* �o. Artık sadece butona basınca uygular/çeker */}
                     {handleFilter ? (
                         <RefreshButton onClick={handleApply} startIcon={<FaSync size={12} />}>
                             Analizi Güncelle
@@ -324,7 +324,7 @@ export default function BilgiPanelleri({
                 </Stack>
             </GlassHeader>
 
-            {/* ✅ Modal panel */}
+            {/* �o. Modal panel */}
             <KarsilastirmaPanel
                 open={compareOpen}
                 onClose={() => setCompareOpen(false)}
