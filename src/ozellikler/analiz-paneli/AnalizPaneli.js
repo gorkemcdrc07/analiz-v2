@@ -89,8 +89,8 @@ export default function AnalizPaneli() {
         setPrintsMap({});
         setRaw({ items: [] }); // UI hemen başlasın
 
-        const TMS_WEEK_URL = `${BASE_URL}/tmsorders/week`; // ✅ kritik düzeltme
-
+        // AnalizPaneli.jsx içindeki satırı şuna çevir:
+        const TMS_WEEK_URL = `${BASE_URL}/tmsorders/week`;
         try {
             const weeks = buildWeekRangesBetween(range.start, range.end);
 

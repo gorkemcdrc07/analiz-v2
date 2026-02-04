@@ -278,11 +278,14 @@ export default function ProjeSatiri({
 
     // ✅ “Zamanında” yüzdesi
     const zamanindaYuzde = useMemo(() => {
-        if (!talep || talep <= 0) return 0;
-        const ratio = tedarikEdilmeyen / talep;
-        const pct = (1 - ratio) * 100;
+        if (!tedarikEdilen || tedarikEdilen <= 0) return 0;
+
+        const zamaninda = Math.max(0, tedarikEdilen - gecTedarikSayisi);
+
+        const pct = (zamaninda / tedarikEdilen) * 100;
+
         return Math.max(0, Math.min(100, Math.round(pct)));
-    }, [talep, tedarikEdilmeyen]);
+    }, [tedarikEdilen, gecTedarikSayisi]);
 
     // ✅ Zamanında yüzdesine göre renk
     const zamanindaRenk = useMemo(() => zamanindaRenkFromPct(zamanindaYuzde), [zamanindaYuzde]);

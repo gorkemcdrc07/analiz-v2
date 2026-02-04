@@ -551,10 +551,10 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                 const gec = s.gec_tedarik?.size ?? 0;
                 const zamaninda = Math.max(0, ted - gec);
 
-                //  o. YENİ yüzde: talep bazlı, "edilmeyen oranı"
-                // yüzde = 100 - (edilmeyen / plan)*100
-                const yuzde =
-                    plan > 0 ? Math.max(0, Math.min(100, Math.round(100 - (edilmeyen / plan) * 100))) : 0;
+                // ✅ YENİ kural: (ted - gec) / ted
+                const yuzde = ted > 0
+                    ? Math.max(0, Math.min(100, Math.round(((Math.max(0, ted - gec)) / ted) * 100)))
+                    : 0;
 
                 return {
                     name: projeAdi,
@@ -604,7 +604,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
         );
 
         //  o. KPI Tedarik Oranı da talep bazlı olsun:
-        sum.perf = sum.plan ? Math.max(0, Math.min(100, Math.round(100 - (sum.edilmeyen / sum.plan) * 100))) : 0;
+        sum.perf = sum.ted ? Math.max(0, Math.min(100, Math.round((sum.zamaninda / sum.ted) * 100))) : 0;
 
         return sum;
     }, [satirlar]);
@@ -693,13 +693,13 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
             return fill("FFEF4444");
         };
 
-        const perfFrom = (plan, edilmeyen) => {
-            const p = Number(plan) || 0;
-            const e = Number(edilmeyen) || 0;
-            if (p <= 0) return "TALEP YOK";
-            return Math.max(0, Math.min(100, Math.round(100 - (e / p) * 100)));
+        const perfFrom = (ted, gec) => {
+            const t = Number(ted) || 0;
+            const g = Number(gec) || 0;
+            if (t <= 0) return "TEDARİK YOK";
+            const zamaninda = Math.max(0, t - g);
+            return Math.max(0, Math.min(100, Math.round((zamaninda / t) * 100)));
         };
-
         /* ---------------------- workbook ---------------------- */
         const wb = XLSX.utils.book_new();
 
@@ -728,8 +728,8 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                 const shoYok = toSet(raw.sho_bm).size;
                 const gecTedarik = toSet(raw.gec_tedarik).size;
 
-                const edilmeyen = Math.max(0, plan - (ted + iptal));
-                const perf = perfFrom(plan, edilmeyen);
+                const edilmeyen = Math.max(0, plan - (ted + iptal)); // istersen kalsın (kolonda gösteriyorsun)
+                const perf = perfFrom(ted, gecTedarik);
 
                 return {
                     "PROJE": projeAdi,
@@ -867,7 +867,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                 { TALEP: 0, TEDARİK: 0, EDİLMEYEN: 0, GEC: 0, SPOT: 0, FILO: 0, SHO_VAR: 0, SHO_YOK: 0 }
             );
 
-            const totalPerf = perfFrom(totals.TALEP, totals.EDİLMEYEN);
+            const totalPerf = perfFrom(totals.TEDARİK, totals.GEC);
 
             aoa.push(blank);
             aoa.push([

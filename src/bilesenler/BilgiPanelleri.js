@@ -9,7 +9,6 @@ import { MdUploadFile } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
 
 // �o. Panel (modal) bile�Yeni
-import KarsilastirmaPanel from "../sayfalar/karsilastirma";
 
 /**
  * NOTE:
@@ -324,13 +323,6 @@ export default function BilgiPanelleri({
                 </Stack>
             </GlassHeader>
 
-            {/* �o. Modal panel */}
-            <KarsilastirmaPanel
-                open={compareOpen}
-                onClose={() => setCompareOpen(false)}
-                startDate={startDate}
-                endDate={endDate}
-            />
         </LocalizationProvider>
     );
 }

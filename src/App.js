@@ -9,7 +9,6 @@ import VeriAktarim from "./sayfalar/VeriAktarim";
 import BackendVeriEkrani from "./sayfalar/BackendVeriEkrani";
 
 import AnalizPaneli from "./ozellikler/analiz-paneli";
-import Karsilastirma from "./sayfalar/karsilastirma";
 
 export default function App() {
     const [mode, setMode] = useState("light");
@@ -36,7 +35,6 @@ export default function App() {
                         <Route path="/veri-aktarim" element={<VeriAktarim />} />
                         <Route path="/backend-veri" element={<BackendVeriEkrani />} />
                         <Route path="/analiz-paneli" element={<AnalizPaneli />} />
-                        <Route path="/karsilastirma" element={<Karsilastirma />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Route>
                 </Routes>
