@@ -3,19 +3,32 @@ import { Box, Typography, alpha, useTheme } from "@mui/material";
 import { motion } from "framer-motion";
 
 /**
- * MiniIstatistik (Sade)
+ * MiniIstatistik (Sade + Ton destekli)
  * - etiket: string | ReactNode
  * - deger: string | number | ReactNode
  * - altMetin: optional açıklama
- * - renk: vurgu rengi (minimal kullanılır)
+ * - renk: vurgu rengi (minimal)
+ * - tone: (opsiyonel) kutunun arkaplan/border/hover tonu (ör. yüzdelere göre)
  */
-const MiniIstatistik = ({ etiket, deger, altMetin = null, renk = "#6366f1" }) => {
+const MiniIstatistik = ({ etiket, deger, altMetin = null, renk = "#6366f1", tone = null }) => {
     const theme = useTheme();
     const isDark = theme.palette.mode === "dark";
 
+    const c = tone || renk;
+
     /* ----------- SADE RENK PALETİ ----------- */
-    const cardBg = isDark ? alpha("#0b1220", 0.42) : alpha("#ffffff", 0.86);
-    const baseBorder = isDark ? alpha("#ffffff", 0.10) : alpha("#0f172a", 0.10);
+    // tone verilince kart bg/border hafif renklensin, verilmezse eski sade stil kalsın
+    const cardBg = tone
+        ? alpha(c, isDark ? 0.14 : 0.10)
+        : isDark
+            ? alpha("#0b1220", 0.42)
+            : alpha("#ffffff", 0.86);
+
+    const baseBorder = tone
+        ? alpha(c, isDark ? 0.28 : 0.20)
+        : isDark
+            ? alpha("#ffffff", 0.10)
+            : alpha("#0f172a", 0.10);
 
     const labelColor = isDark ? alpha("#ffffff", 0.72) : alpha("#0f172a", 0.68);
     const valueColor = theme.palette.text.primary;
@@ -51,7 +64,7 @@ const MiniIstatistik = ({ etiket, deger, altMetin = null, renk = "#6366f1" }) =>
                 alignItems: "flex-start",
                 gap: 0.55,
 
-                // ✅ sadece hover'da hafif vurgu
+                // ✅ hover'da vurgu (tone varsa daha belirgin)
                 "&::after": {
                     content: '""',
                     position: "absolute",
@@ -59,7 +72,7 @@ const MiniIstatistik = ({ etiket, deger, altMetin = null, renk = "#6366f1" }) =>
                     borderRadius: "16px",
                     pointerEvents: "none",
                     border: "1px solid",
-                    borderColor: alpha(renk, isDark ? 0.18 : 0.16),
+                    borderColor: alpha(c, tone ? (isDark ? 0.36 : 0.30) : (isDark ? 0.18 : 0.16)),
                     opacity: 0,
                     transition: "opacity 160ms ease",
                 },
@@ -73,8 +86,9 @@ const MiniIstatistik = ({ etiket, deger, altMetin = null, renk = "#6366f1" }) =>
                         width: 7,
                         height: 7,
                         borderRadius: "50%",
-                        bgcolor: alpha(renk, 0.9),
+                        bgcolor: alpha(c, 0.9),
                         flexShrink: 0,
+                        boxShadow: tone ? `0 0 0 3px ${alpha(c, isDark ? 0.12 : 0.10)}` : "none",
                     }}
                 />
                 <Typography

@@ -26,7 +26,7 @@ export const REGIONS = {
         "FAKİR FTL",
         "MODERN KARTON FTL",
         "KÜÇÜKBAY TRAKYA FTL",
-        "MODERN BOBİN FTL",
+        "MODERN BOBİN TEKİRDAĞ FTL",
         "SUDESAN FTL",
     ],
     GEBZE: [
@@ -84,6 +84,8 @@ export const REGIONS = {
         "ŞİŞECAM FTL",
         "DENTAŞ FTL",
         "MODERN AMBALAJ FTL",
+        "MODERN BOBİN ZONGULDAK FTL",
+
     ],
     "İÇ ANADOLU": ["APAK FTL", "SER DAYANIKLI FTL", "UNIFO FTL", "UNIFO ASKERİ FTL"],
     AFYON: ["BİM AFYON PLATFORM FTL"],
@@ -124,6 +126,17 @@ export function altDetaylariOlustur(projeAdi, tumVeri) {
                 norm(item.PickupCityName) === norm("KOCAELİ") &&
                 norm(item.PickupCountyName) === norm("GEBZE");
 
+            const isModernBobinZonguldak =
+                rowNorm === norm("MODERN BOBİN ZONGULDAK FTL") &&
+                pNorm === norm("MODERN BOBİN FTL") &&
+                norm(item.PickupCityName) === norm("ZONGULDAK");
+
+            const isModernBobinTekirdag =
+                rowNorm === norm("MODERN BOBİN TEKİRDAĞ FTL") &&
+                pNorm === norm("MODERN BOBİN FTL") &&
+                norm(item.PickupCityName) === norm("TEKİRDAĞ");
+
+
             const isOttonya = rowNorm === norm("OTTONYA (HEDEFTEN AÇILIYOR)") && pNorm === norm("OTTONYA");
 
             const isKucukbayTrakya =
@@ -138,7 +151,9 @@ export function altDetaylariOlustur(projeAdi, tumVeri) {
                 isEbebekGebze ||
                 isFakirGebze ||
                 isOttonya ||
-                isKucukbayTrakya;
+                isKucukbayTrakya ||
+                isModernBobinZonguldak ||
+                isModernBobinTekirdag;
 
             if (!match) return false;
 

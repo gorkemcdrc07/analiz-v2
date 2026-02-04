@@ -22,7 +22,7 @@ import DurumRozeti from "./DurumRozeti";
 import MiniIstatistik from "./MiniIstatistik";
 
 import { altDetaylariOlustur } from "../../yardimcilar/veriKurallari";
-import { seferNoNormalizeEt } from "../../yardimcilar/metin";
+import { metniNormalizeEt as norm, seferNoNormalizeEt } from "../../yardimcilar/metin";
 import { tarihFormatla } from "../../yardimcilar/tarih";
 import {
     ProjeKarti,
@@ -36,7 +36,7 @@ import {
     RotaKutusu,
 } from "../../stiller/stilBilesenleri";
 
-// ✅ Tek tip pill/chip stili (alt detay chip'leri için)
+// Ã¢Å“â€¦ Tek tip pill/chip stili (alt detay chip'leri iÃƒÂ§in)
 const pillSX = ({ theme, isDark, color, solid = false }) => ({
     height: 24,
     borderRadius: 999,
@@ -53,101 +53,102 @@ const pillSX = ({ theme, isDark, color, solid = false }) => ({
     },
 });
 
-// ✅ TR/ISO tarih parse (dd.mm.yyyy HH:MM:SS + ISO + "YYYY-MM-DD HH:mm[:ss]")
-const parseTRDateTime = (v) => {
-    if (!v || v === "---") return null;
-    if (v instanceof Date && !Number.isNaN(v.getTime())) return v;
+// Ã¢Å“â€¦ TR tarih (DD.MM.YYYY HH:mm) + ISO parse
+const parseDT = (v) => {
+    if (!v) return null;
 
-    const s0 = String(v).trim();
-    if (!s0) return null;
+    if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v;
 
-    // ✅ ISO ama fractional seconds 3'ten uzun ise 3 haneye kırp
-    const isoFix = (s) => {
-        const m = s.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(\.(\d+))?([Zz]|([+-]\d{2}:\d{2}))?$/);
-        if (!m) return s;
-
-        const base = m[1];
-        const frac = m[3] || "";
-        const tz = m[4] || "";
-
-        if (!frac) return base + tz;
-
-        const ms3 = (frac + "000").slice(0, 3);
-        return `${base}.${ms3}${tz}`;
-    };
-
-    const s = isoFix(s0);
-
-    // ✅ dd.mm.yyyy [HH:MM[:SS]]
-    const mTR = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
-    if (mTR) {
-        const dd = Number(mTR[1]);
-        const mm = Number(mTR[2]);
-        const yyyy = Number(mTR[3]);
-        const HH = Number(mTR[4] ?? 0);
-        const MI = Number(mTR[5] ?? 0);
-        const SS = Number(mTR[6] ?? 0);
-        const d = new Date(yyyy, mm - 1, dd, HH, MI, SS);
+    if (typeof v === "number") {
+        const d = new Date(v);
         return Number.isNaN(d.getTime()) ? null : d;
     }
 
-    // ✅ "YYYY-MM-DD HH:mm[:ss]" veya "YYYY-MM-DDTHH:mm[:ss]" (T şart değil)
-    const mYMD = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
-    if (mYMD) {
-        const yyyy = Number(mYMD[1]);
-        const mm = Number(mYMD[2]);
-        const dd = Number(mYMD[3]);
-        const HH = Number(mYMD[4]);
-        const MI = Number(mYMD[5]);
-        const SS = Number(mYMD[6] ?? 0);
-        const d = new Date(yyyy, mm - 1, dd, HH, MI, SS);
+    const s = String(v).trim();
+    if (!s) return null;
+
+    // 13.01.2026 13:44  (saniye opsiyonel)
+    const m = s.match(/^(\d{2})\.(\d{2})\.(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+    if (m) {
+        const [, dd, MM, yyyy, hh = "00", mm = "00", ss = "00"] = m;
+        const d = new Date(Number(yyyy), Number(MM) - 1, Number(dd), Number(hh), Number(mm), Number(ss));
         return Number.isNaN(d.getTime()) ? null : d;
     }
 
-    // ✅ ISO / diğer
-    const d2 = new Date(s);
-    return Number.isNaN(d2.getTime()) ? null : d2;
+    // ISO vb
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d;
 };
 
-// ✅ Geç tedarik: (Yükleme - Sefer Açılış) > 30 saat ise geç
-const isGecTedarik30s = (seferAcilisDate, pickupDate) => {
-    const o = parseTRDateTime(seferAcilisDate);
-    const p = parseTRDateTime(pickupDate);
-    if (!o || !p) return false;
 
-    const diffHours = (o.getTime() - p.getTime()) / 36e5;
-    return diffHours > 30;
+// Ã¢Å“â€¦ iki tarih arasÃ„Â± fark (dakika)  =>  (to - from)
+const dakikaFarki = (fromDate, toDate) => {
+    const a = parseDT(fromDate);
+    const b = parseDT(toDate);
+    if (!a || !b) return null;
+    if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return null;
+    return Math.floor((b.getTime() - a.getTime()) / (1000 * 60));
 };
 
-const dakikaGecikme30s = (seferAcilisDate, pickupDate) => {
-    const o = parseTRDateTime(seferAcilisDate);
-    const p = parseTRDateTime(pickupDate);
-    if (!o || !p) return null;
+// Ã¢Å“â€¦ GEÃƒâ€¡ TEDARÃ„Â°K (SENÃ„Â°N KURALIN):
+// (AÃƒÂ§Ã„Â±lÃ„Â±Ã…Å¸ - YÃƒÂ¼kleme) > 30 saat => geÃƒÂ§
+const isGecTedarik = (despatchCreatedDate, pickupDate) => {
+    const diffMin = dakikaFarki(pickupDate, despatchCreatedDate); // Ã¢Å“â€¦ pickup -> created  (created - pickup)
+    if (diffMin == null) return false;
 
-    const diffMs = o.getTime() - p.getTime();
-    const limitMs = 30 * 60 * 60 * 1000;
+    // aÃƒÂ§Ã„Â±lÃ„Â±Ã…Å¸ yÃƒÂ¼klemeden ÃƒÂ¶nceyse (diff < 0) => geÃƒÂ§ deÃ„Å¸ildir
+    if (diffMin < 0) return false;
 
-    const lateMs = diffMs - limitMs;
-    if (lateMs <= 0) return 0;
-
-    return Math.floor(lateMs / (1000 * 60));
+    return diffMin > 30 * 60;
 };
 
-const acilisPickupZamanDurumu = (seferAcilisDate, pickupDate) => {
-    const o = parseTRDateTime(seferAcilisDate);
-    const p = parseTRDateTime(pickupDate);
+const dakikaGecikme = (despatchCreatedDate, pickupDate) => {
+    const diffMin = dakikaFarki(pickupDate, despatchCreatedDate); // Ã¢Å“â€¦ created - pickup
+    if (diffMin == null) return null;
+    if (diffMin < 0) return 0;
 
-    if (!o || !p) return { label: "Tarih yok", color: "#64748b", lateMinutes: null };
-
-    const late = isGecTedarik30s(seferAcilisDate, pickupDate);
-    const lateMinutes = late ? dakikaGecikme30s(seferAcilisDate, pickupDate) : 0;
-
-    return {
-        label: late ? "Geç Tedarik" : "Zamanında",
-        color: late ? "#ef4444" : "#10b981",
-        lateMinutes,
-    };
+    const lateMin = diffMin - 30 * 60;
+    return lateMin > 0 ? lateMin : 0;
 };
+
+// (Ã„Â°stersen cutoffFromDespatch artÃ„Â±k gerekmediÃ„Å¸i iÃƒÂ§in silebilirsin)
+
+// --- KPI ile aynÃ„Â± scope/iptal/SFR filtresi iÃƒÂ§in yardÃ„Â±mcÃ„Â±lar ---
+const sayiCevir = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+};
+
+const inScopeService = (serviceName) => {
+    const s = norm(serviceName);
+    return (
+        s === norm("YURTİÇİ FTL HİZMETLERİ") ||
+        s === norm("FİLO DIŞ YÜK YÖNETİMİ") ||
+        s === norm("YURTİÇİ FRİGO HİZMETLERİ")
+    );
+};
+
+// KPI ile aynÃ„Â± "geÃƒÂ§" kararÃ„Â±
+const isGecTedarikKpiKurali = (it) => {
+    // scope
+    if (!inScopeService(it?.ServiceName)) return false;
+
+    // SFR
+    const despKey = String(seferNoNormalizeEt(it?.TMSDespatchDocumentNo) || "")
+        .trim()
+        .toUpperCase();
+
+    if (!despKey.startsWith("SFR")) return false;
+
+    // iptal hariÃƒÂ§
+    const statu = sayiCevir(it?.OrderStatu);
+    if (statu === 200) return false;
+
+    // 30 saat
+    return isGecTedarik(it?.TMSDespatchCreatedDate, it?.PickupDate);
+};
+
+// ÄŸÅ¸â€Â Neden geÃƒÂ§ sayÃ„Â±lmÃ„Â±yor? debug helper
 
 const dakikaToSaatDakika = (mins) => {
     if (mins == null || !Number.isFinite(mins)) return null;
@@ -160,20 +161,7 @@ const dakikaToSaatDakika = (mins) => {
     return `${h} saat ${r} dk`;
 };
 
-// ✅ Zamanında yüzdesine göre kademeli renk
-const zamanindaRenkFromPct = (pct) => {
-    const p = Number(pct ?? 0);
-    if (!Number.isFinite(p)) return "#64748b";
-
-    if (p >= 95) return "#16a34a";
-    if (p >= 90) return "#10b981";
-    if (p >= 80) return "#3b82f6";
-    if (p >= 70) return "#f59e0b";
-    if (p >= 50) return "#f97316";
-    return "#ef4444";
-};
-
-/** ✅ Modern “stat pill” */
+/** Ã¢Å“â€¦ Modern Ã¢â‚¬Å“stat pillÃ¢â‚¬Â */
 const StatPill = ({ icon, label, value, tone = "#0ea5e9" }) => {
     const theme = useTheme();
     const isDark = theme.palette.mode === "dark";
@@ -231,7 +219,7 @@ const StatPill = ({ icon, label, value, tone = "#0ea5e9" }) => {
 export default function ProjeSatiri({
     satir,
     tumVeri,
-    excelTarihleriSeferBazli,
+    excelTarihleriSeferBazli = {},
     printsMap = {},
     printsLoading = false,
 }) {
@@ -243,78 +231,53 @@ export default function ProjeSatiri({
 
     const altDetaylar = useMemo(() => altDetaylariOlustur(satir.name, tumVeri), [satir.name, tumVeri]);
 
-    // ✅ Proje bazlı "GEÇ TEDARİK" sayısı
-    // ✅ NOT: key zorunluluğu kaldırıldı (sefer no yoksa bile geç tedarik sayılır)
-    const gecTedarikSayisi = useMemo(() => {
-        const list = Array.isArray(altDetaylar) ? altDetaylar : [];
-        let count = 0;
+    // Ã¢Å“â€¦ Tek doÃ„Å¸ru kaynak: AnalizTablosu'nda hesaplanan proje bazlÃ„Â± geÃƒÂ§ tedarik
+    const gecTedarikSayisi = Number(satir?.gec ?? 0);
 
-        for (const it of list) {
-            const seferAcilisDate = it?.TMSDespatchCreatedDate;
-            const pickupDate = it?.PickupDate;
-
-            if (seferAcilisDate && pickupDate && isGecTedarik30s(seferAcilisDate, pickupDate)) count += 1;
-        }
-
-        return count;
-    }, [altDetaylar]);
-
-    // ✅ Talep (plan) ve Tedarik (ted) sayıları
-    const talep = useMemo(() => {
-        const p = Number(satir?.plan ?? 0);
-        return Number.isFinite(p) ? Math.max(0, p) : 0;
-    }, [satir?.plan]);
-
-    const tedarikEdilen = useMemo(() => {
-        const t = Number(satir?.ted ?? 0);
-        return Number.isFinite(t) ? Math.max(0, t) : 0;
-    }, [satir?.ted]);
-
-    // ✅ Tedarik edilmeyen (plan - ted)
+    // Ã¢Å“â€¦ Tedarik edilmeyen (plan - ted)
     const tedarikEdilmeyen = useMemo(() => {
-        const diff = talep - tedarikEdilen;
+        const p = Number(satir?.plan ?? 0);
+        const t = Number(satir?.ted ?? 0);
+        const diff = p - t;
         return Number.isFinite(diff) ? Math.max(0, diff) : 0;
-    }, [talep, tedarikEdilen]);
+    }, [satir?.plan, satir?.ted]);
 
-    // ✅ “Zamanında” yüzdesi
+    // Ã¢Å“â€¦ ZamanÃ„Â±nda (%) = (Toplam Tedarik / Toplam Talep) * 100  (toplama gÃƒÂ¶re)
     const zamanindaYuzde = useMemo(() => {
-        if (!talep || talep <= 0) return 0;
-        const ratio = tedarikEdilmeyen / talep;
-        const pct = (1 - ratio) * 100;
-        return Math.max(0, Math.min(100, Math.round(pct)));
-    }, [talep, tedarikEdilmeyen]);
+        const plan = Number(satir?.plan ?? 0);
+        const ted = Number(satir?.ted ?? 0);
 
-    // ✅ Zamanında yüzdesine göre renk
-    const zamanindaRenk = useMemo(() => zamanindaRenkFromPct(zamanindaYuzde), [zamanindaYuzde]);
+        if (!Number.isFinite(plan) || plan <= 0) return 0;
 
-    // ✅ Gecikenler en üstte, sonra gecikme dakikası büyük olan üstte
+        const oran = (Math.max(0, ted) / plan) * 100;
+        return Math.max(0, Math.min(100, Math.round(oran)));
+    }, [satir?.plan, satir?.ted]);
+
+    // Ã¢Å“â€¦ Her zaman: gecikenler en ÃƒÂ¼stte, sonra gecikme dakikasÃ„Â± bÃƒÂ¼yÃƒÂ¼k olan ÃƒÂ¼stte
     const siraliAltDetaylar = useMemo(() => {
         const list = Array.isArray(altDetaylar) ? [...altDetaylar] : [];
 
-        const getKey = (it) => seferNoNormalizeEt(it?.TMSDespatchDocumentNo);
+        const lateList = [];
+        const ontimeList = [];
 
-        list.sort((a, b) => {
-            const aLate = isGecTedarik30s(a?.TMSDespatchCreatedDate, a?.PickupDate);
-            const bLate = isGecTedarik30s(b?.TMSDespatchCreatedDate, b?.PickupDate);
+        for (const it of list) {
+            const late = isGecTedarikKpiKurali(it);
+            const lateMin = late ? (dakikaGecikme(it?.TMSDespatchCreatedDate, it?.PickupDate) ?? 0) : 0;
+            const createdTs = parseDT(it?.TMSDespatchCreatedDate)?.getTime() ?? 0;
 
-            if (aLate !== bLate) return aLate ? -1 : 1;
+            (late ? lateList : ontimeList).push({ it, lateMin, createdTs });
+        }
 
-            if (aLate && bLate) {
-                const aMin = dakikaGecikme30s(a?.TMSDespatchCreatedDate, a?.PickupDate) ?? 0;
-                const bMin = dakikaGecikme30s(b?.TMSDespatchCreatedDate, b?.PickupDate) ?? 0;
-                if (aMin !== bMin) return bMin - aMin;
-            }
+        // geÃƒÂ§lerin kendi iÃƒÂ§inde: daha ÃƒÂ§ok geciken ÃƒÂ¼stte, sonra en yeni aÃƒÂ§Ã„Â±lÃ„Â±Ã…Å¸ ÃƒÂ¼stte
+        lateList.sort((a, b) => (b.lateMin - a.lateMin) || (b.createdTs - a.createdTs));
 
-            // ✅ pickup sıralamasında parseTRDateTime kullan (new Date yerine)
-            const aP = parseTRDateTime(a?.PickupDate)?.getTime?.() ?? 0;
-            const bP = parseTRDateTime(b?.PickupDate)?.getTime?.() ?? 0;
-            return bP - aP;
-        });
+        // zamanÃ„Â±ndalarÃ„Â±n kendi iÃƒÂ§inde: en yeni aÃƒÂ§Ã„Â±lÃ„Â±Ã…Å¸ ÃƒÂ¼stte
+        ontimeList.sort((a, b) => b.createdTs - a.createdTs);
 
-        return list;
-    }, [altDetaylar, printsMap]);
+        return [...lateList, ...ontimeList].map((x) => x.it);
+    }, [altDetaylar]);
 
-    const vurguRengi = zamanindaRenk;
+    const vurguRengi = zamanindaYuzde >= 90 ? "#10b981" : zamanindaYuzde >= 70 ? "#3b82f6" : "#f59e0b";
     const gecTone = printsLoading ? "#64748b" : gecTedarikSayisi > 0 ? "#ef4444" : "#64748b";
 
     return (
@@ -352,6 +315,7 @@ export default function ProjeSatiri({
                             {satir.name}
                         </Typography>
 
+                        {/* Ã¢Å“â€¦ Modern ÃƒÂ¶zet alanÃ„Â± */}
                         <Stack
                             direction="row"
                             spacing={1}
@@ -363,15 +327,20 @@ export default function ProjeSatiri({
                                 "& > *": { flexShrink: 0 },
                             }}
                         >
-                            <StatPill icon={<MdShoppingCart size={18} />} label="Talep" value={talep} tone="#0ea5e9" />
-                            <StatPill icon={<MdCheckCircle size={18} />} label="Tedarik Edilen" value={tedarikEdilen} tone="#10b981" />
+                            <StatPill icon={<MdShoppingCart size={18} />} label="Talep" value={satir.plan} tone="#0ea5e9" />
+                            <StatPill icon={<MdCheckCircle size={18} />} label="Tedarik Edilen" value={satir.ted} tone="#10b981" />
                             <StatPill
                                 icon={<MdDoNotDisturbAlt size={18} />}
                                 label="Tedarik Edilmeyen"
                                 value={tedarikEdilmeyen}
                                 tone={tedarikEdilmeyen > 0 ? "#f59e0b" : "#64748b"}
                             />
-                            <StatPill icon={<MdErrorOutline size={18} />} label="Geç Tedarik" value={gecTedarikSayisi} tone={gecTone} />
+                            <StatPill
+                                icon={<MdErrorOutline size={18} />}
+                                label="Geç Tedarik"
+                                value={gecTedarikSayisi}
+                                tone={gecTone}
+                            />
                         </Stack>
                     </Box>
                 </Stack>
@@ -380,42 +349,46 @@ export default function ProjeSatiri({
                     <Stack direction="row" spacing={2} sx={{ display: { xs: "none", md: "flex" } }}>
                         <MiniIstatistik etiket="SPOT" deger={satir.spot} renk="#3b82f6" />
                         <MiniIstatistik etiket="FİLO" deger={satir.filo} renk="#8b5cf6" />
-                        <MiniIstatistik etiket="SHÖ Basım" deger={satir.sho_b} renk="#059669" />
-
-                        {/* ✅ SADECE BU RENKLİ */}
+                        <MiniIstatistik etiket="SHÖ BASIM" deger={satir.sho_b} renk="#059669" />
                         <MiniIstatistik
-                            etiket="Tedarik Oranı"
+                            etiket="Tedarik OranÃ„Â±"
                             deger={`%${zamanindaYuzde}`}
-                            renk={zamanindaRenk}
-                            tone={zamanindaRenk}
+                            renk={zamanindaYuzde >= 90 ? "#10b981" : zamanindaYuzde >= 70 ? "#3b82f6" : "#f59e0b"}
                         />
                     </Stack>
 
-                    <GenisletButonu open={acik ? 1 : 0}>
-                        {acik ? <MdKeyboardArrowUp size={22} /> : <MdKeyboardArrowDown size={22} />}
-                    </GenisletButonu>
+                    <GenisletButonu open={acik ? 1 : 0}>{acik ? <MdKeyboardArrowUp size={22} /> : <MdKeyboardArrowDown size={22} />}</GenisletButonu>
                 </Stack>
             </KartBasligi>
 
             <Collapse in={acik} timeout={250} unmountOnExit>
                 <SevkiyatSarmal>
                     <SatirSekmeleri value={sekme} onChange={(e, v) => setSekme(v)} variant="scrollable" scrollButtons="auto">
-                        <SatirSekme label="Genel Bakış" />
-                        <SatirSekme label="Zaman Çizelgesi" />
+                        <SatirSekme label="Genel BakÃ„Â±Ã…Å¸" />
+                        <SatirSekme label="Zaman Ãƒâ€¡izelgesi" />
                         <SatirSekme label="Rota" />
                     </SatirSekmeleri>
 
                     <Box sx={{ mt: 1.5, display: "grid", gap: 12 }}>
                         {siraliAltDetaylar.map((item, idx) => {
-                            const seferNo = item.TMSDespatchDocumentNo || "Planlanmadı";
+                            const seferNo = item.TMSDespatchDocumentNo || "PlanlanmadÃ„Â±";
                             const key = seferNoNormalizeEt(seferNo);
 
                             const excelKaydi = excelTarihleriSeferBazli?.[key];
 
+                            // SHÃƒâ€“ bilgisi gÃƒÂ¶sterimde kalsÃ„Â±n (geÃƒÂ§ tedarik hesabÃ„Â±na dahil deÃ„Å¸il)
                             const printedDate = key ? printsMap?.[key]?.PrintedDate : null;
                             const printedBy = key ? printsMap?.[key]?.PrintedBy : null;
 
-                            const zaman = acilisPickupZamanDurumu(item.TMSDespatchCreatedDate, item.PickupDate);
+                            // Ã¢Å“â€¦ Yeni zaman durumu: Sefer aÃƒÂ§Ã„Â±lÃ„Â±Ã…Å¸ Ã¢â€ â€™ YÃƒÂ¼kleme (30 saat)
+                            const lateKpi = isGecTedarikKpiKurali(item);
+                            const lateMinutes = lateKpi ? dakikaGecikme(item.TMSDespatchCreatedDate, item.PickupDate) : 0;
+
+                            const zaman = {
+                                label: lateKpi ? "GeÃƒÂ§ Tedarik" : "ZamanÃ„Â±nda",
+                                color: lateKpi ? "#ef4444" : "#10b981",
+                                lateMinutes,
+                            };
 
                             const pickupCity = item.PickupCityName || "-";
                             const pickupCounty = item.PickupCountyName || "-";
@@ -424,12 +397,12 @@ export default function ProjeSatiri({
 
                             const lateText =
                                 zaman?.lateMinutes != null && zaman.lateMinutes > 0
-                                    ? `${dakikaToSaatDakika(zaman.lateMinutes)} Geç Tedarik`
+                                    ? `${dakikaToSaatDakika(zaman.lateMinutes)} GeÃƒÂ§ Tedarik`
                                     : null;
 
                             return (
                                 <SevkiyatKarti
-                                    key={`${item.TMSVehicleRequestDocumentNo || idx}`}
+                                    key={`${seferNoNormalizeEt(item.TMSDespatchDocumentNo) || item.TMSVehicleRequestDocumentNo || idx}`}
                                     printed={printedDate ? 1 : 0}
                                     initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
@@ -481,6 +454,7 @@ export default function ProjeSatiri({
 
                                     {sekme === 0 && (
                                         <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="stretch">
+                                            {/* OPERASYON */}
                                             <Box sx={{ flex: 1 }}>
                                                 <Typography sx={{ fontSize: "0.7rem", fontWeight: 950, color: theme.palette.text.secondary, letterSpacing: "0.6px" }}>
                                                     OPERASYON
@@ -499,66 +473,75 @@ export default function ProjeSatiri({
                                                     >
                                                         <MdPerson size={18} color={isDark ? "#94a3b8" : "#64748b"} />
                                                     </Box>
-                                                    <Typography sx={{ fontWeight: 1000, color: theme.palette.text.primary }}>
-                                                        {item.OrderCreatedBy || "-"}
-                                                    </Typography>
+                                                    <Typography sx={{ fontWeight: 1000, color: theme.palette.text.primary }}>{item.OrderCreatedBy || "-"}</Typography>
                                                 </Stack>
                                             </Box>
 
+                                            {/* GEÃƒâ€¡ TEDARÃ„Â°K HESABI */}
                                             <Box sx={{ flex: 1 }}>
                                                 <Typography sx={{ fontSize: "0.7rem", fontWeight: 950, color: theme.palette.text.secondary, letterSpacing: "0.6px" }}>
-                                                    GEÇ TEDARİK HESABI
-                                                </Typography>
-
-                                                <Stack sx={{ mt: 1 }} spacing={0.8}>
-                                                    <Stack direction="row" spacing={1} alignItems="center">
-                                                        <MdOutlineTimer color="#10b981" />
-                                                        <Typography sx={{ fontWeight: 900, color: theme.palette.text.primary }}>
-                                                            Yükleme: {tarihFormatla(item.PickupDate)}
-                                                        </Typography>
-                                                    </Stack>
-
-                                                    <Stack direction="row" spacing={1} alignItems="center">
-                                                        <MdAssignment color={isDark ? "#94a3b8" : "#64748b"} />
-                                                        <Typography sx={{ fontWeight: 900, color: theme.palette.text.primary }}>
-                                                            SHÖ Basım Tarihi: {printsLoading ? "..." : tarihFormatla(printedDate)}
-                                                        </Typography>
-                                                    </Stack>
-
-                                                    <Stack direction="row" spacing={1} alignItems="center">
-                                                        <MdPerson color={isDark ? "#94a3b8" : "#64748b"} />
-                                                        <Typography sx={{ fontWeight: 900, color: theme.palette.text.primary }}>
-                                                            SHÖ Basan Kullanıcı: {printsLoading ? "..." : printedBy || "-"}
-                                                        </Typography>
-                                                    </Stack>
-                                                </Stack>
-                                            </Box>
-
-                                            <Box sx={{ flex: 1 }}>
-                                                <Typography sx={{ fontSize: "0.7rem", fontWeight: 950, color: theme.palette.text.secondary, letterSpacing: "0.6px" }}>
-                                                    ZAMAN BİLGİLERİ
+                                                    GEÃƒâ€¡ TEDARÃ„Â°K HESABI (30 saat)
                                                 </Typography>
 
                                                 <Stack sx={{ mt: 1 }} spacing={0.8}>
                                                     <Stack direction="row" spacing={1} alignItems="center">
                                                         <MdHistory color={isDark ? "#94a3b8" : "#64748b"} />
                                                         <Typography sx={{ fontWeight: 900, color: theme.palette.text.primary }}>
-                                                            Sefer açılış: {tarihFormatla(item.TMSDespatchCreatedDate)}
+                                                            Sefer aÃƒÂ§Ã„Â±lÃ„Â±Ã…Å¸: {tarihFormatla(item.TMSDespatchCreatedDate)}
+                                                        </Typography>
+                                                    </Stack>
+
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                        <MdOutlineTimer color="#10b981" />
+                                                        <Typography sx={{ fontWeight: 900, color: theme.palette.text.primary }}>
+                                                            YÃƒÂ¼kleme: {tarihFormatla(item.PickupDate)}
+                                                        </Typography>
+                                                    </Stack>
+
+                                                    {/* SHÃƒâ€“ bilgisi opsiyonel */}
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                        <MdAssignment color={isDark ? "#94a3b8" : "#64748b"} />
+                                                        <Typography sx={{ fontWeight: 900, color: theme.palette.text.primary }}>
+                                                            SHÃƒâ€“ BasÃ„Â±m Tarihi: {printsLoading ? "..." : tarihFormatla(printedDate)}
+                                                        </Typography>
+                                                    </Stack>
+
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                        <MdPerson color={isDark ? "#94a3b8" : "#64748b"} />
+                                                        <Typography sx={{ fontWeight: 900, color: theme.palette.text.primary }}>
+                                                            SHÃƒâ€“ Basan KullanÃ„Â±cÃ„Â±: {printsLoading ? "..." : printedBy || "-"}
+                                                        </Typography>
+                                                    </Stack>
+                                                </Stack>
+                                            </Box>
+
+                                            {/* ZAMAN BÃ„Â°LGÃ„Â°LERÃ„Â° */}
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography sx={{ fontSize: "0.7rem", fontWeight: 950, color: theme.palette.text.secondary, letterSpacing: "0.6px" }}>
+                                                    ZAMAN BÃ„Â°LGÃ„Â°LERÃ„Â°
+                                                </Typography>
+
+                                                <Stack sx={{ mt: 1 }} spacing={0.8}>
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                        <MdHistory color={isDark ? "#94a3b8" : "#64748b"} />
+                                                        <Typography sx={{ fontWeight: 900, color: theme.palette.text.primary }}>
+                                                            Sefer aÃƒÂ§Ã„Â±lÃ„Â±Ã…Å¸: {tarihFormatla(item.TMSDespatchCreatedDate)}
                                                         </Typography>
                                                     </Stack>
 
                                                     <Stack direction="row" spacing={1} alignItems="center">
                                                         <MdAssignment color={isDark ? "#94a3b8" : "#64748b"} />
                                                         <Typography sx={{ fontWeight: 900, color: theme.palette.text.primary }}>
-                                                            Sipariş: {tarihFormatla(item.OrderCreatedDate)}
+                                                            SipariÃ…Å¸: {tarihFormatla(item.OrderCreatedDate)}
                                                         </Typography>
                                                     </Stack>
                                                 </Stack>
                                             </Box>
 
+                                            {/* ROTA Ãƒâ€“ZETÃ„Â° */}
                                             <Box sx={{ flex: 1 }}>
                                                 <Typography sx={{ fontSize: "0.7rem", fontWeight: 950, color: theme.palette.text.secondary, letterSpacing: "0.6px" }}>
-                                                    ROTA ÖZETİ
+                                                    ROTA Ãƒâ€“ZETÃ„°
                                                 </Typography>
 
                                                 <Stack direction="row" spacing={1.2} alignItems="center" sx={{ mt: 1 }}>
@@ -581,13 +564,13 @@ export default function ProjeSatiri({
                                     {sekme === 1 && (
                                         <Box>
                                             <Typography sx={{ fontSize: "0.72rem", fontWeight: 950, color: theme.palette.text.secondary, letterSpacing: "0.6px" }}>
-                                                SEFER AÇILIŞ → YÜKLEME (30 saat kuralı)
+                                                SEFER AÃƒâ€¡ILIÃ…Â Ã¢â€ â€™ YÃƒÅ“KLEME (30 saat)
                                             </Typography>
 
                                             <Stack direction="row" spacing={1.2} alignItems="center" sx={{ mt: 1.2, flexWrap: "wrap" }}>
                                                 <Chip
-                                                    icon={<MdOutlineTimer />}
-                                                    label={tarihFormatla(item.PickupDate)}
+                                                    icon={<MdHistory />}
+                                                    label={tarihFormatla(item.TMSDespatchCreatedDate)}
                                                     size="small"
                                                     sx={{
                                                         borderRadius: 999,
@@ -600,12 +583,7 @@ export default function ProjeSatiri({
 
                                                 <Chip icon={<MdBolt />} label={lateText ? lateText : zaman.label} size="small" sx={pillSX({ theme, isDark, color: zaman.color })} />
 
-                                                <Chip
-                                                    icon={<MdAssignment />}
-                                                    label={printsLoading ? "..." : tarihFormatla(printedDate)}
-                                                    size="small"
-                                                    sx={pillSX({ theme, isDark, color: "#3b82f6" })}
-                                                />
+                                                <Chip icon={<MdOutlineTimer />} label={tarihFormatla(item.PickupDate)} size="small" sx={pillSX({ theme, isDark, color: "#3b82f6" })} />
                                             </Stack>
                                         </Box>
                                     )}
@@ -615,7 +593,7 @@ export default function ProjeSatiri({
                                             <RotaKutusu t="pickup">
                                                 <Stack direction="row" spacing={1} alignItems="center">
                                                     <MdPinDrop color="#10b981" />
-                                                    <Typography sx={{ fontWeight: 1000, color: theme.palette.text.primary }}>Yükleme Noktası</Typography>
+                                                    <Typography sx={{ fontWeight: 1000, color: theme.palette.text.primary }}>YÃƒÂ¼kleme NoktasÃ„Â±</Typography>
                                                 </Stack>
 
                                                 <Typography sx={{ mt: 0.8, fontWeight: 1000, color: theme.palette.text.primary }}>{pickupCity}</Typography>
@@ -628,7 +606,7 @@ export default function ProjeSatiri({
 
                                             <RotaKutusu t="delivery">
                                                 <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
-                                                    <Typography sx={{ fontWeight: 1000, color: theme.palette.text.primary }}>Teslimat Noktası</Typography>
+                                                    <Typography sx={{ fontWeight: 1000, color: theme.palette.text.primary }}>Teslimat NoktasÃ„Â±</Typography>
                                                     <MdPinDrop color="#ef4444" />
                                                 </Stack>
 

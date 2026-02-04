@@ -31,7 +31,7 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 
 // Excel import/export
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import { saveAs } from "file-saver";
 
 import ProjeSatiri from "./bilesenler/ProjeSatiri";
@@ -59,10 +59,32 @@ const sayiCevir = (v) => {
 const parseTRDateTime = (v) => {
     if (!v || v === "---") return null;
     if (v instanceof Date && !Number.isNaN(v.getTime())) return v;
-    const s = String(v).trim();
-    if (!s) return null;
 
-    const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+    const s0 = String(v).trim();
+    if (!s0) return null;
+
+    // ✅ ISO ama fractional seconds 3'ten uzun (örn .7643056) ise 3 haneye kırp
+    // 2026-02-02T09:26:13.7643056  -> 2026-02-02T09:26:13.764
+    // 2026-02-02T09:26:13.7        -> 2026-02-02T09:26:13.700 (opsiyonel)
+    const isoFix = (s) => {
+        const m = s.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(\.(\d+))?([Zz]|([+-]\d{2}:\d{2}))?$/);
+        if (!m) return s;
+
+        const base = m[1];
+        const frac = m[3] || "";
+        const tz = m[4] || ""; // Z / +03:00 / boş
+
+        if (!frac) return base + tz;
+
+        // 1-2 hane geldiyse 3'e pad et, 4+ geldiyse 3'e kırp
+        const ms3 = (frac + "000").slice(0, 3);
+        return `${base}.${ms3}${tz}`;
+    };
+
+    const s = isoFix(s0);
+
+    // ✅ dd.mm.yyyy [HH:MM[:SS]] (Excel/TR)
+    const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
     if (m) {
         const dd = Number(m[1]);
         const mm = Number(m[2]);
@@ -74,18 +96,20 @@ const parseTRDateTime = (v) => {
         return Number.isNaN(d.getTime()) ? null : d;
     }
 
+    // ✅ ISO / diğer
     const d2 = new Date(s);
     return Number.isNaN(d2.getTime()) ? null : d2;
 };
 
-const isGecTedarik = (pickupDate, printedDate) => {
-    const p = parseTRDateTime(pickupDate);
-    const pr = parseTRDateTime(printedDate);
-    if (!p || !pr) return false;
+const isGecTedarik = (seferAcilisTarihi, yuklemeTarihi) => {
+    const open = parseTRDateTime(seferAcilisTarihi);
+    const load = parseTRDateTime(yuklemeTarihi);
+    if (!open || !load) return false;
 
-    // pickup'ın ertesi günü 10:30
-    const cutoff = new Date(p.getFullYear(), p.getMonth(), p.getDate() + 1, 10, 30, 0, 0);
-    return pr.getTime() > cutoff.getTime();
+    const diffMs = open.getTime() - load.getTime(); // ✅ açılış - yükleme
+    const diffHours = diffMs / (1000 * 60 * 60);
+
+    return diffHours > 30;
 };
 
 const pickColumn = (rowObj, possibleNames) => {
@@ -421,6 +445,16 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                 if (c === norm("KOCAELİ") && d === norm("GEBZE")) finalProjectName = "FAKİR FTL GEBZE";
             }
 
+            // ✅ MODERN BOBİN FTL split kuralı
+            if (pNorm === norm("MODERN BOBİN FTL")) {
+                const c = norm(item.PickupCityName);
+
+                if (c === norm("ZONGULDAK")) finalProjectName = "MODERN BOBİN ZONGULDAK FTL";
+                else if (c === norm("TEKİRDAĞ")) finalProjectName = "MODERN BOBİN TEKİRDAĞ FTL";
+                else return; // bu iki şehir dışındaysa panelde sayma (istersen kaldırırız)
+            }
+
+
             if (pNorm === norm("OTTONYA")) finalProjectName = "OTTONYA (HEDEFTEN AÇILIYOR)";
 
             const key = norm(finalProjectName);
@@ -475,14 +509,19 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
             if (booleanCevir(item.IsPrint)) s.sho_b.add(despKey);
             else s.sho_bm.add(despKey);
 
-            const pr = printsMap?.[despKey]?.PrintedDate;
-            if (pr && isGecTedarik(item.PickupDate, pr)) {
+            // ✅ Sefer açılış = TMSDespatchCreatedDate
+            const seferAcilis = item.TMSDespatchCreatedDate;
+
+            // ✅ Yükleme = PickupDate
+            const yukleme = item.PickupDate;
+
+            if (isGecTedarik(seferAcilis, yukleme)) {
                 s.gec_tedarik.add(despKey);
             }
         });
 
         return stats;
-    }, [data, printsMap]);
+    }, [data]);
 
     const satirlar = useMemo(() => {
         const q = norm(arama);
@@ -504,11 +543,18 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                 const plan = s.plan?.size ?? 0;
                 const ted = s.ted?.size ?? 0;
                 const iptal = s.iptal?.size ?? 0;
+
+                // ✅ tedarik edilmeyen = talep - (tedarik + iptal)
                 const edilmeyen = Math.max(0, plan - (ted + iptal));
 
+                // gec / zamaninda bilgileri aynen kalsın (kart içi geç tedarik vs için)
                 const gec = s.gec_tedarik?.size ?? 0;
                 const zamaninda = Math.max(0, ted - gec);
-                const yuzde = ted > 0 ? Math.round((zamaninda / ted) * 100) : 0;
+
+                // ✅ YENİ yüzde: talep bazlı, "edilmeyen oranı"
+                // yüzde = 100 - (edilmeyen / plan)*100
+                const yuzde =
+                    plan > 0 ? Math.max(0, Math.min(100, Math.round(100 - (edilmeyen / plan) * 100))) : 0;
 
                 return {
                     name: projeAdi,
@@ -528,11 +574,9 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
             .filter((r) => r.plan > 0)
             .filter((r) => (q ? norm(r.name).includes(q) : true))
             .filter((r) => (sadeceGecikenler ? r.gec > 0 : true))
-            // ✅ yeni filtre: tedarik edilmeyenler
             .filter((r) => (sadeceTedarikEdilmeyenler ? r.edilmeyen > 0 : true));
 
         const sorted = [...base].sort((a, b) => {
-            // ✅ switch açıkken otomatik sıralama (büyükten küçüğe)
             if (sadeceGecikenler) return b.gec - a.gec;
             if (sadeceTedarikEdilmeyenler) return b.edilmeyen - a.edilmeyen;
 
@@ -559,7 +603,9 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
             { plan: 0, ted: 0, edilmeyen: 0, spot: 0, filo: 0, gec: 0, zamaninda: 0 }
         );
 
-        sum.perf = sum.ted ? Math.round((sum.zamaninda / sum.ted) * 100) : 0;
+        // ✅ KPI Tedarik Oranı da talep bazlı olsun:
+        sum.perf = sum.plan ? Math.max(0, Math.min(100, Math.round(100 - (sum.edilmeyen / sum.plan) * 100))) : 0;
+
         return sum;
     }, [satirlar]);
 
@@ -568,28 +614,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
     const bolgeyiExceleAktar = () => {
         const toSet = (v) => (v instanceof Set ? v : new Set(Array.isArray(v) ? v : []));
 
-        const font = (bold = false, color = "FF0F172A") => ({ bold, color: { rgb: color } });
-        const fill = (rgb) => ({ patternType: "solid", fgColor: { rgb } });
-        const borderAll = {
-            top: { style: "thin", color: { rgb: "FFE5E7EB" } },
-            bottom: { style: "thin", color: { rgb: "FFE5E7EB" } },
-            left: { style: "thin", color: { rgb: "FFE5E7EB" } },
-            right: { style: "thin", color: { rgb: "FFE5E7EB" } },
-        };
-        const align = (horizontal = "center") => ({ vertical: "center", horizontal, wrapText: true });
-
-        const lateFill = (lateCount) => {
-            const n = Number(lateCount) || 0;
-            if (n >= 10) return fill("FFB91C1C");
-            if (n >= 1) return fill("FFF97316");
-            return fill("FF0EA5E9");
-        };
-
-        const setCellStyle = (ws, addr, style) => {
-            if (!ws[addr]) return;
-            ws[addr].s = { ...(ws[addr].s || {}), ...style };
-        };
-
+        /* ---------------------- helpers ---------------------- */
         const colLetter = (n) => {
             let s = "";
             let x = n + 1;
@@ -601,124 +626,399 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
             return s;
         };
 
+        const setCellStyle = (ws, addr, style) => {
+            if (!ws[addr]) return;
+            ws[addr].s = { ...(ws[addr].s || {}), ...style };
+        };
+
+        const font = (bold = false, color = "FF0F172A") => ({
+            bold,
+            color: { rgb: color },
+            name: "Calibri",
+        });
+
+        const fill = (rgb) => ({ patternType: "solid", fgColor: { rgb } });
+
+        const borderAll = {
+            top: { style: "thin", color: { rgb: "FFE5E7EB" } },
+            bottom: { style: "thin", color: { rgb: "FFE5E7EB" } },
+            left: { style: "thin", color: { rgb: "FFE5E7EB" } },
+            right: { style: "thin", color: { rgb: "FFE5E7EB" } },
+        };
+
+        const align = (horizontal = "center") => ({
+            vertical: "center",
+            horizontal,
+            wrapText: true,
+        });
+
+        const headerStyle = {
+            font: font(true, "FFFFFFFF"),
+            fill: fill("FF2563EB"),
+            alignment: align("center"),
+            border: borderAll,
+        };
+
+        const metaStyleDark = {
+            font: font(true, "FFFFFFFF"),
+            fill: fill("FF0F172A"),
+            alignment: align("left"),
+            border: borderAll,
+        };
+
+        const metaStyleSoft = {
+            font: font(true, "FF0F172A"),
+            fill: fill("FFDBEAFE"),
+            alignment: align("left"),
+            border: borderAll,
+        };
+
+        const rowFillA = fill("FFFFFFFF");
+        const rowFillB = fill("FFF8FAFC");
+
+        const lateFill = (lateCount) => {
+            const n = Number(lateCount) || 0;
+            if (n >= 10) return fill("FFDC2626");
+            if (n >= 1) return fill("FFF97316");
+            return fill("FF60A5FA");
+        };
+
+        const perfFill = (pct) => {
+            const p = Number(pct) || 0;
+            if (p >= 95) return fill("FF16A34A");
+            if (p >= 90) return fill("FF10B981");
+            if (p >= 80) return fill("FF3B82F6");
+            if (p >= 70) return fill("FFF59E0B");
+            if (p >= 50) return fill("FFF97316");
+            return fill("FFEF4444");
+        };
+
+        const perfFrom = (plan, edilmeyen) => {
+            const p = Number(plan) || 0;
+            const e = Number(edilmeyen) || 0;
+            if (p <= 0) return "TALEP YOK";
+            return Math.max(0, Math.min(100, Math.round(100 - (e / p) * 100)));
+        };
+
+        /* ---------------------- workbook ---------------------- */
         const wb = XLSX.utils.book_new();
-        const headers = ["Proje", "Talep", "Tedarik", "Edilmeyen", "Geç Tedarik", "SPOT", "FİLO", "SHÖ Var", "SHÖ Yok"];
 
-        Object.keys(REGIONS).forEach((bolge) => {
-            const bolgeListesi = REGIONS[bolge] || [];
+        const headers = [
+            "PROJE",
+            "TALEP",
+            "TEDARİK",
+            "EDİLMEYEN",
+            "GEÇ TEDARİK",
+            "SPOT",
+            "FİLO",
+            "SHÖ VAR",
+            "SHÖ YOK",
+            "TEDARİK ORANI (%)",
+        ];
 
-            const rows = bolgeListesi.map((projeAdi) => {
+        const buildRowsFromProjectList = (projeListesi) => {
+            return (projeListesi || []).map((projeAdi) => {
                 const raw = islenmisVeri[norm(projeAdi)] || {};
                 const plan = toSet(raw.plan).size;
                 const ted = toSet(raw.ted).size;
+                const iptal = toSet(raw.iptal).size;
                 const spot = toSet(raw.spot).size;
                 const filo = toSet(raw.filo).size;
                 const shoVar = toSet(raw.sho_b).size;
                 const shoYok = toSet(raw.sho_bm).size;
                 const gecTedarik = toSet(raw.gec_tedarik).size;
 
-                const edilmeyen = Math.max(0, plan - ted);
+                const edilmeyen = Math.max(0, plan - (ted + iptal));
+                const perf = perfFrom(plan, edilmeyen);
 
                 return {
-                    Proje: projeAdi,
-                    Talep: plan,
-                    Tedarik: ted,
-                    Edilmeyen: edilmeyen,
-                    "Geç Tedarik": gecTedarik,
-                    SPOT: spot,
-                    FİLO: filo,
-                    "SHÖ Var": shoVar,
-                    "SHÖ Yok": shoYok,
+                    "PROJE": projeAdi,
+                    "TALEP": plan,
+                    "TEDARİK": ted,
+                    "EDİLMEYEN": edilmeyen,
+                    "GEÇ TEDARİK": gecTedarik,
+                    "SPOT": spot,
+                    "FİLO": filo,
+                    "SHÖ VAR": shoVar,
+                    "SHÖ YOK": shoYok,
+                    "TEDARİK ORANI (%)": perf,
                 };
             });
+        };
 
+        const applySheetStyling = (ws, dataRowCount, customCols = null, perfColName = "TEDARİK ORANI (%)") => {
+            ws["!cols"] =
+                customCols ||
+                [
+                    { wch: 46 },
+                    { wch: 10 },
+                    { wch: 10 },
+                    { wch: 12 },
+                    { wch: 12 },
+                    { wch: 10 },
+                    { wch: 10 },
+                    { wch: 10 },
+                    { wch: 10 },
+                    { wch: 16 },
+                ];
+
+            ws["!freeze"] = { xSplit: 0, ySplit: 4 };
+            ws["!autofilter"] = { ref: `A4:${colLetter((ws["!cols"]?.length || headers.length) - 1)}4` };
+
+            const colCount = ws["!cols"]?.length || headers.length;
+
+            for (let c = 0; c < colCount; c++) {
+                setCellStyle(ws, `${colLetter(c)}1`, metaStyleDark);
+                setCellStyle(ws, `${colLetter(c)}2`, metaStyleSoft);
+                setCellStyle(ws, `${colLetter(c)}3`, { fill: fill("FFFFFFFF"), border: borderAll });
+            }
+
+            // header satırı
+            for (let c = 0; c < colCount; c++) {
+                setCellStyle(ws, `${colLetter(c)}4`, headerStyle);
+            }
+
+            const dataStart = 5;
+            const dataEnd = 4 + dataRowCount;
+
+            // performans sütunu sheet'e göre bulunur
+            const localHeaders = [];
+            for (let c = 0; c < colCount; c++) {
+                const addr = `${colLetter(c)}4`;
+                localHeaders.push(ws[addr]?.v);
+            }
+
+            const lateColIndex = localHeaders.indexOf("GEÇ TEDARİK");
+            const perfColIndex = localHeaders.indexOf(perfColName);
+
+            for (let r = dataStart; r <= dataEnd; r++) {
+                const zebra = (r - dataStart) % 2 === 1 ? rowFillB : rowFillA;
+
+                for (let c = 0; c < colCount; c++) {
+                    const addr = `${colLetter(c)}${r}`;
+
+                    setCellStyle(ws, addr, {
+                        fill: zebra,
+                        border: borderAll,
+                        alignment: align(c === 0 ? "left" : "center"),
+                        font: font(false, "FF0F172A"),
+                    });
+
+                    if (c >= 1 && c !== perfColIndex && ws[addr]) ws[addr].z = "#,##0";
+
+                    // late renklendirme
+                    if (c === lateColIndex && ws[addr]) {
+                        const lateCount = ws[addr].v ?? 0;
+                        setCellStyle(ws, addr, {
+                            fill: lateFill(lateCount),
+                            font: font(true, "FFFFFFFF"),
+                            alignment: align("center"),
+                            border: borderAll,
+                        });
+                    }
+
+                    // perf renklendirme (TALEP YOK renksiz)
+                    if (c === perfColIndex && ws[addr]) {
+                        const v = ws[addr].v;
+                        if (typeof v !== "number") {
+                            setCellStyle(ws, addr, {
+                                fill: zebra,
+                                border: borderAll,
+                                alignment: align("center"),
+                                font: font(true, "FF64748B"),
+                            });
+                            delete ws[addr].z;
+                        } else {
+                            setCellStyle(ws, addr, {
+                                fill: perfFill(v),
+                                font: font(true, "FFFFFFFF"),
+                                alignment: align("center"),
+                                border: borderAll,
+                            });
+                            ws[addr].z = '0"%"';
+                        }
+                    }
+                }
+            }
+        };
+
+        const buildRegionSheet = (sheetName, rows, metaLeftText) => {
             const today = new Date();
-            const meta1 = [`Bölge: ${bolge}`, ...Array(headers.length - 1).fill("")];
+            const meta1 = [metaLeftText, ...Array(headers.length - 1).fill("")];
             const meta2 = [`Oluşturma: ${today.toLocaleString("tr-TR")}`, ...Array(headers.length - 1).fill("")];
             const blank = Array(headers.length).fill("");
 
             const aoa = [meta1, meta2, blank, headers];
             rows.forEach((r) => aoa.push(headers.map((h) => r[h] ?? "")));
 
+            // totals
             const totals = rows.reduce(
                 (acc, r) => {
-                    acc.Talep += Number(r["Talep"] || 0);
-                    acc.Tedarik += Number(r["Tedarik"] || 0);
-                    acc.Edilmeyen += Number(r["Edilmeyen"] || 0);
-                    acc.GecTedarik += Number(r["Geç Tedarik"] || 0);
+                    acc.TALEP += Number(r["TALEP"] || 0);
+                    acc.TEDARİK += Number(r["TEDARİK"] || 0);
+                    acc.EDİLMEYEN += Number(r["EDİLMEYEN"] || 0);
+                    acc.GEC += Number(r["GEÇ TEDARİK"] || 0);
                     acc.SPOT += Number(r["SPOT"] || 0);
-                    acc.FİLO += Number(r["FİLO"] || 0);
-                    acc.ShoVar += Number(r["SHÖ Var"] || 0);
-                    acc.ShoYok += Number(r["SHÖ Yok"] || 0);
+                    acc.FILO += Number(r["FİLO"] || 0);
+                    acc.SHO_VAR += Number(r["SHÖ VAR"] || 0);
+                    acc.SHO_YOK += Number(r["SHÖ YOK"] || 0);
                     return acc;
                 },
-                { Talep: 0, Tedarik: 0, Edilmeyen: 0, GecTedarik: 0, SPOT: 0, FİLO: 0, ShoVar: 0, ShoYok: 0 }
+                { TALEP: 0, TEDARİK: 0, EDİLMEYEN: 0, GEC: 0, SPOT: 0, FILO: 0, SHO_VAR: 0, SHO_YOK: 0 }
             );
 
+            const totalPerf = perfFrom(totals.TALEP, totals.EDİLMEYEN);
+
             aoa.push(blank);
-            aoa.push(["BÖLGE TOPLAM", totals.Talep, totals.Tedarik, totals.Edilmeyen, totals.GecTedarik, totals.SPOT, totals.FİLO, totals.ShoVar, totals.ShoYok]);
+            aoa.push([
+                "TOPLAM",
+                totals.TALEP,
+                totals.TEDARİK,
+                totals.EDİLMEYEN,
+                totals.GEC,
+                totals.SPOT,
+                totals.FILO,
+                totals.SHO_VAR,
+                totals.SHO_YOK,
+                totalPerf,
+            ]);
 
             const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-            ws["!cols"] = [{ wch: 44 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
-            ws["!freeze"] = { xSplit: 0, ySplit: 4 };
-            ws["!autofilter"] = { ref: `A4:${colLetter(headers.length - 1)}4` };
+            applySheetStyling(ws, rows.length);
+
+            // totals row özel
+            const totalRowIdx = 4 + rows.length + 2;
+            const perfColIndex = headers.indexOf("TEDARİK ORANI (%)");
+            const lateColIndex = headers.indexOf("GEÇ TEDARİK");
 
             for (let c = 0; c < headers.length; c++) {
-                const a1 = `${colLetter(c)}1`;
-                const a2 = `${colLetter(c)}2`;
+                const addr = `${colLetter(c)}${totalRowIdx}`;
+                if (!ws[addr]) continue;
 
-                setCellStyle(ws, a1, { font: font(true, "FFFFFFFF"), fill: fill("FF0F172A"), alignment: align("left"), border: borderAll });
-                setCellStyle(ws, a2, { font: font(true, "FF0F172A"), fill: fill("FFDBEAFE"), alignment: align("left"), border: borderAll });
-            }
+                setCellStyle(ws, addr, {
+                    font: font(true, "FFFFFFFF"),
+                    fill: fill("FF0F172A"),
+                    alignment: align(c === 0 ? "left" : "center"),
+                    border: borderAll,
+                });
 
-            for (let c = 0; c < headers.length; c++) {
-                const addr = `${colLetter(c)}4`;
-                setCellStyle(ws, addr, { font: font(true, "FFFFFFFF"), fill: fill("FF111827"), alignment: align("center"), border: borderAll });
-            }
+                if (c >= 1 && c !== perfColIndex) ws[addr].z = "#,##0";
 
-            const dataStart = 5;
-            const dataEnd = 4 + rows.length;
-            const lateColIndex = headers.indexOf("Geç Tedarik");
+                if (c === lateColIndex) {
+                    const lateCount = ws[addr].v ?? 0;
+                    setCellStyle(ws, addr, { fill: lateFill(lateCount), font: font(true, "FFFFFFFF") });
+                }
 
-            for (let r = dataStart; r <= dataEnd; r++) {
-                const isAlt = (r - dataStart) % 2 === 1;
-                const rowFill = isAlt ? "FFF8FAFC" : "FFFFFFFF";
-
-                for (let c = 0; c < headers.length; c++) {
-                    const addr = `${colLetter(c)}${r}`;
-                    setCellStyle(ws, addr, { fill: fill(rowFill), border: borderAll, alignment: align(c === 0 ? "left" : "center"), font: font(false, "FF0F172A") });
-
-                    if (c >= 1 && ws[addr]) ws[addr].z = "#,##0";
-
-                    if (c === lateColIndex) {
-                        const lateCount = ws[addr]?.v ?? 0;
-                        setCellStyle(ws, addr, { fill: lateFill(lateCount), font: font(true, "FFFFFFFF"), alignment: align("center"), border: borderAll });
+                if (c === perfColIndex) {
+                    const v = ws[addr].v;
+                    if (typeof v === "number") {
+                        setCellStyle(ws, addr, { fill: perfFill(v), font: font(true, "FFFFFFFF") });
+                        ws[addr].z = '0"%"';
+                    } else {
+                        delete ws[addr].z;
                     }
                 }
             }
 
-            const totalRowIdx = 4 + rows.length + 2;
-            for (let c = 0; c < headers.length; c++) {
-                const addr = `${colLetter(c)}${totalRowIdx}`;
-                setCellStyle(ws, addr, { font: font(true, "FFFFFFFF"), fill: fill("FF111827"), alignment: align(c === 0 ? "left" : "center"), border: borderAll });
+            XLSX.utils.book_append_sheet(wb, ws, String(sheetName).slice(0, 31));
+        };
 
-                if (c >= 1 && ws[addr]) ws[addr].z = "#,##0";
-
-                if (c === lateColIndex) {
-                    const lateCount = ws[addr]?.v ?? 0;
-                    setCellStyle(ws, addr, { fill: lateFill(lateCount), font: font(true, "FFFFFFFF"), alignment: align("center"), border: borderAll });
-                }
-            }
-
-            const safeSheetName = String(bolge).slice(0, 31);
-            XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
+        /* ---------------------- 1) region sheets ---------------------- */
+        Object.keys(REGIONS).forEach((bolge) => {
+            const bolgeListesi = REGIONS[bolge] || [];
+            const rows = buildRowsFromProjectList(bolgeListesi);
+            buildRegionSheet(bolge, rows, `Bölge: ${bolge}`);
         });
 
-        const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-        const fileName = `AnalizPanel_MODERN_RENKLI_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        /* ---------------------- 2) TÜM PROJELER sheet ---------------------- */
+        const tumProjelerListesi = Array.from(new Set(Object.values(REGIONS).flatMap((arr) => (Array.isArray(arr) ? arr : []))));
+        tumProjelerListesi.sort((a, b) => String(a).localeCompare(String(b), "tr"));
+
+        const allRows = buildRowsFromProjectList(tumProjelerListesi);
+        buildRegionSheet("TÜM PROJELER", allRows, "Tüm Bölgeler: TÜM PROJELER");
+
+        /* ---------------------- 3) ANALİZ sheet (grafik gibi bar) ---------------------- */
+        const buildAnalizSheet = (rows) => {
+            // Sadece lazım olan kolonlar + bar kolonu
+            const ANALIZ_HEADERS = ["PROJE", "TALEP", "TEDARİK", "EDİLMEYEN", "TEDARİK ORANI (%)", "GRAFİK"];
+
+            // sıralama: önce performans (TALEP YOK en alta), sonra talep
+            const sorted = [...rows].sort((a, b) => {
+                const ap = typeof a["TEDARİK ORANI (%)"] === "number" ? a["TEDARİK ORANI (%)"] : -1;
+                const bp = typeof b["TEDARİK ORANI (%)"] === "number" ? b["TEDARİK ORANI (%)"] : -1;
+                if (bp !== ap) return bp - ap;
+                return (b["TALEP"] || 0) - (a["TALEP"] || 0);
+            });
+
+            const today = new Date();
+            const meta1 = ["ANALİZ: TÜM PROJELER (ORAN GRAFİĞİ)", ...Array(ANALIZ_HEADERS.length - 1).fill("")];
+            const meta2 = [`Oluşturma: ${today.toLocaleString("tr-TR")}`, ...Array(ANALIZ_HEADERS.length - 1).fill("")];
+            const blank = Array(ANALIZ_HEADERS.length).fill("");
+
+            const aoa = [meta1, meta2, blank, ANALIZ_HEADERS];
+
+            sorted.forEach((r) => {
+                aoa.push([
+                    r["PROJE"],
+                    r["TALEP"],
+                    r["TEDARİK"],
+                    r["EDİLMEYEN"],
+                    r["TEDARİK ORANI (%)"],
+                    "", // GRAFİK (formülle dolduracağız)
+                ]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+            // kol genişlikleri
+            ws["!cols"] = [
+                { wch: 46 },
+                { wch: 10 },
+                { wch: 10 },
+                { wch: 12 },
+                { wch: 16 },
+                { wch: 34 }, // bar
+            ];
+
+            // header satır stilleri
+            applySheetStyling(ws, sorted.length, ws["!cols"], "TEDARİK ORANI (%)");
+
+            // Grafik bar formülleri:
+            // Oran E kolonu, Bar F kolonu: =IF(E5="TALEP YOK","",REPT("█",ROUND(E5/5,0))&REPT("░",20-ROUND(E5/5,0)))
+            const startRow = 5;
+            const endRow = 4 + sorted.length;
+
+            for (let r = startRow; r <= endRow; r++) {
+                const perfCell = `E${r}`;
+                const barCell = `F${r}`;
+
+                // Formül
+                ws[barCell] = ws[barCell] || {};
+                ws[barCell].f =
+                    `IF(${perfCell}="TALEP YOK","",REPT("█",ROUND(${perfCell}/5,0))&REPT("░",20-ROUND(${perfCell}/5,0)))`;
+
+                // Bar görünümü (font monospaced gibi olsun)
+                ws[barCell].s = {
+                    font: { name: "Consolas", bold: true, color: { rgb: "FF0F172A" } },
+                    alignment: align("left"),
+                    border: borderAll,
+                    fill: ((r - startRow) % 2 === 1 ? rowFillB : rowFillA),
+                };
+            }
+
+            XLSX.utils.book_append_sheet(wb, ws, "ANALİZ");
+        };
+
+        buildAnalizSheet(allRows);
+
+        /* ---------------------- write ---------------------- */
+        const out = XLSX.write(wb, { bookType: "xlsx", type: "array", cellStyles: true });
+        const fileName = `AnalizPanel_MODERN_${new Date().toISOString().slice(0, 10)}.xlsx`;
         saveAs(new Blob([out], { type: "application/octet-stream" }), fileName);
     };
+
+
 
     return (
         <Box sx={{ width: "100%" }}>
@@ -781,11 +1081,47 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                         },
                                     }}
                                 >
-                                    <ModernKPI t={t} accent={t.accent} title="Toplam Talep" value={kpi.plan} leftMeta={`Bölge: ${seciliBolge}`} icon={<MdTrendingUp size={18} />} />
-                                    <ModernKPI t={t} accent={t.good} title="Tedarik Edilen" value={kpi.ted} leftMeta={`SPOT: ${kpi.spot}`} rightMeta={`FİLO: ${kpi.filo}`} icon={<MdBolt size={18} />} />
-                                    <ModernKPI t={t} accent={t.bad} title="Tedarik Edilmeyen" value={kpi.edilmeyen} subtitle="Tedarik Edilmeyen" icon={<MdCancel size={18} />} />
-                                    <ModernKPI t={t} accent={t.warn} title="Geç Tedarik" value={kpi.gec} subtitle="Geç tedarik" icon={<MdWarning size={18} />} />
-                                    <ModernKPI t={t} accent={kpi.perf >= 90 ? t.good : t.warn} title="Zamanında Oranı" value={`%${kpi.perf}`} subtitle="Zamanında / Tedarik" icon={<MdTrendingUp size={18} />} />
+                                    <ModernKPI
+                                        t={t}
+                                        accent={t.accent}
+                                        title="Toplam Talep"
+                                        value={kpi.plan}
+                                        leftMeta={`Bölge: ${seciliBolge}`}
+                                        icon={<MdTrendingUp size={18} />}
+                                    />
+                                    <ModernKPI
+                                        t={t}
+                                        accent={t.good}
+                                        title="Tedarik Edilen"
+                                        value={kpi.ted}
+                                        leftMeta={`SPOT: ${kpi.spot}`}
+                                        rightMeta={`FİLO: ${kpi.filo}`}
+                                        icon={<MdBolt size={18} />}
+                                    />
+                                    <ModernKPI
+                                        t={t}
+                                        accent={t.bad}
+                                        title="Tedarik Edilmeyen"
+                                        value={kpi.edilmeyen}
+                                        subtitle="Tedarik Edilmeyen"
+                                        icon={<MdCancel size={18} />}
+                                    />
+                                    <ModernKPI
+                                        t={t}
+                                        accent={t.warn}
+                                        title="Geç Tedarik"
+                                        value={kpi.gec}
+                                        subtitle="Geç tedarik"
+                                        icon={<MdWarning size={18} />}
+                                    />
+                                    <ModernKPI
+                                        t={t}
+                                        accent={kpi.perf >= 90 ? t.good : kpi.perf >= 70 ? t.accent : t.warn}
+                                        title="Tedarik Oranı"
+                                        value={`%${kpi.perf}`}
+                                        subtitle=""
+                                        icon={<MdTrendingUp size={18} />}
+                                    />
                                 </Box>
                             </Stack>
 
@@ -848,7 +1184,12 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                                                 fontWeight: 900,
                                                                 opacity: selected ? 1 : 0.7,
                                                                 paddingLeft: "8px",
-                                                                borderLeft: `1px solid ${selected ? (isDark ? "rgba(0,0,0,0.18)" : "rgba(255,255,255,0.22)") : t.borderSoft}`,
+                                                                borderLeft: `1px solid ${selected
+                                                                        ? isDark
+                                                                            ? "rgba(0,0,0,0.18)"
+                                                                            : "rgba(255,255,255,0.22)"
+                                                                        : t.borderSoft
+                                                                    }`,
                                                             }}
                                                         >
                                                             {String(count).padStart(2, "0")}
