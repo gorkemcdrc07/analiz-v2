@@ -1049,7 +1049,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                             ANALİZ PANELİ
                                         </Typography>
                                         <Typography sx={{ fontWeight: 800, color: t.subtext }}>
-                                            Kart görünümü  ?  Filtreleme  ?  Zaman analizi  ?  Rota
+                                            Kart görünümü-Filtreleme-Zaman analizi-Rota
                                         </Typography>
                                     </Box>
 
@@ -1259,9 +1259,9 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                             color: t.text,
                                         }}
                                     >
-                                        <MenuItem value="perf"> s  Performans</MenuItem>
-                                        <MenuItem value="plan">gY"S Talep</MenuItem>
-                                        <MenuItem value="late"> s ️ Gecikme</MenuItem>
+                                        <MenuItem value="perf"> Performans</MenuItem>
+                                        <MenuItem value="plan">Talep</MenuItem>
+                                        <MenuItem value="late">Gecikme</MenuItem>
                                     </Select>
 
                                     {/*  o. Gecikenler */}
@@ -1323,7 +1323,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                     <Stack direction="row" spacing={1}>
                                         {[
                                             { label: "Reel Tarihler", icon: <MdHistory />, action: exceldenTarihleriIceriAl, loading: excelOkunuyor },
-                                            { label: "Dı Ya Aktar", icon: <MdDownload />, action: bolgeyiExceleAktar },
+                                            { label: "Excel'e Aktar", icon: <MdDownload />, action: bolgeyiExceleAktar },
                                         ].map((btn, i) => (
                                             <Tooltip key={i} title={btn.label}>
                                                 <Box
@@ -1422,7 +1422,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
 
                                             <MdDownload size={16} color={t.accent} />
                                             <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: t.accent }}>
-                                                {Object.keys(excelTarihleriSeferBazli || {}).length} E Yle Yme
+                                                {Object.keys(excelTarihleriSeferBazli || {}).length} 
                                             </Typography>
                                         </Box>
 
@@ -1482,7 +1482,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                             >
                                 <Typography sx={{ fontWeight: 1000, color: t.text, fontSize: "1.2rem" }}>Sonuç bulunamadı</Typography>
                                 <Typography sx={{ fontWeight: 800, color: t.subtext, mt: 0.6 }}>
-                                    Arama kriterini de Yi Ytir veya filtreleri kapat.
+                                    Arama kriterini de getir veya filtreleri kapat.
                                 </Typography>
                             </Paper>
                         )}

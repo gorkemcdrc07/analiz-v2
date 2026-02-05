@@ -121,7 +121,7 @@ export default function Layout({ mode, setMode }) {
     // �o. üst bardaki ba�Ylık
     const screenTitle = useMemo(() => {
         if (location.pathname === '/') return 'Ana Sayfa';
-        if (location.pathname.startsWith('/siparis-analiz')) return 'Sipari�Y Analiz';
+        if (location.pathname.startsWith('/siparis-analiz')) return 'Sipariş Analiz';
         if (location.pathname.startsWith('/proje-analiz')) return 'Proje Analiz';
         if (location.pathname.startsWith('/backend-veri')) return 'Tedarik Analiz';
         if (location.pathname.startsWith('/karsilastirma')) return 'Forecast';
@@ -354,7 +354,7 @@ export default function Layout({ mode, setMode }) {
                         <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
                             <ReceiptLongIcon color={location.pathname.startsWith('/siparis-analiz') ? 'primary' : 'inherit'} />
                         </ListItemIcon>
-                        <ListItemText primary="Sipari�Y Analiz" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
+                        <ListItemText primary="Sipariş Analiz" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
                     </ListItemButton>
 
                     {/* �o. Proje Analiz */}

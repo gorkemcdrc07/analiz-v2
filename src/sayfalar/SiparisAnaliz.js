@@ -54,7 +54,7 @@ function extractItems(payload) {
 }
 
 /* ---------------- CONST ---------------- */
-const PEOPLE = ["HALİT BAKACAK", "IŞIL G�-K�?E KATRAN", "YASEMİN YILMAZ", "İDİL �?EVİK"];
+const PEOPLE = ["HALİT BAKACAK", "IŞIL GÖKÇE KATRAN", "YASEMİN YILMAZ", "İDİL ÇEVİK", "YASEMİN KARA"];
 const normTR = (s) =>
     (s ?? "").toString().trim().toLocaleUpperCase("tr-TR").replace(/\s+/g, " ");
 
@@ -151,7 +151,7 @@ function PersonKPICard({ name, data, isSelected, onClick, diffDays }) {
                                 letterSpacing: 1,
                             }}
                         >
-                            OPERAT�-R SKORU
+                            OPERATÖR SKORU
                         </Typography>
                     </Box>
 
@@ -177,7 +177,7 @@ function PersonKPICard({ name, data, isSelected, onClick, diffDays }) {
                                     mb: 0.5,
                                 }}
                             >
-                                MANUEL G�oNL�oK
+                                MANUEL GÜNLÜK
                             </Typography>
                             <Typography sx={{ fontWeight: 900, color: theme.palette.text.primary, fontSize: "1.2rem" }}>
                                 {manualDailyAvg}
@@ -203,7 +203,7 @@ function PersonKPICard({ name, data, isSelected, onClick, diffDays }) {
                                     mb: 0.5,
                                 }}
                             >
-                                GER�?EK VERİM
+                                GERÇEK VERİM
                             </Typography>
                             <Typography sx={{ fontWeight: 900, color: color, fontSize: "1.2rem" }}>
                                 %{Math.min(100, (Number(manualDailyAvg) / 40) * 100).toFixed(0)}
@@ -215,7 +215,7 @@ function PersonKPICard({ name, data, isSelected, onClick, diffDays }) {
                 <Stack spacing={1} sx={{ mt: 3 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="flex-end">
                         <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: theme.palette.text.secondary }}>
-                            Efor Da�Yılımı
+                            Efor Dağılımı
                         </Typography>
                         <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: theme.palette.text.primary }}>
                             {manualCount} Manuel / {autoCount} Oto
@@ -608,7 +608,7 @@ export default function SiparisAnaliz() {
                                             OTOMASYON
                                         </TableCell>
                                         <TableCell align="center" sx={{ fontWeight: 900, color: theme.palette.text.secondary }}>
-                                            T�oR
+                                            TüR
                                         </TableCell>
                                         <TableCell sx={{ fontWeight: 900, pr: 4, color: theme.palette.text.secondary }}>
                                             VERİMLİLİK
