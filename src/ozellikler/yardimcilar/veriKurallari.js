@@ -11,11 +11,11 @@ export const REGIONS = {
         "EKSUN GIDA FTL",
         "SARUHAN FTL",
         "PEPSİ FTL",
-        "PEPSİ FTL �?ORLU",
+        "PEPSİ FTL ÇORLU",
         "TEKİRDAĞ UN FTL",
         "AYDINLI MODA FTL",
         "ADKOTURK FTL",
-        "ADKOTURK FTL ENERJİ İ�?ECEĞİ",
+        "ADKOTURK FTL ENERJİ İÇECEĞİ",
         "SGS FTL",
         "BSH FTL",
         "ALTERNA GIDA FTL",
@@ -43,7 +43,7 @@ export const REGIONS = {
         "FLO FTL",
         "ÇİÇEKCİ FTL",
         "ÇİZMECİ GIDA FTL",
-        "OTTONYA (HEDEFTEN A�?ILIYOR)",
+        "OTTONYA (HEDEFTEN ALINIYOR)",
         "GALEN ÇOCUK FTL",
         "ENTAŞ FTL",
         "NAZAR KİMYA FTL",
@@ -77,9 +77,9 @@ export const REGIONS = {
     ESKİŞEHİR: [
         "ES FTL",
         "ES GLOBAL FRİGO FTL",
-        "KİPAŞ BOZ�oY�oK FTL",
+        "KİPAŞ BOZÜYÜK FTL",
         "2A TÜKETİM FTL",
-        "MODERN HURDA D�-N�oŞ FTL",
+        "MODERN HURDA DÖNÜŞ FTL",
         "MODERN HURDA ZONGULDAK FTL",
         "ŞİŞECAM FTL",
         "DENTAŞ FTL",
@@ -89,7 +89,7 @@ export const REGIONS = {
     ],
     "İÇ ANADOLU": ["APAK FTL", "SER DAYANIKLI FTL", "UNIFO FTL", "UNIFO ASKERİ FTL"],
     AFYON: ["BİM AFYON PLATFORM FTL"],
-    DİĞER: ["DOĞTAŞ İNEG�-L FTL", "AKT�oL FTL"],
+    DİĞER: ["DOĞTAŞ İNEGÖL FTL", "AKTÜL FTL"],
 };
 
 // �o. Eski buildSubDetails -> Türkçe isim
