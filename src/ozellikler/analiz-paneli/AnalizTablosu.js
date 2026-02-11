@@ -1,5 +1,5 @@
 // src/ozellikler/analiz-paneli/AnalizTablosu.jsx
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
     Box,
     Paper,
@@ -35,7 +35,7 @@ import * as XLSX from "xlsx-js-style";
 import { saveAs } from "file-saver";
 
 import ProjeSatiri from "./bilesenler/ProjeSatiri";
-import { REGIONS } from "../yardimcilar/veriKurallari";
+// ❌ REGIONS kaldırıldı: artık regionsMap prop'undan besleneceğiz
 import { metniNormalizeEt as norm, seferNoNormalizeEt } from "../yardimcilar/metin";
 import { Root, Wide, TopBar, Grid, CardList } from "../stiller/stilBilesenleri";
 
@@ -63,27 +63,24 @@ const parseTRDateTime = (v) => {
     const s0 = String(v).trim();
     if (!s0) return null;
 
-    //  o. ISO ama fractional seconds 3'ten uzun (örn .7643056) ise 3 haneye kırp
-    // 2026-02-02T09:26:13.7643056  -> 2026-02-02T09:26:13.764
-    // 2026-02-02T09:26:13.7        -> 2026-02-02T09:26:13.700 (opsiyonel)
+    // ISO fractional seconds fix
     const isoFix = (s) => {
         const m = s.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(\.(\d+))?([Zz]|([+-]\d{2}:\d{2}))?$/);
         if (!m) return s;
 
         const base = m[1];
         const frac = m[3] || "";
-        const tz = m[4] || ""; // Z / +03:00 / bo Y
+        const tz = m[4] || "";
 
         if (!frac) return base + tz;
 
-        // 1-2 hane geldiyse 3'e pad et, 4+ geldiyse 3'e kırp
         const ms3 = (frac + "000").slice(0, 3);
         return `${base}.${ms3}${tz}`;
     };
 
     const s = isoFix(s0);
 
-    //  o. dd.mm.yyyy [HH:MM[:SS]] (Excel/TR)
+    // dd.mm.yyyy [HH:MM[:SS]]
     const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
     if (m) {
         const dd = Number(m[1]);
@@ -96,7 +93,6 @@ const parseTRDateTime = (v) => {
         return Number.isNaN(d.getTime()) ? null : d;
     }
 
-    //  o. ISO / di Yer
     const d2 = new Date(s);
     return Number.isNaN(d2.getTime()) ? null : d2;
 };
@@ -106,7 +102,7 @@ const isGecTedarik = (seferAcilisTarihi, yuklemeTarihi) => {
     const load = parseTRDateTime(yuklemeTarihi);
     if (!open || !load) return false;
 
-    const diffMs = open.getTime() - load.getTime(); //  o. açılı Y - yükleme
+    const diffMs = open.getTime() - load.getTime();
     const diffHours = diffMs / (1000 * 60 * 60);
 
     return diffHours > 30;
@@ -149,7 +145,7 @@ const uiTokens = (isDark) => ({
     shadowSoft: isDark ? "0 10px 30px rgba(0,0,0,0.45)" : "0 10px 30px rgba(2,6,23,0.08)",
 });
 
-// Excel hücre de Yeri Date / number / string olabilir -> ISO string'e çevir
+// Excel hücre değeri Date / number / string olabilir -> ISO string'e çevir
 const excelCellToISO = (cellVal) => {
     if (cellVal == null || cellVal === "") return null;
 
@@ -335,17 +331,43 @@ const ModernKPI = ({ t, accent, title, value, subtitle, leftMeta, rightMeta, ico
 };
 
 /* ------------------------ Ana UI ------------------------ */
-export default function AnalizTablosu({ data, printsMap = {}, printsLoading = false }) {
+export default function AnalizTablosu({
+    data,
+    printsMap = {},
+    printsLoading = false,
+    regionsMap = {}, // ✅ YENİ: AnalizPaneli'nden gelir (localStorage güncel bölgeler)
+}) {
     const theme = useTheme();
     const isDark = theme.palette.mode === "dark";
     const t = uiTokens(isDark);
 
-    const [seciliBolge, setSeciliBolge] = useState("GEBZE");
+    // ✅ Bölgeleri dinamik al (REGIONS yerine)
+    const bolgeler = useMemo(() => Object.keys(regionsMap || {}), [regionsMap]);
+
+    // ✅ Seçili bölge başlangıcı: GEBZE varsa GEBZE, yoksa ilk bölge
+    const [seciliBolge, setSeciliBolge] = useState(() => {
+        if (regionsMap?.GEBZE) return "GEBZE";
+        return bolgeler[0] || "";
+    });
+
+    // regionsMap değişince (yeni bölge eklendi vs) seçili bölge geçerli değilse düzelt
+    useEffect(() => {
+        if (!seciliBolge) {
+            if (regionsMap?.GEBZE) setSeciliBolge("GEBZE");
+            else setSeciliBolge(bolgeler[0] || "");
+            return;
+        }
+        if (!regionsMap?.[seciliBolge]) {
+            if (regionsMap?.GEBZE) setSeciliBolge("GEBZE");
+            else setSeciliBolge(bolgeler[0] || "");
+        }
+    }, [regionsMap, bolgeler, seciliBolge]);
+
     const [arama, setArama] = useState("");
     const [sirala, setSirala] = useState("perf"); // perf | plan | late
     const [sadeceGecikenler, setSadeceGecikenler] = useState(false);
 
-    //  o. yeni: tedarik edilmeyenler filtresi
+    // ✅ yeni: tedarik edilmeyenler filtresi
     const [sadeceTedarikEdilmeyenler, setSadeceTedarikEdilmeyenler] = useState(false);
 
     const [excelTarihleriSeferBazli, setExcelTarihleriSeferBazli] = useState({});
@@ -377,12 +399,12 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                         if (!seferKey) return;
 
                         const nextObj = {
-                            yukleme_varis: excelCellToISO(pickColumn(r, ["Yükleme Noktası Varı Y Zamanı", "Yükleme Varı Y"])),
-                            yukleme_giris: excelCellToISO(pickColumn(r, ["Yükleme Noktasına Giri Y Zamanı", "Yükleme Giri Y"])),
-                            yukleme_cikis: excelCellToISO(pickColumn(r, ["Yükleme Noktası  ?ıkı Y Zamanı", "Yükleme  ?ıkı Y"])),
-                            teslim_varis: excelCellToISO(pickColumn(r, ["Teslim Noktası Varı Y Zamanı", "Teslim Varı Y"])),
-                            teslim_giris: excelCellToISO(pickColumn(r, ["Teslim Noktasına Giri Y Zamanı", "Teslim Giri Y"])),
-                            teslim_cikis: excelCellToISO(pickColumn(r, ["Teslim Noktası  ?ıkı Y Zamanı", "Teslim  ?ıkı Y"])),
+                            yukleme_varis: excelCellToISO(pickColumn(r, ["Yükleme Noktası Varış Zamanı", "Yükleme Varış"])),
+                            yukleme_giris: excelCellToISO(pickColumn(r, ["Yükleme Noktasına Giriş Zamanı", "Yükleme Giriş"])),
+                            yukleme_cikis: excelCellToISO(pickColumn(r, ["Yükleme Noktası Çıkış Zamanı", "Yükleme Çıkış"])),
+                            teslim_varis: excelCellToISO(pickColumn(r, ["Teslim Noktası Varış Zamanı", "Teslim Varış"])),
+                            teslim_giris: excelCellToISO(pickColumn(r, ["Teslim Noktasına Giriş Zamanı", "Teslim Giriş"])),
+                            teslim_cikis: excelCellToISO(pickColumn(r, ["Teslim Noktası Çıkış Zamanı", "Teslim Çıkış"])),
                         };
 
                         map[seferKey] = mergeKeepFilled(map[seferKey], nextObj);
@@ -445,17 +467,14 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                 if (c === norm("KOCAELİ") && d === norm("GEBZE")) finalProjectName = "FAKİR FTL GEBZE";
             }
 
-            //  o. MODERN BOBİN FTL split kuralı
             if (pNorm === norm("MODERN BOBİN FTL")) {
                 const c = norm(item.PickupCityName);
-
                 if (c === norm("ZONGULDAK")) finalProjectName = "MODERN BOBİN ZONGULDAK FTL";
                 else if (c === norm("TEKİRDAĞ")) finalProjectName = "MODERN BOBİN TEKİRDAĞ FTL";
-                else return; // bu iki  Yehir dı Yındaysa panelde sayma (istersen kaldırırız)
+                else return;
             }
 
-
-            if (pNorm === norm("OTTONYA")) finalProjectName = "OTTONYA (HEDEFTEN A ?ILIYOR)";
+            if (pNorm === norm("OTTONYA")) finalProjectName = "OTTONYA (HEDEFTEN A ÇIKILIYOR)";
 
             const key = norm(finalProjectName);
 
@@ -509,10 +528,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
             if (booleanCevir(item.IsPrint)) s.sho_b.add(despKey);
             else s.sho_bm.add(despKey);
 
-            //  o. Sefer açılı Y = TMSDespatchCreatedDate
             const seferAcilis = item.TMSDespatchCreatedDate;
-
-            //  o. Yükleme = PickupDate
             const yukleme = item.PickupDate;
 
             if (isGecTedarik(seferAcilis, yukleme)) {
@@ -525,7 +541,9 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
 
     const satirlar = useMemo(() => {
         const q = norm(arama);
-        const bolgeListesi = REGIONS[seciliBolge] || [];
+
+        // ✅ REGIONS yerine regionsMap kullan
+        const bolgeListesi = regionsMap?.[seciliBolge] || [];
 
         const base = bolgeListesi
             .map((projeAdi) => {
@@ -544,14 +562,11 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                 const ted = s.ted?.size ?? 0;
                 const iptal = s.iptal?.size ?? 0;
 
-                //  o. tedarik edilmeyen = talep - (tedarik + iptal)
                 const edilmeyen = Math.max(0, plan - (ted + iptal));
 
-                // gec / zamaninda bilgileri aynen kalsın (kart içi geç tedarik vs için)
                 const gec = s.gec_tedarik?.size ?? 0;
                 const zamaninda = Math.max(0, ted - gec);
 
-                // ✅ YENİ kural: (ted - gec) / ted
                 const yuzde = ted > 0
                     ? Math.max(0, Math.min(100, Math.round(((Math.max(0, ted - gec)) / ted) * 100)))
                     : 0;
@@ -586,7 +601,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
         });
 
         return sorted;
-    }, [seciliBolge, islenmisVeri, arama, sirala, sadeceGecikenler, sadeceTedarikEdilmeyenler]);
+    }, [seciliBolge, islenmisVeri, arama, sirala, sadeceGecikenler, sadeceTedarikEdilmeyenler, regionsMap]);
 
     const kpi = useMemo(() => {
         const sum = satirlar.reduce(
@@ -603,9 +618,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
             { plan: 0, ted: 0, edilmeyen: 0, spot: 0, filo: 0, gec: 0, zamaninda: 0 }
         );
 
-        //  o. KPI Tedarik Oranı da talep bazlı olsun:
         sum.perf = sum.ted ? Math.max(0, Math.min(100, Math.round((sum.zamaninda / sum.ted) * 100))) : 0;
-
         return sum;
     }, [satirlar]);
 
@@ -694,12 +707,13 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
         };
 
         const perfFrom = (ted, gec) => {
-            const t = Number(ted) || 0;
-            const g = Number(gec) || 0;
-            if (t <= 0) return "TEDARİK YOK";
-            const zamaninda = Math.max(0, t - g);
-            return Math.max(0, Math.min(100, Math.round((zamaninda / t) * 100)));
+            const t0 = Number(ted) || 0;
+            const g0 = Number(gec) || 0;
+            if (t0 <= 0) return "TEDARİK YOK";
+            const zamaninda = Math.max(0, t0 - g0);
+            return Math.max(0, Math.min(100, Math.round((zamaninda / t0) * 100)));
         };
+
         /* ---------------------- workbook ---------------------- */
         const wb = XLSX.utils.book_new();
 
@@ -728,7 +742,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                 const shoYok = toSet(raw.sho_bm).size;
                 const gecTedarik = toSet(raw.gec_tedarik).size;
 
-                const edilmeyen = Math.max(0, plan - (ted + iptal)); // istersen kalsın (kolonda gösteriyorsun)
+                const edilmeyen = Math.max(0, plan - (ted + iptal));
                 const perf = perfFrom(ted, gecTedarik);
 
                 return {
@@ -773,7 +787,6 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                 setCellStyle(ws, `${colLetter(c)}3`, { fill: fill("FFFFFFFF"), border: borderAll });
             }
 
-            // header satırı
             for (let c = 0; c < colCount; c++) {
                 setCellStyle(ws, `${colLetter(c)}4`, headerStyle);
             }
@@ -781,7 +794,6 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
             const dataStart = 5;
             const dataEnd = 4 + dataRowCount;
 
-            // performans sütunu sheet'e göre bulunur
             const localHeaders = [];
             for (let c = 0; c < colCount; c++) {
                 const addr = `${colLetter(c)}4`;
@@ -806,7 +818,6 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
 
                     if (c >= 1 && c !== perfColIndex && ws[addr]) ws[addr].z = "#,##0";
 
-                    // late renklendirme
                     if (c === lateColIndex && ws[addr]) {
                         const lateCount = ws[addr].v ?? 0;
                         setCellStyle(ws, addr, {
@@ -817,7 +828,6 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                         });
                     }
 
-                    // perf renklendirme (TALEP YOK renksiz)
                     if (c === perfColIndex && ws[addr]) {
                         const v = ws[addr].v;
                         if (typeof v !== "number") {
@@ -851,7 +861,6 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
             const aoa = [meta1, meta2, blank, headers];
             rows.forEach((r) => aoa.push(headers.map((h) => r[h] ?? "")));
 
-            // totals
             const totals = rows.reduce(
                 (acc, r) => {
                     acc.TALEP += Number(r["TALEP"] || 0);
@@ -887,7 +896,6 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
 
             applySheetStyling(ws, rows.length);
 
-            // totals row özel
             const totalRowIdx = 4 + rows.length + 2;
             const perfColIndex = headers.indexOf("TEDARİK ORANI (%)");
             const lateColIndex = headers.indexOf("GEÇ TEDARİK");
@@ -925,25 +933,25 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
         };
 
         /* ---------------------- 1) region sheets ---------------------- */
-        Object.keys(REGIONS).forEach((bolge) => {
-            const bolgeListesi = REGIONS[bolge] || [];
+        Object.keys(regionsMap || {}).forEach((bolge) => {
+            const bolgeListesi = regionsMap?.[bolge] || [];
             const rows = buildRowsFromProjectList(bolgeListesi);
             buildRegionSheet(bolge, rows, `Bölge: ${bolge}`);
         });
 
         /* ---------------------- 2) TÜM PROJELER sheet ---------------------- */
-        const tumProjelerListesi = Array.from(new Set(Object.values(REGIONS).flatMap((arr) => (Array.isArray(arr) ? arr : []))));
+        const tumProjelerListesi = Array.from(
+            new Set(Object.values(regionsMap || {}).flatMap((arr) => (Array.isArray(arr) ? arr : [])))
+        );
         tumProjelerListesi.sort((a, b) => String(a).localeCompare(String(b), "tr"));
 
         const allRows = buildRowsFromProjectList(tumProjelerListesi);
         buildRegionSheet("TÜM PROJELER", allRows, "Tüm Bölgeler: TÜM PROJELER");
 
-        /* ---------------------- 3) ANALİZ sheet (grafik gibi bar) ---------------------- */
+        /* ---------------------- 3) ANALİZ sheet ---------------------- */
         const buildAnalizSheet = (rows) => {
-            // Sadece lazım olan kolonlar + bar kolonu
             const ANALIZ_HEADERS = ["PROJE", "TALEP", "TEDARİK", "EDİLMEYEN", "TEDARİK ORANI (%)", "GRAFİK"];
 
-            // sıralama: önce performans (TALEP YOK en alta), sonra talep
             const sorted = [...rows].sort((a, b) => {
                 const ap = typeof a["TEDARİK ORANI (%)"] === "number" ? a["TEDARİK ORANI (%)"] : -1;
                 const bp = typeof b["TEDARİK ORANI (%)"] === "number" ? b["TEDARİK ORANI (%)"] : -1;
@@ -959,33 +967,22 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
             const aoa = [meta1, meta2, blank, ANALIZ_HEADERS];
 
             sorted.forEach((r) => {
-                aoa.push([
-                    r["PROJE"],
-                    r["TALEP"],
-                    r["TEDARİK"],
-                    r["EDİLMEYEN"],
-                    r["TEDARİK ORANI (%)"],
-                    "", // GRAFİK (formülle dolduracağız)
-                ]);
+                aoa.push([r["PROJE"], r["TALEP"], r["TEDARİK"], r["EDİLMEYEN"], r["TEDARİK ORANI (%)"], ""]);
             });
 
             const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-            // kol genişlikleri
             ws["!cols"] = [
                 { wch: 46 },
                 { wch: 10 },
                 { wch: 10 },
                 { wch: 12 },
                 { wch: 16 },
-                { wch: 34 }, // bar
+                { wch: 34 },
             ];
 
-            // header satır stilleri
             applySheetStyling(ws, sorted.length, ws["!cols"], "TEDARİK ORANI (%)");
 
-            // Grafik bar formülleri:
-            // Oran E kolonu, Bar F kolonu: =IF(E5="TALEP YOK","",REPT("█",ROUND(E5/5,0))&REPT("░",20-ROUND(E5/5,0)))
             const startRow = 5;
             const endRow = 4 + sorted.length;
 
@@ -993,12 +990,10 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                 const perfCell = `E${r}`;
                 const barCell = `F${r}`;
 
-                // Formül
                 ws[barCell] = ws[barCell] || {};
                 ws[barCell].f =
-                    `IF(${perfCell}="TALEP YOK","",REPT("█",ROUND(${perfCell}/5,0))&REPT("░",20-ROUND(${perfCell}/5,0)))`;
+                    `IF(${perfCell}="TEDARİK YOK","",REPT("█",ROUND(${perfCell}/5,0))&REPT("░",20-ROUND(${perfCell}/5,0)))`;
 
-                // Bar görünümü (font monospaced gibi olsun)
                 ws[barCell].s = {
                     font: { name: "Consolas", bold: true, color: { rgb: "FF0F172A" } },
                     alignment: align("left"),
@@ -1012,13 +1007,10 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
 
         buildAnalizSheet(allRows);
 
-        /* ---------------------- write ---------------------- */
         const out = XLSX.write(wb, { bookType: "xlsx", type: "array", cellStyles: true });
         const fileName = `AnalizPanel_MODERN_${new Date().toISOString().slice(0, 10)}.xlsx`;
         saveAs(new Blob([out], { type: "application/octet-stream" }), fileName);
     };
-
-
 
     return (
         <Box sx={{ width: "100%" }}>
@@ -1026,7 +1018,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                 <Wide>
                     <TopBar elevation={0}>
                         <Grid>
-                            {/* Sol: Ba Ylık + KPI */}
+                            {/* Sol: Başlık + KPI */}
                             <Stack spacing={1.2}>
                                 <Stack direction="row" spacing={1.2} alignItems="center">
                                     <Box
@@ -1053,7 +1045,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                         </Typography>
                                     </Box>
 
-                                    <Tooltip title="Bu panel, sefer açılı Yından yüklemeye kadar geçen süreyi (30 saat kuralı) baz alır.">
+                                    <Tooltip title="Bu panel, sefer açılışından yüklemeye kadar geçen süreyi (30 saat kuralı) baz alır.">
                                         <IconButton
                                             size="small"
                                             sx={{
@@ -1086,7 +1078,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                         accent={t.accent}
                                         title="Toplam Talep"
                                         value={kpi.plan}
-                                        leftMeta={`Bölge: ${seciliBolge}`}
+                                        leftMeta={`Bölge: ${seciliBolge || "-"}`}
                                         icon={<MdTrendingUp size={18} />}
                                     />
                                     <ModernKPI
@@ -1125,7 +1117,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                 </Box>
                             </Stack>
 
-                            {/* Sa Y: Kontroller */}
+                            {/* Sağ: Kontroller */}
                             <Stack spacing={1.5} alignItems="stretch" justifyContent="space-between">
                                 {/* Region Selector */}
                                 <Box
@@ -1140,10 +1132,10 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                         boxShadow: t.shadowSoft,
                                     }}
                                 >
-                                    <Box sx={{ display: "flex", gap: "4px", position: "relative" }}>
-                                        {Object.keys(REGIONS).map((r) => {
+                                    <Box sx={{ display: "flex", gap: "4px", position: "relative", flexWrap: "wrap" }}>
+                                        {bolgeler.map((r) => {
                                             const selected = seciliBolge === r;
-                                            const count = REGIONS[r]?.length ?? 0;
+                                            const count = (regionsMap?.[r]?.length ?? 0);
 
                                             return (
                                                 <Box key={r} sx={{ position: "relative" }}>
@@ -1177,7 +1169,9 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                                             "&:hover": { color: selected ? undefined : t.text },
                                                         }}
                                                     >
-                                                        <Typography sx={{ fontWeight: 900, fontSize: "0.85rem", letterSpacing: "-0.01em" }}>{r}</Typography>
+                                                        <Typography sx={{ fontWeight: 900, fontSize: "0.85rem", letterSpacing: "-0.01em" }}>
+                                                            {r}
+                                                        </Typography>
                                                         <Box
                                                             sx={{
                                                                 fontSize: "0.75rem",
@@ -1264,7 +1258,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                         <MenuItem value="late">Gecikme</MenuItem>
                                     </Select>
 
-                                    {/*  o. Gecikenler */}
+                                    {/* Gecikenler */}
                                     <Box
                                         sx={{
                                             display: "flex",
@@ -1292,7 +1286,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                         />
                                     </Box>
 
-                                    {/*  o. Tedarik Edilmeyenler */}
+                                    {/* Tedarik Edilmeyenler */}
                                     <Box
                                         sx={{
                                             display: "flex",
@@ -1385,7 +1379,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                                             </Typography>
                                         </Stack>
                                         <Typography sx={{ fontWeight: 700, fontSize: "0.75rem", color: t.subtext, opacity: 0.9 }}>
-                                            Detaylar için kart etkile Yimlerini kullanın  ?  Sefer & Rota
+                                            Detaylar için kart etkileşimlerini kullanın • Sefer & Rota
                                         </Typography>
                                     </Stack>
 
@@ -1422,7 +1416,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
 
                                             <MdDownload size={16} color={t.accent} />
                                             <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: t.accent }}>
-                                                {Object.keys(excelTarihleriSeferBazli || {}).length} 
+                                                {Object.keys(excelTarihleriSeferBazli || {}).length}
                                             </Typography>
                                         </Box>
 
@@ -1482,7 +1476,7 @@ export default function AnalizTablosu({ data, printsMap = {}, printsLoading = fa
                             >
                                 <Typography sx={{ fontWeight: 1000, color: t.text, fontSize: "1.2rem" }}>Sonuç bulunamadı</Typography>
                                 <Typography sx={{ fontWeight: 800, color: t.subtext, mt: 0.6 }}>
-                                    Arama kriterini de getir veya filtreleri kapat.
+                                    Arama kriterini değiştir veya filtreleri kapat.
                                 </Typography>
                             </Paper>
                         )}

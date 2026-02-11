@@ -1,0 +1,7 @@
+project_id = "tedarik-analiz-v2"
+
+[functions.onay-mail]
+verify_jwt = false
+
+[functions.onay-aksiyon]
+verify_jwt = false

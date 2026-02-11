@@ -1,8 +1,13 @@
 // src/ozellikler/analiz-paneli/AnalizPaneli.jsx
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { Box, Stack, Typography, alpha, Avatar, Button } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import { RiRefreshLine, RiCalendarCheckLine, RiFocus3Line, RiDatabaseLine } from "react-icons/ri";
+import {
+    RiRefreshLine,
+    RiCalendarCheckLine,
+    RiFocus3Line,
+    RiDatabaseLine,
+} from "react-icons/ri";
 import { motion, AnimatePresence } from "framer-motion";
 
 import AnalizTablosu from "./AnalizTablosu";
@@ -10,6 +15,7 @@ import { BASE_URL } from "../yardimcilar/sabitler";
 import { extractItems } from "../yardimcilar/backend";
 import { toIsoLocalEnd, toIsoLocalStart } from "../yardimcilar/tarih";
 import { seferNoNormalizeEt } from "../yardimcilar/metin";
+import { getRegions } from "../yardimcilar/regionsStore";
 
 // Print API
 const PRINTS_BASE_URL = "https://tedarik-analiz-sho-api.onrender.com";
@@ -81,7 +87,21 @@ export default function AnalizPaneli() {
         end: new Date(),
     });
 
-    // ✅ TMS verisi çek (MANUEL) — /tmsorders yerine /tmsorders/week kullan
+    // ✅ REGIONS (Anasayfa'da eklenenler dahil): AnalizTablosu alt sekmelerinde kullanılacak
+    const [regionsMap, setRegionsMap] = useState(() => getRegions());
+
+    // Anasayfa'dan değişince otomatik güncelle
+    useEffect(() => {
+        const refresh = () => setRegionsMap(getRegions());
+        window.addEventListener("regions:changed", refresh);
+        window.addEventListener("storage", refresh);
+        return () => {
+            window.removeEventListener("regions:changed", refresh);
+            window.removeEventListener("storage", refresh);
+        };
+    }, []);
+
+    // ✅ TMS verisi çek (MANUEL) — /tmsorders/week kullan
     const handleFetchData = useCallback(async () => {
         setLoading(true);
         setError("");
@@ -89,11 +109,10 @@ export default function AnalizPaneli() {
         setPrintsMap({});
         setRaw({ items: [] }); // UI hemen başlasın
 
-        // AnalizPaneli.jsx içindeki satırı şuna çevir:
         const TMS_WEEK_URL = `${BASE_URL}/tmsorders/week`;
+
         try {
             const weeks = buildWeekRangesBetween(range.start, range.end);
-
             const collected = [];
 
             for (let i = 0; i < weeks.length; i++) {
@@ -125,7 +144,12 @@ export default function AnalizPaneli() {
                     }
 
                     if (!res.ok) {
-                        console.error("TMS WEEK ERROR", { url: TMS_WEEK_URL, status: res.status, bodySent: body, response: payload });
+                        console.error("TMS WEEK ERROR", {
+                            url: TMS_WEEK_URL,
+                            status: res.status,
+                            bodySent: body,
+                            response: payload,
+                        });
                         // tek hafta patlarsa devam
                         continue;
                     }
@@ -203,7 +227,13 @@ export default function AnalizPaneli() {
             }
 
             if (!res.ok) {
-                console.error("PRINT API ERROR", { url, status: res.status, bodySent: body, response: payload, responseText: text });
+                console.error("PRINT API ERROR", {
+                    url,
+                    status: res.status,
+                    bodySent: body,
+                    response: payload,
+                    responseText: text,
+                });
 
                 const msg =
                     payload?.message ||
@@ -399,7 +429,9 @@ export default function AnalizPaneli() {
                             <Typography variant="h6" sx={{ fontWeight: 800 }}>
                                 Analiz İçin Hazırız
                             </Typography>
-                            <Typography variant="body2">Tarih aralığı seçin ve "Verileri Analiz Et" butonuna tıklayın.</Typography>
+                            <Typography variant="body2">
+                                Tarih aralığı seçin ve "Verileri Analiz Et" butonuna tıklayın.
+                            </Typography>
                         </Stack>
                     </motion.div>
                 ) : (
@@ -414,7 +446,13 @@ export default function AnalizPaneli() {
                                 boxShadow: "0 40px 80px -20px rgba(0,0,0,0.08)",
                             }}
                         >
-                            <AnalizTablosu data={data} loading={loading} printsMap={printsMap} printsLoading={printsLoading} />
+                            <AnalizTablosu
+                                data={data}
+                                loading={loading}
+                                printsMap={printsMap}
+                                printsLoading={printsLoading}
+                                regionsMap={regionsMap}   // ✅ alttaki bölgeler sekmesi buradan üretilecek
+                            />
                         </Box>
                     </motion.div>
                 )}
@@ -422,4 +460,3 @@ export default function AnalizPaneli() {
         </Box>
     );
 }
-

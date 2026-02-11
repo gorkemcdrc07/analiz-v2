@@ -1,14 +1,30 @@
+﻿// src/App.js
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useMemo, useState } from "react";
 
 import Layout from "./bilesenler/Layout";
-import Anasayfa from "./sayfalar/Anasayfa";
 import SiparisAnaliz from "./sayfalar/SiparisAnaliz";
 import VeriAktarim from "./sayfalar/VeriAktarim";
 import BackendVeriEkrani from "./sayfalar/BackendVeriEkrani";
-
 import AnalizPaneli from "./ozellikler/analiz-paneli";
+import Login, { getUserFromSession } from "./sayfalar/Login";
+import Anasayfa from "./sayfalar/Anasayfa"; // ✅ EKLE
+
+/* 🔐 Login kontrol */
+function ProtectedRoute({ children }) {
+    const user = getUserFromSession();
+    if (!user?.kullanici_adi) return <Navigate to="/login" replace />;
+    return children;
+}
+
+/* 🔐 Admin */
+function AdminRoute({ children }) {
+    const user = getUserFromSession();
+    if (!user?.kullanici_adi) return <Navigate to="/login" replace />;
+    if (user?.rol !== "admin") return <Navigate to="/siparis-analiz" replace />;
+    return children;
+}
 
 export default function App() {
     const [mode, setMode] = useState("light");
@@ -27,19 +43,37 @@ export default function App() {
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
+
             <BrowserRouter>
                 <Routes>
-                    <Route element={<Layout mode={mode} setMode={setMode} />}>
-                        <Route path="/" element={<Anasayfa />} />
+                    <Route path="/login" element={<Login />} />
+
+                    {/* ✅ Uygulama açılınca burası (/) çalışır */}
+                    <Route
+                        element={
+                            <ProtectedRoute>
+                                <Layout mode={mode} setMode={setMode} />
+                            </ProtectedRoute>
+                        }
+                    >
+                        <Route path="/" element={<Anasayfa />} /> {/* ✅ ANASAYFA */}
                         <Route path="/siparis-analiz" element={<SiparisAnaliz />} />
-                        <Route path="/veri-aktarim" element={<VeriAktarim />} />
                         <Route path="/backend-veri" element={<BackendVeriEkrani />} />
                         <Route path="/analiz-paneli" element={<AnalizPaneli />} />
-                        <Route path="*" element={<Navigate to="/" replace />} />
+
+                        <Route
+                            path="/veri-aktarim"
+                            element={
+                                <AdminRoute>
+                                    <VeriAktarim />
+                                </AdminRoute>
+                            }
+                        />
                     </Route>
+
+                    <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </BrowserRouter>
         </ThemeProvider>
     );
 }
-

@@ -1,106 +1,36 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo } from "react";
 import {
-    Box,
-    Container,
-    AppBar,
-    Toolbar,
-    Typography,
-    Drawer,
-    List,
-    ListItemButton,
-    ListItemIcon,
-    ListItemText,
-    Divider,
-    IconButton,
-    Tooltip,
-} from '@mui/material';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+    Box, Container, AppBar, Toolbar, Typography, Drawer, List,
+    ListItemButton, ListItemIcon, ListItemText, Divider, IconButton,
+    Tooltip, Avatar, Menu, MenuItem, alpha, useTheme, GlobalStyles, Stack
+} from "@mui/material";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import MenuIcon from '@mui/icons-material/Menu';
-import HomeIcon from '@mui/icons-material/Home';
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
-import AssessmentIcon from '@mui/icons-material/Assessment';
-import DarkModeIcon from '@mui/icons-material/DarkMode';
-import LightModeIcon from '@mui/icons-material/LightMode';
+import {
+    MenuRounded as MenuIcon,
+    HomeRounded as HomeIcon,
+    ReceiptLongRounded as ReceiptLongIcon,
+    DarkModeRounded as DarkModeIcon,
+    LightModeRounded as LightModeIcon,
+    LogoutRounded as LogoutRoundedIcon,
+    StorageRounded as StorageIcon,
+    ShowChartRounded as ShowChartIcon,
+    ChevronLeftRounded,
+    TimelineRounded
+} from "@mui/icons-material";
 
-// �o. /backend-veri için ikon (ama yazı Tedarik Analiz olacak)
-import StorageIcon from '@mui/icons-material/Storage';
+import DetayPaneli from "./DetayPaneli";
 
-// �o. Forecast menü ikonu
-import ShowChartIcon from '@mui/icons-material/ShowChart';
-
-import { useTheme } from '@mui/material/styles';
-
-import YukleniyorEkrani from './YukleniyorEkrani';
-import DetayPaneli from './DetayPaneli';
-
-import { supabase } from '../supabaseClient';
-
+// Boyutlar orijinal değerlerde tutuldu
 const DRAWER_WIDTH = 260;
-const PAGE_SIZE = 1000;
+const LS_KEY = "app_oturum_kullanici";
 
-async function fetchAllRows({ startIso, endIso }) {
-    let all = [];
-    let from = 0;
-
-    while (true) {
-        const to = from + PAGE_SIZE - 1;
-
-        const { data: page, error } = await supabase
-            .from('siparisler_raw_v')
-            .select(`
-        proje,
-        hizmet_tipi,
-        arac_calisma_tipi,
-        pozisyon_no,
-        sefer_no,
-        siparis_durumu,
-        yukleme_ili,
-        yukleme_ilcesi,
-        teslim_ili,
-        teslim_ilcesi,
-        yukleme_noktasi,
-        teslim_noktasi,
-        sipras_acan,
-        siparis_acilis_zamani,
-        sefer_acilis_zamani,
-        sefer_hesap_ozeti,
-        yukleme_tarihi,
-        yukleme_ts
-      `)
-            .gte('yukleme_ts', startIso)
-            .lte('yukleme_ts', endIso)
-            .order('yukleme_ts', { ascending: false })
-            .range(from, to);
-
-        if (error) throw error;
-
-        all = all.concat(page || []);
-
-        if (!page || page.length < PAGE_SIZE) break;
-
-        from += PAGE_SIZE;
-    }
-
-    return all;
-}
-
-const STATUS_TEXT_TO_CODE = {
-    Bekliyor: 1,
-    Onaylandı: 2,
-    'Spot Araç Planlamada': 3,
-    'Araç Atandı': 4,
-    'Araç Yüklendi': 5,
-    'Araç Yolda': 6,
-    'Teslim Edildi': 7,
-    Tamamlandı: 8,
-    'Eksik Evrak': 10,
-    'Araç Bo�Yaltmada': 80,
-    'Filo Araç Planlamada': 90,
-    İptal: 200,
+const getUserFromSession = () => {
+    try {
+        const raw = localStorage.getItem(LS_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
 };
-
-const normalizeTR = (s) => (s ?? '').toString().trim().toLocaleUpperCase('tr-TR');
 
 export default function Layout({ mode, setMode }) {
     const theme = useTheme();
@@ -108,306 +38,244 @@ export default function Layout({ mode, setMode }) {
     const navigate = useNavigate();
 
     const [data, setData] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    // default bugün
+    const [loading] = useState(false);
     const [startDate, setStartDate] = useState(new Date());
     const [endDate, setEndDate] = useState(new Date());
-
     const [detailType, setDetailType] = useState(null);
     const [detailOpen, setDetailOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [profileAnchor, setProfileAnchor] = useState(null);
 
-    // �o. üst bardaki ba�Ylık
-    const screenTitle = useMemo(() => {
-        if (location.pathname === '/') return 'Ana Sayfa';
-        if (location.pathname.startsWith('/siparis-analiz')) return 'Sipariş Analiz';
-        if (location.pathname.startsWith('/proje-analiz')) return 'Proje Analiz';
-        if (location.pathname.startsWith('/backend-veri')) return 'Tedarik Analiz';
-        if (location.pathname.startsWith('/karsilastirma')) return 'Forecast';
-        return '';
-    }, [location.pathname]);
-
-    const handleFilter = useCallback(async () => {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-
-        setLoading(true);
-
-        try {
-            const rows = await fetchAllRows({
-                startIso: start.toISOString(),
-                endIso: end.toISOString(),
-            });
-
-            const mapped = (rows || []).map((r) => {
-                const orderStatusText = (r.siparis_durumu ?? '').toString().trim();
-                const orderStatusCode = STATUS_TEXT_TO_CODE[orderStatusText] ?? orderStatusText;
-
-                const isPrintBool =
-                    normalizeTR(r.sefer_hesap_ozeti) === 'CHECKED' ||
-                    normalizeTR(r.sefer_hesap_ozeti) === 'TRUE' ||
-                    r.sefer_hesap_ozeti === true;
-
-                return {
-                    ProjectName: r.proje,
-                    ServiceName: r.hizmet_tipi,
-                    SubServiceName: r.hizmet_tipi ?? '',
-
-                    TMSVehicleRequestDocumentNo: r.pozisyon_no,
-                    TMSDespatchDocumentNo: r.sefer_no,
-
-                    OrderStatu: orderStatusCode,
-
-                    PickupCityName: r.yukleme_ili,
-                    PickupCountyName: r.yukleme_ilcesi,
-                    DeliveryCityName: r.teslim_ili,
-                    DeliveryCountyName: r.teslim_ilcesi,
-
-                    VehicleWorkingName: r.arac_calisma_tipi,
-
-                    IsPrint: isPrintBool,
-
-                    TMSDespatchCreatedDate: r.sefer_acilis_zamani,
-                    PickupDate: r.yukleme_tarihi,
-                    OrderDate: r.yukleme_tarihi,
-                    OrderCreatedDate: r.siparis_acilis_zamani,
-
-                    PickupAddressCode: r.yukleme_noktasi,
-                    DeliveryAddressCode: r.teslim_noktasi,
-
-                    OrderCreatedBy: r.sipras_acan,
-                    CurrentAccountTitle: r.sipras_acan ?? '-',
-
-                    _raw: r,
-                };
-            });
-
-            setData(mapped);
-        } catch (err) {
-            console.error('�O Veri çekme hatası:', err);
-            setData([]);
-        } finally {
-            setLoading(false);
-        }
-    }, [startDate, endDate]);
+    const user = useMemo(() => getUserFromSession(), []);
+    const userInitial = (user?.ad || user?.kullanici_adi || "U").toString().trim().charAt(0).toUpperCase();
 
     useEffect(() => {
-        handleFilter();
-    }, [handleFilter]);
+        if (!user?.kullanici_adi) navigate("/login", { replace: true });
+    }, [navigate, user]);
 
-    const outletContext = useMemo(
-        () => ({
-            data,
-            loading,
-            startDate,
-            endDate,
-            setStartDate,
-            setEndDate,
-            handleFilter,
-            openDetail: (type) => {
-                setDetailType(type);
-                setDetailOpen(true);
-            },
-        }),
-        [data, loading, startDate, endDate, handleFilter]
-    );
+    const logout = () => {
+        localStorage.removeItem(LS_KEY);
+        setProfileAnchor(null);
+        navigate("/login", { replace: true });
+    };
 
-    // theme-aware renkler
-    const appBarBg =
-        theme.palette.mode === 'light' ? 'rgba(255, 255, 255, 0.9)' : 'rgba(2, 6, 23, 0.75)';
-    const appBarBorder = theme.palette.mode === 'light' ? '#e2e8f0' : 'rgba(148, 163, 184, 0.18)';
-    const drawerBorder = theme.palette.mode === 'light' ? '#e2e8f0' : 'rgba(148, 163, 184, 0.18)';
-    const drawerBg = theme.palette.mode === 'light' ? '#ffffff' : '#020617';
-    const textMain = theme.palette.mode === 'light' ? '#0f172a' : '#e2e8f0';
-    const textSub = theme.palette.mode === 'light' ? '#64748b' : '#94a3b8';
-    const pillBg = theme.palette.mode === 'light' ? '#f1f5f9' : 'rgba(148, 163, 184, 0.12)';
-    const pillBorder = theme.palette.mode === 'light' ? '#e2e8f0' : 'rgba(148, 163, 184, 0.18)';
+    const screenTitle = useMemo(() => {
+        const routes = {
+            "/": "Dashboard",
+            "/siparis-analiz": "Sipariş Analiz",
+            "/backend-veri": "Tedarik Hattı",
+            "/analiz-paneli": "Analiz Paneli",
+            "/tahmin": "Akış Tahmini"
+        };
+        return routes[location.pathname] || "Genel Bakış";
+    }, [location.pathname]);
 
-    const selectedBg = theme.palette.mode === 'light' ? '#eff6ff' : 'rgba(37, 99, 235, 0.18)';
-    const selectedHoverBg = theme.palette.mode === 'light' ? '#dbeafe' : 'rgba(37, 99, 235, 0.24)';
-
-    const menuItemSx = {
-        borderRadius: 2,
-        mx: 1,
-        '&.Mui-selected': { bgcolor: selectedBg, '&:hover': { bgcolor: selectedHoverBg } },
+    const isDark = theme.palette.mode === "dark";
+    const borderColor = isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.06)";
+    const glassEffect = {
+        bgcolor: isDark ? alpha("#020617", 0.75) : alpha("#ffffff", 0.8),
+        backdropFilter: "blur(12px) saturate(160%)",
     };
 
     return (
-        <>
-            {loading && <YukleniyorEkrani />}
+        <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: isDark ? "#020617" : "#fbfcfd" }}>
+            <GlobalStyles styles={{
+                ".MuiDrawer-paper": { transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important" },
+                "::-webkit-scrollbar": { width: "6px" },
+                "::-webkit-scrollbar-thumb": { bgcolor: alpha(theme.palette.primary.main, 0.2), borderRadius: "10px" }
+            }} />
 
+            {/* HEADER */}
             <AppBar
-                position="sticky"
+                position="fixed"
                 elevation={0}
                 sx={{
-                    backgroundColor: appBarBg,
-                    backdropFilter: 'blur(10px)',
-                    borderBottom: `1px solid ${appBarBorder}`,
-                    color: textMain,
+                    width: sidebarOpen ? `calc(100% - ${DRAWER_WIDTH}px)` : "100%",
+                    ml: sidebarOpen ? `${DRAWER_WIDTH}px` : 0,
+                    ...glassEffect,
+                    borderBottom: `1px solid ${borderColor}`,
+                    color: "text.primary",
                     zIndex: (t) => t.zIndex.drawer + 1,
                 }}
             >
-                <Container maxWidth={false} disableGutters sx={{ px: 2 }}>
-                    <Toolbar variant="dense" sx={{ justifyContent: 'space-between', height: 64 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                            <IconButton onClick={() => setSidebarOpen((p) => !p)} size="small" sx={{ color: textMain }}>
-                                <MenuIcon />
-                            </IconButton>
+                <Toolbar sx={{ justifyContent: "space-between", height: 64, px: 3 }}>
+                    <Stack direction="row" alignItems="center" spacing={2}>
+                        <IconButton
+                            onClick={() => setSidebarOpen(!sidebarOpen)}
+                            size="small"
+                            sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04), borderRadius: "10px" }}
+                        >
+                            <MenuIcon fontSize="small" color="primary" />
+                        </IconButton>
 
-                            <Typography
-                                variant="h6"
-                                sx={{ fontWeight: 900, color: theme.palette.primary.main, display: 'flex', alignItems: 'center' }}
-                            >
-                                TMS{' '}
-                                <Box component="span" sx={{ color: textSub, fontWeight: 500, ml: 1 }}>
-                                    Analiz Paneli
-                                </Box>
-                            </Typography>
-
-                            <Typography
-                                variant="caption"
-                                sx={{
-                                    ml: 1,
-                                    color: textSub,
-                                    fontWeight: 800,
-                                    bgcolor: pillBg,
-                                    px: 1.2,
-                                    py: 0.4,
-                                    borderRadius: '8px',
-                                    border: `1px solid ${pillBorder}`,
-                                }}
-                            >
+                        <Stack spacing={-0.5}>
+                            <Typography variant="caption" sx={{ fontWeight: 800, color: "primary.main", letterSpacing: "1px", textTransform: "uppercase", fontSize: 9 }}>
                                 {screenTitle}
                             </Typography>
-                        </Box>
-
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography
-                                variant="caption"
-                                sx={{
-                                    color: theme.palette.mode === 'light' ? '#94a3b8' : '#a3b3c8',
-                                    fontWeight: 700,
-                                    bgcolor: pillBg,
-                                    px: 1.5,
-                                    py: 0.5,
-                                    borderRadius: '6px',
-                                    border: `1px solid ${pillBorder}`,
-                                }}
-                            >
-                                {new Date().toLocaleDateString('tr-TR')}
+                            <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: "-0.5px", fontSize: "1.1rem" }}>
+                                Flowline<span style={{ color: theme.palette.primary.main }}>.</span>
                             </Typography>
+                        </Stack>
+                    </Stack>
 
-                            <Tooltip title={mode === 'light' ? 'Koyu tema' : 'Açık tema'}>
-                                <IconButton
-                                    size="small"
-                                    onClick={() => setMode(mode === 'light' ? 'dark' : 'light')}
-                                    sx={{ color: textMain }}
-                                >
-                                    {mode === 'light' ? <DarkModeIcon /> : <LightModeIcon />}
-                                </IconButton>
-                            </Tooltip>
-                        </Box>
-                    </Toolbar>
-                </Container>
+                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                        <IconButton
+                            size="small"
+                            onClick={() => setMode(isDark ? "light" : "dark")}
+                            sx={{ border: `1px solid ${borderColor}`, borderRadius: "10px" }}
+                        >
+                            {isDark ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+                        </IconButton>
+
+                        <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 24, alignSelf: "center" }} />
+
+                        <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={1.2}
+                            onClick={(e) => setProfileAnchor(e.currentTarget)}
+                            sx={{
+                                cursor: "pointer",
+                                p: "4px 8px",
+                                borderRadius: "12px",
+                                transition: "0.2s",
+                                "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.05) }
+                            }}
+                        >
+                            <Avatar sx={{
+                                width: 30, height: 30,
+                                fontSize: 11, fontWeight: 900,
+                                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, #6366f1 100%)`,
+                                boxShadow: `0 4px 10px ${alpha(theme.palette.primary.main, 0.3)}`
+                            }}>
+                                {userInitial}
+                            </Avatar>
+                            <Typography variant="body2" sx={{ fontWeight: 700, display: { xs: "none", sm: "block" } }}>
+                                {user?.ad || "Admin"}
+                            </Typography>
+                        </Stack>
+                    </Stack>
+                </Toolbar>
             </AppBar>
 
+            {/* SIDEBAR */}
             <Drawer
                 variant="persistent"
                 open={sidebarOpen}
                 sx={{
                     width: DRAWER_WIDTH,
                     flexShrink: 0,
-                    '& .MuiDrawer-paper': {
+                    "& .MuiDrawer-paper": {
                         width: DRAWER_WIDTH,
-                        boxSizing: 'border-box',
-                        borderRight: `1px solid ${drawerBorder}`,
-                        background: drawerBg,
+                        bgcolor: isDark ? "#020617" : "#ffffff",
+                        borderRight: `1px solid ${borderColor}`,
+                        boxSizing: "border-box",
+                        overflowX: "hidden"
                     },
                 }}
             >
-                <Box sx={{ height: 64 }} />
-                <Box sx={{ px: 2, py: 2 }}>
-                    <Typography sx={{ fontWeight: 900, color: textMain }}>Menü</Typography>
-                    <Typography sx={{ fontSize: 12, color: textSub, fontWeight: 600 }}>Analiz ekranını seçin</Typography>
+                <Box sx={{ p: 3, height: 64, display: "flex", alignItems: "center" }}>
+                    <TimelineRounded sx={{ color: "primary.main", mr: 1, fontSize: 28 }} />
+                    <Typography variant="h5" sx={{ fontWeight: 900, letterSpacing: "-1px" }}>Flowline</Typography>
                 </Box>
-                <Divider sx={{ borderColor: drawerBorder }} />
 
-                <List sx={{ px: 1, py: 1 }}>
-                    {/* �o. Ana Sayfa */}
-                    <ListItemButton selected={location.pathname === '/'} onClick={() => navigate('/')} sx={menuItemSx}>
-                        <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
-                            <HomeIcon color={location.pathname === '/' ? 'primary' : 'inherit'} />
-                        </ListItemIcon>
-                        <ListItemText primary="Ana Sayfa" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
-                    </ListItemButton>
+                <Box sx={{ px: 2, py: 2 }}>
+                    <Typography sx={{ px: 1.5, mb: 1, fontWeight: 800, fontSize: 10, color: "text.secondary", textTransform: "uppercase", letterSpacing: 1.5 }}>
+                        Ana Navigasyon
+                    </Typography>
 
-                    {/* �o. Sipari�Y Analiz */}
-                    <ListItemButton
-                        selected={location.pathname.startsWith('/siparis-analiz')}
-                        onClick={() => navigate('/siparis-analiz')}
-                        sx={menuItemSx}
-                    >
-                        <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
-                            <ReceiptLongIcon color={location.pathname.startsWith('/siparis-analiz') ? 'primary' : 'inherit'} />
-                        </ListItemIcon>
-                        <ListItemText primary="Sipariş Analiz" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
-                    </ListItemButton>
+                    <List spacing={0.5}>
+                        {[
+                            { label: "Bölge & Proje Ekle", path: "/", icon: <HomeIcon /> },
+                            { label: "Sipariş Analiz", path: "/siparis-analiz", icon: <ReceiptLongIcon /> },
+                            { label: "Tedarik Analiz", path: "/backend-veri", icon: <StorageIcon /> },
+                            { label: "Tahmin", path: "/tahmin", icon: <ShowChartIcon />, external: true },
+                        ].map((item) => {
+                            const active = location.pathname === item.path;
+                            return (
+                                <ListItemButton
+                                    key={item.label}
+                                    onClick={() => item.external ? window.open(item.path, "_blank") : navigate(item.path)}
+                                    sx={{
+                                        borderRadius: "12px", mb: 0.8, py: 1.2,
+                                        bgcolor: active ? alpha(theme.palette.primary.main, 0.06) : "transparent",
+                                        border: "1px solid",
+                                        borderColor: active ? alpha(theme.palette.primary.main, 0.1) : "transparent",
+                                        "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.04) },
+                                        transition: "all 0.2s"
+                                    }}
+                                >
+                                    <ListItemIcon sx={{ minWidth: 38, color: active ? "primary.main" : "text.secondary" }}>
+                                        {item.icon}
+                                    </ListItemIcon>
+                                    <ListItemText
+                                        primary={item.label}
+                                        primaryTypographyProps={{ fontWeight: active ? 800 : 600, fontSize: "0.88rem", color: active ? "primary.main" : "text.primary" }}
+                                    />
+                                    {active && <Box sx={{ width: 5, height: 5, bgcolor: "primary.main", borderRadius: "50%" }} />}
+                                </ListItemButton>
+                            );
+                        })}
+                    </List>
+                </Box>
 
-                    {/* �o. Proje Analiz */}
-                    <ListItemButton
-                        selected={location.pathname.startsWith('/proje-analiz')}
-                        onClick={() => navigate('/proje-analiz')}
-                        sx={menuItemSx}
-                    >
-                        <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
-                            <AssessmentIcon color={location.pathname.startsWith('/proje-analiz') ? 'primary' : 'inherit'} />
-                        </ListItemIcon>
-                        <ListItemText primary="Proje Analiz" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
-                    </ListItemButton>
-
-                    {/* �o. /backend-veri route'u kalsın ama menüde "Tedarik Analiz" yazsın */}
-                    <ListItemButton
-                        selected={location.pathname.startsWith('/backend-veri')}
-                        onClick={() => navigate('/backend-veri')}
-                        sx={menuItemSx}
-                    >
-                        <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
-                            <StorageIcon color={location.pathname.startsWith('/backend-veri') ? 'primary' : 'inherit'} />
-                        </ListItemIcon>
-                        <ListItemText primary="Tedarik Analiz" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
-                    </ListItemButton>
-
-                    {/* �o. Forecast (/karsilastirma) */}
-                    <ListItemButton
-                        selected={location.pathname.startsWith('/karsilastirma')}
-                        onClick={() => navigate('/karsilastirma')}
-                        sx={menuItemSx}
-                    >
-                        <ListItemIcon sx={{ minWidth: 38, color: textSub }}>
-                            <ShowChartIcon color={location.pathname.startsWith('/karsilastirma') ? 'primary' : 'inherit'} />
-                        </ListItemIcon>
-                        <ListItemText primary="Forecast" primaryTypographyProps={{ fontWeight: 800, color: textMain }} />
-                    </ListItemButton>
-                </List>
+                <Box sx={{ mt: "auto", p: 3 }}>
+                    <Box sx={{
+                        p: 2, borderRadius: "16px",
+                        bgcolor: isDark ? alpha(theme.palette.primary.main, 0.03) : alpha(theme.palette.primary.main, 0.05),
+                        border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                        textAlign: "center"
+                    }}>
+                        <Typography variant="caption" sx={{ fontWeight: 900, color: "primary.main", display: "block" }}>Sistem Durumu</Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>Tüm servisler aktif</Typography>
+                    </Box>
+                </Box>
             </Drawer>
 
+            {/* ANA İÇERİK AREA */}
             <Box
+                component="main"
                 sx={{
-                    ml: sidebarOpen ? `${DRAWER_WIDTH}px` : 0,
-                    transition: 'margin-left 0.2s ease',
-                    width: sidebarOpen ? `calc(100% - ${DRAWER_WIDTH}px)` : '100%',
+                    flexGrow: 1,
+                    transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                    width: "100%",
                 }}
             >
-                <Container maxWidth={false} disableGutters sx={{ mt: 3, mb: 4, px: 2 }}>
-                    <Outlet context={outletContext} />
+                <Box sx={{ height: 64 }} />
+                <Container
+                    maxWidth={false}
+                    sx={{
+                        mt: 4,
+                        mb: 4,
+                        px: { xs: 2, md: 4 }, // Modern genişlik dengesi
+                        animation: "fadeIn 0.5s ease-out",
+                        "@keyframes fadeIn": { "from": { opacity: 0, transform: "translateY(10px)" }, "to": { opacity: 1, transform: "translateY(0)" } }
+                    }}
+                >
+                    <Outlet context={{ data, loading, startDate, endDate, setStartDate, setEndDate, setLayoutData: setData, openDetail: (type) => { setDetailType(type); setDetailOpen(true); } }} />
                 </Container>
             </Box>
 
+            {/* PROFILE MENU */}
+            <Menu
+                anchorEl={profileAnchor}
+                open={Boolean(profileAnchor)}
+                onClose={() => setProfileAnchor(null)}
+                PaperProps={{
+                    sx: { borderRadius: "14px", mt: 1.5, minWidth: 200, boxShadow: "0 10px 25px rgba(0,0,0,0.1)", border: `1px solid ${borderColor}`, ...glassEffect }
+                }}
+            >
+                <Box sx={{ px: 2, py: 1.5 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>{user?.ad || "Kullanıcı"}</Typography>
+                    <Typography variant="caption" color="text.secondary">{user?.rol || "Yönetici"}</Typography>
+                </Box>
+                <Divider sx={{ opacity: 0.5 }} />
+                <MenuItem onClick={logout} sx={{ m: 0.5, borderRadius: "10px", py: 1.2, fontWeight: 700, color: "error.main" }}>
+                    <LogoutRoundedIcon fontSize="small" sx={{ mr: 1.5 }} /> Çıkış Yap
+                </MenuItem>
+            </Menu>
+
             {detailOpen && <DetayPaneli type={detailType} data={data} onClose={() => setDetailOpen(false)} />}
-        </>
+        </Box>
     );
 }
