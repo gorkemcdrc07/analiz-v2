@@ -37,15 +37,15 @@ import { createClient } from "@supabase/supabase-js";
 import { useLocation, useNavigate } from "react-router-dom";
 
 // 🔐 Supabase client
-const supabase = createClient(
-    process.env.REACT_APP_SUPABASE_URL,
-    process.env.REACT_APP_SUPABASE_ANON_KEY
-);
+const supabase = createClient(process.env.REACT_APP_SUPABASE_URL, process.env.REACT_APP_SUPABASE_ANON_KEY);
 
 const ADMIN_APPROVAL_EMAIL = "gorkem.cadirci@odaklojistik.com.tr";
 
 // ✅ Takip seçenekleri
-const TAKIP_LISTESI = ["genel", "EKSUN"];
+const TAKIP_LISTESI = ["MERKEZ", "EKSUN"];
+
+// ✅ Birim seçenekleri (MERKEZ seçilince zorunlu)
+const MERKEZ_BIRIM_LISTESI = ["YÖNETİM", "OPERASYON", "MÜŞTERİ HİZMETLERİ", "SATINALMA"];
 
 const LS_KEY = "app_oturum_kullanici";
 export const getUserFromSession = () => {
@@ -154,9 +154,7 @@ function InfoPill({ icon, title, desc }) {
                     >
                         {title}
                     </Typography>
-                    <Typography sx={{ mt: 0.5, fontSize: 12.5, color: "rgba(15,23,42,0.62)" }}>
-                        {desc}
-                    </Typography>
+                    <Typography sx={{ mt: 0.5, fontSize: 12.5, color: "rgba(15,23,42,0.62)" }}>{desc}</Typography>
                 </Box>
             </Stack>
         </Paper>
@@ -180,18 +178,36 @@ export default function Login() {
     const [regEmail, setRegEmail] = useState("");
     const [regTelefon, setRegTelefon] = useState("");
     const [regTakip, setRegTakip] = useState("");
+    const [regBirim, setRegBirim] = useState(""); // ✅ MERKEZ ise zorunlu
 
     const [showPass, setShowPass] = useState(false);
     const [busy, setBusy] = useState(false);
 
     const [toast, setToast] = useState({ open: false, msg: "", severity: "info" });
 
-    const redirectTo = useMemo(() => location.state?.from || "/forecast/yukle", [location.state]);
+    // ✅ normal kullanıcılar için default
+    const redirectTo = useMemo(() => location.state?.from || "/siparis-analiz", [location.state]);
 
     useEffect(() => {
         const u = getUserFromSession();
-        if (u?.kullanici_adi) navigate(redirectTo, { replace: true });
+        if (!u?.kullanici_adi) return;
+
+        const takip = String(u?.takip || "").toUpperCase();
+
+        // ✅ MERKEZ DIŞI HERKES -> sadece CustomerTemplatePage
+        if (takip && takip !== "MERKEZ") {
+            navigate(`/c/${takip.toLowerCase()}`, { replace: true });
+            return;
+        }
+
+        // ✅ MERKEZ -> normal akış
+        navigate(redirectTo, { replace: true });
     }, [navigate, redirectTo]);
+
+    // ✅ Takip değişince birimi sıfırla (MERKEZ değilse)
+    useEffect(() => {
+        if (regTakip !== "MERKEZ") setRegBirim("");
+    }, [regTakip]);
 
     const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim());
 
@@ -217,7 +233,18 @@ export default function Login() {
                 throw new Error("Hesabınız onay bekliyor. Lütfen admin onayını bekleyin.");
             }
 
+            const takip = String(data?.takip || "").toUpperCase();
+
+            // session kaydet
             setUserToSession({ ...data, login_at: new Date().toISOString() });
+
+            // ✅ MERKEZ DIŞI HERKES -> template
+            if (takip && takip !== "MERKEZ") {
+                navigate(`/c/${takip.toLowerCase()}`, { replace: true });
+                return;
+            }
+
+            // ✅ MERKEZ -> normal akış
             navigate(redirectTo, { replace: true });
         } catch (e) {
             setToast({ open: true, msg: String(e?.message || e), severity: "error" });
@@ -225,7 +252,6 @@ export default function Login() {
             setBusy(false);
         }
     };
-
     const sendApprovalEmailToAdmin = async (payload) => {
         const url = `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/onay-mail`;
 
@@ -240,9 +266,7 @@ export default function Login() {
         });
 
         const text = await res.text();
-        if (!res.ok) {
-            throw new Error(`Mail gönderilemedi: ${text || res.status}`);
-        }
+        if (!res.ok) throw new Error(`Mail gönderilemedi: ${text || res.status}`);
 
         try {
             return JSON.parse(text);
@@ -260,11 +284,17 @@ export default function Login() {
             const email = (regEmail || "").trim();
             const telefon = (regTelefon || "").trim();
             const takip = (regTakip || "").trim();
+            const birim = (regBirim || "").trim();
 
             if (!ka || !pw || !ad_soyad || !email || !takip) {
                 throw new Error("Lütfen zorunlu alanları doldurun (Ad Soyad, Email, Kullanıcı Adı, Şifre, Takip).");
             }
             if (!validateEmail(email)) throw new Error("Email formatı hatalı.");
+
+            // ✅ MERKEZ ise birim zorunlu
+            if (takip === "MERKEZ" && !birim) {
+                throw new Error("MERKEZ seçildiğinde Birim seçmek zorunludur.");
+            }
 
             // kullanıcı adı kontrol
             const { data: exists, error: exErr } = await supabase
@@ -290,7 +320,7 @@ export default function Login() {
 
             // ✅ Token üret (mail onay linkleri için)
             const onay_token =
-                (window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+                window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
             const token_son_kullanma = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(); // 3 gün
 
@@ -301,7 +331,7 @@ export default function Login() {
                         kullanici_adi: ka,
                         sifre: pw,
                         takip,
-                        birim: "BEKLEME",
+                        birim: takip === "MERKEZ" ? birim : "BEKLEME",
                         onayli: false,
                         durum: "BEKLEME",
                         ad_soyad,
@@ -326,9 +356,10 @@ export default function Login() {
                     telefon: telefon || "",
                     kullanici_adi: ka,
                     takip,
+                    birim: takip === "MERKEZ" ? birim : "",
                     talep_tarihi: created_at,
                     kullanici_id: inserted?.id ?? null,
-                    onay_token, // ✅ önemli
+                    onay_token,
                 });
 
                 setToast({
@@ -353,6 +384,7 @@ export default function Login() {
             setRegEmail("");
             setRegTelefon("");
             setRegTakip("");
+            setRegBirim("");
             setMode("login");
         } catch (e) {
             setToast({ open: true, msg: String(e?.message || e), severity: "error" });
@@ -438,9 +470,7 @@ export default function Login() {
                             }}
                         />
                     </Box>
-                    <Typography sx={{ fontSize: 12.5, color: "rgba(15,23,42,0.62)" }}>
-                        {mode === "login" ? "Login" : "Kayıt"}
-                    </Typography>
+                    <Typography sx={{ fontSize: 12.5, color: "rgba(15,23,42,0.62)" }}>{mode === "login" ? "Login" : "Kayıt"}</Typography>
                     <Typography sx={{ fontSize: 12.5, color: "rgba(15,23,42,0.62)" }}>imOnct</Typography>
                 </Stack>
 
@@ -471,9 +501,7 @@ export default function Login() {
                 >
                     {/* LEFT */}
                     <Box>
-                        <Typography sx={{ fontSize: 88, fontWeight: 980, letterSpacing: -2, lineHeight: 1 }}>
-                            FLOWLINE
-                        </Typography>
+                        <Typography sx={{ fontSize: 88, fontWeight: 980, letterSpacing: -2, lineHeight: 1 }}>FLOWLINE</Typography>
 
                         <Box sx={{ mt: 2.4, display: "flex", alignItems: "center", gap: 1.4 }}>
                             <Stack direction="row" spacing={0.8} sx={{ alignItems: "center" }}>
@@ -515,29 +543,13 @@ export default function Login() {
                             />
                         </Box>
 
-                        <Typography
-                            sx={{
-                                mt: 4.2,
-                                fontSize: 38,
-                                fontWeight: 950,
-                                lineHeight: 1.12,
-                                maxWidth: 820,
-                            }}
-                        >
+                        <Typography sx={{ mt: 4.2, fontSize: 38, fontWeight: 950, lineHeight: 1.12, maxWidth: 820 }}>
                             Tedarik yolculuğunuzu daha hızlı ve daha akıllı yönetin.
                         </Typography>
 
-                        <Typography
-                            sx={{
-                                mt: 1.8,
-                                fontSize: 14.5,
-                                lineHeight: 1.8,
-                                color: "rgba(15,23,42,0.70)",
-                                maxWidth: 900,
-                            }}
-                        >
-                            Operasyonel görünürlük, rota optimizasyonu ve güvenlik odaklı izleme ile süreçlerinizi tek bir panelden
-                            yönetin. Veriye dayalı kararlarla hız kazanın.
+                        <Typography sx={{ mt: 1.8, fontSize: 14.5, lineHeight: 1.8, color: "rgba(15,23,42,0.70)", maxWidth: 900 }}>
+                            Operasyonel görünürlük, rota optimizasyonu ve güvenlik odaklı izleme ile süreçlerinizi tek bir panelden yönetin.
+                            Veriye dayalı kararlarla hız kazanın.
                         </Typography>
 
                         <Divider sx={{ my: 3.4, opacity: 0.35, maxWidth: 980 }} />
@@ -581,9 +593,7 @@ export default function Login() {
                         >
                             <Typography sx={{ fontWeight: 980, fontSize: 20 }}>Flowline Portal</Typography>
                             <Typography sx={{ mt: 0.7, fontSize: 13, color: "rgba(15,23,42,0.65)" }}>
-                                {mode === "login"
-                                    ? "Devam etmek için giriş yapın."
-                                    : "Onay doldurunuz. Admin onayı sonrası giriş açılacaktır."}
+                                {mode === "login" ? "Devam etmek için giriş yapın." : "Onay doldurunuz. Admin onayı sonrası giriş açılacaktır."}
                             </Typography>
 
                             {/* MODE SWITCH */}
@@ -790,6 +800,27 @@ export default function Login() {
                                             ))}
                                         </TextField>
 
+                                        {/* ✅ Birim (sadece MERKEZ) */}
+                                        {regTakip === "MERKEZ" && (
+                                            <TextField
+                                                select
+                                                fullWidth
+                                                value={regBirim}
+                                                onChange={(e) => setRegBirim(e.target.value)}
+                                                SelectProps={{ native: true }}
+                                                InputProps={{ sx: { borderRadius: 3, height: 52, bgcolor: "#fff" } }}
+                                            >
+                                                <option value="" disabled>
+                                                    Birim seçin *
+                                                </option>
+                                                {MERKEZ_BIRIM_LISTESI.map((b) => (
+                                                    <option key={b} value={b}>
+                                                        {b}
+                                                    </option>
+                                                ))}
+                                            </TextField>
+                                        )}
+
                                         <Button
                                             fullWidth
                                             variant="contained"
@@ -816,9 +847,7 @@ export default function Login() {
                                 )}
                             </Stack>
 
-                            <Typography sx={{ mt: 3, fontSize: 12.5, color: "rgba(15,23,42,0.55)" }}>
-                                Sorun mu yaşıyorsunuz? IT ile iletişime geçin.
-                            </Typography>
+                            <Typography sx={{ mt: 3, fontSize: 12.5, color: "rgba(15,23,42,0.55)" }}>Sorun mu yaşıyorsunuz? IT ile iletişime geçin.</Typography>
                         </Paper>
                     </Box>
                 </Box>

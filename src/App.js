@@ -9,7 +9,10 @@ import VeriAktarim from "./sayfalar/VeriAktarim";
 import BackendVeriEkrani from "./sayfalar/BackendVeriEkrani";
 import AnalizPaneli from "./ozellikler/analiz-paneli";
 import Login, { getUserFromSession } from "./sayfalar/Login";
-import Anasayfa from "./sayfalar/Anasayfa"; // ✅ EKLE
+import Anasayfa from "./sayfalar/Anasayfa";
+
+// ✅ Yeni: Müşteri template tek sayfa (Layout’suz)
+import CustomerTemplatePage from "./sayfalar/CustomerTemplatePage";
 
 /* 🔐 Login kontrol */
 function ProtectedRoute({ children }) {
@@ -48,7 +51,17 @@ export default function App() {
                 <Routes>
                     <Route path="/login" element={<Login />} />
 
-                    {/* ✅ Uygulama açılınca burası (/) çalışır */}
+                    {/* ✅ Müşteri Template Route (SIDEBAR / LAYOUT YOK) */}
+                    <Route
+                        path="/c/:customerKey"
+                        element={
+                            <ProtectedRoute>
+                                <CustomerTemplatePage />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    {/* ✅ Normal Uygulama (Layout + Sidebar) */}
                     <Route
                         element={
                             <ProtectedRoute>
@@ -56,7 +69,7 @@ export default function App() {
                             </ProtectedRoute>
                         }
                     >
-                        <Route path="/" element={<Anasayfa />} /> {/* ✅ ANASAYFA */}
+                        <Route path="/" element={<Anasayfa />} />
                         <Route path="/siparis-analiz" element={<SiparisAnaliz />} />
                         <Route path="/backend-veri" element={<BackendVeriEkrani />} />
                         <Route path="/analiz-paneli" element={<AnalizPaneli />} />
