@@ -1,4 +1,4 @@
-// src/ozellikler/analiz-paneli/AnalizPaneli.jsx
+// src/ozellikler/analiz-paneli/AnalizPaneli.js
 import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { Box, Stack, Typography, alpha, Avatar, Button } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
@@ -82,6 +82,11 @@ export default function AnalizPaneli() {
     const [printsLoading, setPrintsLoading] = useState(false);
     const [printsError, setPrintsError] = useState("");
 
+    // vehicle state (prints/search içinden maplenecek)
+    const [vehicleMap, setVehicleMap] = useState({});
+    const [vehicleLoading, setVehicleLoading] = useState(false);
+    const [vehicleError, setVehicleError] = useState("");
+
     const [range, setRange] = useState({
         start: new Date(new Date().setDate(new Date().getDate() - 1)),
         end: new Date(),
@@ -105,8 +110,13 @@ export default function AnalizPaneli() {
     const handleFetchData = useCallback(async () => {
         setLoading(true);
         setError("");
+
+        // prints/vehicle reset
         setPrintsError("");
         setPrintsMap({});
+        setVehicleError("");
+        setVehicleMap({});
+
         setRaw({ items: [] }); // UI hemen başlasın
 
         const TMS_WEEK_URL = `${BASE_URL}/tmsorders/week`;
@@ -270,6 +280,125 @@ export default function AnalizPaneli() {
         }
     }, [raw, range.start, range.end, userId, docNos]);
 
+    // ✅ Araç Bilgileri çek (MANUEL BUTON) — AYNI SERVİS: /prints/search
+    // Not: backend prints/search response'unda alanlar farklı isimde gelebilir.
+    // Aşağıda olası alan adlarını güvenli şekilde okuyoruz.
+    const handleFetchVehicles = useCallback(async () => {
+        setVehicleLoading(true);
+        setVehicleError("");
+
+        try {
+            if (!raw) throw new Error("Önce TMS verisini çekmelisiniz.");
+
+            // Aynı body yapısı (prints/search)
+            const body = {
+                startDate: toIsoLocalStart(range.start),
+                endDate: toIsoLocalEnd(range.end),
+                userId: Number(userId),
+                CustomerId: 0,
+                SupplierId: 0,
+                DriverId: 0,
+                TMSDespatchId: 0,
+                VehicleId: 0,
+                DocumentPrint: "1",
+                WorkingTypesId: [],
+            };
+
+            const url = `${PRINTS_BASE_URL}/prints/search`; // ✅ vehicles/search değil!
+            const res = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Accept: "application/json" },
+                body: JSON.stringify(body),
+            });
+
+            const text = await res.text();
+            let payload = null;
+            try {
+                payload = text ? JSON.parse(text) : null;
+            } catch {
+                payload = text;
+            }
+
+            if (!res.ok) {
+                console.error("VEHICLE VIA PRINT API ERROR", {
+                    url,
+                    status: res.status,
+                    bodySent: body,
+                    response: payload,
+                    responseText: text,
+                });
+
+                const msg =
+                    payload?.message ||
+                    payload?.error ||
+                    (typeof payload === "string" ? payload : null) ||
+                    `Print API hata: ${res.status}`;
+
+                throw new Error("Araç bilgileri servisi (prints/search) hata veriyor. Detay: " + msg);
+            }
+
+            const list = Array.isArray(payload) ? payload : payload?.items || payload?.data || [];
+            const docNoSet = new Set(docNos);
+
+            const pick = (obj, keys) => {
+                for (const k of keys) {
+                    const v = obj?.[k];
+                    if (v != null && v !== "") return v;
+                }
+                return null;
+            };
+
+            const map = {};
+            for (const p of list) {
+                const key = seferNoNormalizeEt(p?.DocumentNo || p?.documentNo || p?.DOCUMENTNO);
+                if (!key) continue;
+
+                // sadece ekrandaki seferler
+                if (docNoSet.size && !docNoSet.has(key)) continue;
+
+                map[key] = {
+                    VehicleCurrentAccountTitle: pick(p, [
+                        "VehicleCurrentAccountTitle",
+                        "vehicleCurrentAccountTitle",
+                        "VEHICLECURRENTACCOUNTTITLE",
+                        "VehicleAccountTitle",
+                        "vehicleAccountTitle",
+                    ]),
+                    KasaTipi: pick(p, ["KasaTipi", "kasaTipi", "KASATIPI", "BodyType", "bodyType"]),
+                    FreightAmount: pick(p, ["FreightAmount", "freightAmount", "FREIGHTAMOUNT", "Navlun", "navlun"]),
+                    PlateNumber: pick(p, ["PlateNumber", "plateNumber", "PLATENUMBER", "Plate", "plate"]),
+                    TrailerPlateNumber: pick(p, [
+                        "TrailerPlateNumber",
+                        "trailerPlateNumber",
+                        "TRAILERPLATENUMBER",
+                        "TrailerPlate",
+                        "trailerPlate",
+                    ]),
+                    FullName: pick(p, ["FullName", "fullName", "FULLNAME", "DriverName", "driverName", "Sofor", "sofor"]),
+                    PhoneNumber: pick(p, ["PhoneNumber", "phoneNumber", "PHONENUMBER", "DriverPhone", "driverPhone", "Telefon", "telefon"]),
+                    CitizenNumber: pick(p, [
+                        "CitizenNumber",
+                        "citizenNumber",
+                        "CITIZENNUMBER",
+                        "TC",
+                        "tc",
+                        "TCKN",
+                        "tckn",
+                        "IdentityNumber",
+                        "identityNumber",
+                    ]),
+                };
+            }
+
+            setVehicleMap(map);
+        } catch (e) {
+            setVehicleError(e?.message || "Araç bilgileri çekilemedi");
+            setVehicleMap({});
+        } finally {
+            setVehicleLoading(false);
+        }
+    }, [raw, range.start, range.end, userId, docNos]);
+
     return (
         <Box
             sx={{
@@ -322,9 +451,21 @@ export default function AnalizPaneli() {
                                 </Typography>
                             )}
 
+                            {vehicleError && (
+                                <Typography sx={{ mt: 0.2, fontSize: "0.78rem", fontWeight: 800, color: "#f59e0b" }}>
+                                    Araç: {vehicleError}
+                                </Typography>
+                            )}
+
                             {!!Object.keys(printsMap || {}).length && !printsError && (
                                 <Typography sx={{ mt: 0.2, fontSize: "0.78rem", fontWeight: 800, color: "#10b981" }}>
                                     Print eşleşme: {Object.keys(printsMap).length}
+                                </Typography>
+                            )}
+
+                            {!!Object.keys(vehicleMap || {}).length && !vehicleError && (
+                                <Typography sx={{ mt: 0.2, fontSize: "0.78rem", fontWeight: 800, color: "#10b981" }}>
+                                    Araç eşleşme: {Object.keys(vehicleMap).length}
                                 </Typography>
                             )}
                         </Box>
@@ -416,6 +557,24 @@ export default function AnalizPaneli() {
                         >
                             {printsLoading ? "SHÖ Çekiliyor..." : "SHÖ Verisini Getir"}
                         </Button>
+
+                        {/* Araç Bilgileri Buton */}
+                        <Button
+                            variant="outlined"
+                            onClick={handleFetchVehicles}
+                            disabled={vehicleLoading || !raw}
+                            sx={{
+                                borderRadius: "16px",
+                                px: 3,
+                                py: 1.5,
+                                fontWeight: 900,
+                                textTransform: "none",
+                                fontSize: "0.9rem",
+                                borderColor: alpha(theme.palette.primary.main, 0.4),
+                            }}
+                        >
+                            {vehicleLoading ? "Araç Bilgileri..." : "Araç Bilgileri Getir"}
+                        </Button>
                     </Stack>
                 </Stack>
             </motion.div>
@@ -429,9 +588,7 @@ export default function AnalizPaneli() {
                             <Typography variant="h6" sx={{ fontWeight: 800 }}>
                                 Analiz İçin Hazırız
                             </Typography>
-                            <Typography variant="body2">
-                                Tarih aralığı seçin ve "Verileri Analiz Et" butonuna tıklayın.
-                            </Typography>
+                            <Typography variant="body2">Tarih aralığı seçin ve "Verileri Analiz Et" butonuna tıklayın.</Typography>
                         </Stack>
                     </motion.div>
                 ) : (
@@ -451,7 +608,9 @@ export default function AnalizPaneli() {
                                 loading={loading}
                                 printsMap={printsMap}
                                 printsLoading={printsLoading}
-                                regionsMap={regionsMap}   // ✅ alttaki bölgeler sekmesi buradan üretilecek
+                                regionsMap={regionsMap}
+                                vehicleMap={vehicleMap}
+                                vehicleLoading={vehicleLoading}
                             />
                         </Box>
                     </motion.div>

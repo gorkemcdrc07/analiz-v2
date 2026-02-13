@@ -335,7 +335,9 @@ export default function AnalizTablosu({
     data,
     printsMap = {},
     printsLoading = false,
-    regionsMap = {}, // ✅ YENİ: AnalizPaneli'nden gelir (localStorage güncel bölgeler)
+    regionsMap = {},
+    vehicleMap = {},          // ✅ ekle
+    vehicleLoading = false,   // ✅ ekle
 }) {
     const theme = useTheme();
     const isDark = theme.palette.mode === "dark";
@@ -623,6 +625,7 @@ export default function AnalizTablosu({
     }, [satirlar]);
 
     const printsCount = useMemo(() => Object.keys(printsMap || {}).length, [printsMap]);
+    const vehicleCount = useMemo(() => Object.keys(vehicleMap || {}).length, [vehicleMap]);
 
     const bolgeyiExceleAktar = () => {
         const toSet = (v) => (v instanceof Set ? v : new Set(Array.isArray(v) ? v : []));
@@ -1414,6 +1417,25 @@ export default function AnalizTablosu({
                                                 </Typography>
                                             </Box>
 
+                                            {/* ✅ ARAÇ BİLGİLERİ SAYACI */}
+                                            <Box
+                                                sx={{
+                                                    px: 1.5,
+                                                    py: 0.8,
+                                                    borderRadius: "12px",
+                                                    bgcolor: alpha(t.warn, 0.10),
+                                                    border: `1px solid ${alpha(t.warn, 0.22)}`,
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: 1,
+                                                }}
+                                            >
+                                                <MdTrendingUp size={16} color={t.warn} />
+                                                <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: t.warn }}>
+                                                    {vehicleLoading ? "Araç: Yükleniyor..." : `Araç: ${vehicleCount} bulundu`}
+                                                </Typography>
+                                            </Box>
+
                                             <MdDownload size={16} color={t.accent} />
                                             <Typography sx={{ fontSize: "0.75rem", fontWeight: 900, color: t.accent }}>
                                                 {Object.keys(excelTarihleriSeferBazli || {}).length}
@@ -1458,6 +1480,8 @@ export default function AnalizTablosu({
                                     excelTarihleriSeferBazli={excelTarihleriSeferBazli}
                                     printsMap={printsMap}
                                     printsLoading={printsLoading}
+                                    vehicleMap={vehicleMap}           // ✅ ekle
+                                    vehicleLoading={vehicleLoading}   // ✅ ekle
                                 />
                             ))}
                         </AnimatePresence>

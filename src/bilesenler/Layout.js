@@ -1,8 +1,24 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-    Box, Container, AppBar, Toolbar, Typography, Drawer, List,
-    ListItemButton, ListItemIcon, ListItemText, Divider, IconButton,
-    Tooltip, Avatar, Menu, MenuItem, alpha, useTheme, GlobalStyles, Stack
+    Box,
+    Container,
+    AppBar,
+    Toolbar,
+    Typography,
+    Drawer,
+    List,
+    ListItemButton,
+    ListItemIcon,
+    ListItemText,
+    Divider,
+    IconButton,
+    Avatar,
+    Menu,
+    MenuItem,
+    alpha,
+    useTheme,
+    GlobalStyles,
+    Stack,
 } from "@mui/material";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
@@ -15,13 +31,11 @@ import {
     LogoutRounded as LogoutRoundedIcon,
     StorageRounded as StorageIcon,
     ShowChartRounded as ShowChartIcon,
-    ChevronLeftRounded,
-    TimelineRounded
+    TimelineRounded,
 } from "@mui/icons-material";
 
 import DetayPaneli from "./DetayPaneli";
 
-// Boyutlar orijinal değerlerde tutuldu
 const DRAWER_WIDTH = 260;
 const LS_KEY = "app_oturum_kullanici";
 
@@ -29,7 +43,9 @@ const getUserFromSession = () => {
     try {
         const raw = localStorage.getItem(LS_KEY);
         return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
+    } catch {
+        return null;
+    }
 };
 
 export default function Layout({ mode, setMode }) {
@@ -47,7 +63,11 @@ export default function Layout({ mode, setMode }) {
     const [profileAnchor, setProfileAnchor] = useState(null);
 
     const user = useMemo(() => getUserFromSession(), []);
-    const userInitial = (user?.ad || user?.kullanici_adi || "U").toString().trim().charAt(0).toUpperCase();
+    const userInitial = (user?.ad || user?.kullanici_adi || "U")
+        .toString()
+        .trim()
+        .charAt(0)
+        .toUpperCase();
 
     useEffect(() => {
         if (!user?.kullanici_adi) navigate("/login", { replace: true });
@@ -65,7 +85,7 @@ export default function Layout({ mode, setMode }) {
             "/siparis-analiz": "Sipariş Analiz",
             "/backend-veri": "Tedarik Hattı",
             "/analiz-paneli": "Analiz Paneli",
-            "/tahmin": "Akış Tahmini"
+            "/tahmin": "Akış Tahmini",
         };
         return routes[location.pathname] || "Genel Bakış";
     }, [location.pathname]);
@@ -79,11 +99,16 @@ export default function Layout({ mode, setMode }) {
 
     return (
         <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: isDark ? "#020617" : "#fbfcfd" }}>
-            <GlobalStyles styles={{
-                ".MuiDrawer-paper": { transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important" },
-                "::-webkit-scrollbar": { width: "6px" },
-                "::-webkit-scrollbar-thumb": { bgcolor: alpha(theme.palette.primary.main, 0.2), borderRadius: "10px" }
-            }} />
+            <GlobalStyles
+                styles={{
+                    ".MuiDrawer-paper": { transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important" },
+                    "::-webkit-scrollbar": { width: "6px" },
+                    "::-webkit-scrollbar-thumb": {
+                        bgcolor: alpha(theme.palette.primary.main, 0.2),
+                        borderRadius: "10px",
+                    },
+                }}
+            />
 
             {/* HEADER */}
             <AppBar
@@ -101,7 +126,7 @@ export default function Layout({ mode, setMode }) {
                 <Toolbar sx={{ justifyContent: "space-between", height: 64, px: 3 }}>
                     <Stack direction="row" alignItems="center" spacing={2}>
                         <IconButton
-                            onClick={() => setSidebarOpen(!sidebarOpen)}
+                            onClick={() => setSidebarOpen((p) => !p)}
                             size="small"
                             sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04), borderRadius: "10px" }}
                         >
@@ -109,7 +134,16 @@ export default function Layout({ mode, setMode }) {
                         </IconButton>
 
                         <Stack spacing={-0.5}>
-                            <Typography variant="caption" sx={{ fontWeight: 800, color: "primary.main", letterSpacing: "1px", textTransform: "uppercase", fontSize: 9 }}>
+                            <Typography
+                                variant="caption"
+                                sx={{
+                                    fontWeight: 800,
+                                    color: "primary.main",
+                                    letterSpacing: "1px",
+                                    textTransform: "uppercase",
+                                    fontSize: 9,
+                                }}
+                            >
                                 {screenTitle}
                             </Typography>
                             <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: "-0.5px", fontSize: "1.1rem" }}>
@@ -139,15 +173,19 @@ export default function Layout({ mode, setMode }) {
                                 p: "4px 8px",
                                 borderRadius: "12px",
                                 transition: "0.2s",
-                                "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.05) }
+                                "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.05) },
                             }}
                         >
-                            <Avatar sx={{
-                                width: 30, height: 30,
-                                fontSize: 11, fontWeight: 900,
-                                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, #6366f1 100%)`,
-                                boxShadow: `0 4px 10px ${alpha(theme.palette.primary.main, 0.3)}`
-                            }}>
+                            <Avatar
+                                sx={{
+                                    width: 30,
+                                    height: 30,
+                                    fontSize: 11,
+                                    fontWeight: 900,
+                                    background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, #6366f1 100%)`,
+                                    boxShadow: `0 4px 10px ${alpha(theme.palette.primary.main, 0.3)}`,
+                                }}
+                            >
                                 {userInitial}
                             </Avatar>
                             <Typography variant="body2" sx={{ fontWeight: 700, display: { xs: "none", sm: "block" } }}>
@@ -163,24 +201,36 @@ export default function Layout({ mode, setMode }) {
                 variant="persistent"
                 open={sidebarOpen}
                 sx={{
-                    width: DRAWER_WIDTH,
+                    width: sidebarOpen ? DRAWER_WIDTH : 0, // ✅ kapalıyken yer kaplamasın
                     flexShrink: 0,
                     "& .MuiDrawer-paper": {
-                        width: DRAWER_WIDTH,
+                        width: sidebarOpen ? DRAWER_WIDTH : 0, // ✅ kapalıyken yer kaplamasın
                         bgcolor: isDark ? "#020617" : "#ffffff",
-                        borderRight: `1px solid ${borderColor}`,
+                        borderRight: sidebarOpen ? `1px solid ${borderColor}` : "none",
                         boxSizing: "border-box",
-                        overflowX: "hidden"
+                        overflowX: "hidden",
                     },
                 }}
             >
                 <Box sx={{ p: 3, height: 64, display: "flex", alignItems: "center" }}>
                     <TimelineRounded sx={{ color: "primary.main", mr: 1, fontSize: 28 }} />
-                    <Typography variant="h5" sx={{ fontWeight: 900, letterSpacing: "-1px" }}>Flowline</Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 900, letterSpacing: "-1px" }}>
+                        Flowline
+                    </Typography>
                 </Box>
 
                 <Box sx={{ px: 2, py: 2 }}>
-                    <Typography sx={{ px: 1.5, mb: 1, fontWeight: 800, fontSize: 10, color: "text.secondary", textTransform: "uppercase", letterSpacing: 1.5 }}>
+                    <Typography
+                        sx={{
+                            px: 1.5,
+                            mb: 1,
+                            fontWeight: 800,
+                            fontSize: 10,
+                            color: "text.secondary",
+                            textTransform: "uppercase",
+                            letterSpacing: 1.5,
+                        }}
+                    >
                         Ana Navigasyon
                     </Typography>
 
@@ -195,14 +245,16 @@ export default function Layout({ mode, setMode }) {
                             return (
                                 <ListItemButton
                                     key={item.label}
-                                    onClick={() => item.external ? window.open(item.path, "_blank") : navigate(item.path)}
+                                    onClick={() => (item.external ? window.open(item.path, "_blank") : navigate(item.path))}
                                     sx={{
-                                        borderRadius: "12px", mb: 0.8, py: 1.2,
+                                        borderRadius: "12px",
+                                        mb: 0.8,
+                                        py: 1.2,
                                         bgcolor: active ? alpha(theme.palette.primary.main, 0.06) : "transparent",
                                         border: "1px solid",
                                         borderColor: active ? alpha(theme.palette.primary.main, 0.1) : "transparent",
                                         "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.04) },
-                                        transition: "all 0.2s"
+                                        transition: "all 0.2s",
                                     }}
                                 >
                                     <ListItemIcon sx={{ minWidth: 38, color: active ? "primary.main" : "text.secondary" }}>
@@ -210,7 +262,11 @@ export default function Layout({ mode, setMode }) {
                                     </ListItemIcon>
                                     <ListItemText
                                         primary={item.label}
-                                        primaryTypographyProps={{ fontWeight: active ? 800 : 600, fontSize: "0.88rem", color: active ? "primary.main" : "text.primary" }}
+                                        primaryTypographyProps={{
+                                            fontWeight: active ? 800 : 600,
+                                            fontSize: "0.88rem",
+                                            color: active ? "primary.main" : "text.primary",
+                                        }}
                                     />
                                     {active && <Box sx={{ width: 5, height: 5, bgcolor: "primary.main", borderRadius: "50%" }} />}
                                 </ListItemButton>
@@ -220,14 +276,21 @@ export default function Layout({ mode, setMode }) {
                 </Box>
 
                 <Box sx={{ mt: "auto", p: 3 }}>
-                    <Box sx={{
-                        p: 2, borderRadius: "16px",
-                        bgcolor: isDark ? alpha(theme.palette.primary.main, 0.03) : alpha(theme.palette.primary.main, 0.05),
-                        border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-                        textAlign: "center"
-                    }}>
-                        <Typography variant="caption" sx={{ fontWeight: 900, color: "primary.main", display: "block" }}>Sistem Durumu</Typography>
-                        <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>Tüm servisler aktif</Typography>
+                    <Box
+                        sx={{
+                            p: 2,
+                            borderRadius: "16px",
+                            bgcolor: isDark ? alpha(theme.palette.primary.main, 0.03) : alpha(theme.palette.primary.main, 0.05),
+                            border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                            textAlign: "center",
+                        }}
+                    >
+                        <Typography variant="caption" sx={{ fontWeight: 900, color: "primary.main", display: "block" }}>
+                            Sistem Durumu
+                        </Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>
+                            Tüm servisler aktif
+                        </Typography>
                     </Box>
                 </Box>
             </Drawer>
@@ -238,7 +301,8 @@ export default function Layout({ mode, setMode }) {
                 sx={{
                     flexGrow: 1,
                     transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-                    width: "100%",
+                    width: sidebarOpen ? `calc(100% - ${DRAWER_WIDTH}px)` : "100%",
+                    ml: sidebarOpen ? `${DRAWER_WIDTH}px` : 0,
                 }}
             >
                 <Box sx={{ height: 64 }} />
@@ -247,12 +311,29 @@ export default function Layout({ mode, setMode }) {
                     sx={{
                         mt: 4,
                         mb: 4,
-                        px: { xs: 2, md: 4 }, // Modern genişlik dengesi
+                        px: { xs: 2, md: 4 },
                         animation: "fadeIn 0.5s ease-out",
-                        "@keyframes fadeIn": { "from": { opacity: 0, transform: "translateY(10px)" }, "to": { opacity: 1, transform: "translateY(0)" } }
+                        "@keyframes fadeIn": {
+                            from: { opacity: 0, transform: "translateY(10px)" },
+                            to: { opacity: 1, transform: "translateY(0)" },
+                        },
                     }}
                 >
-                    <Outlet context={{ data, loading, startDate, endDate, setStartDate, setEndDate, setLayoutData: setData, openDetail: (type) => { setDetailType(type); setDetailOpen(true); } }} />
+                    <Outlet
+                        context={{
+                            data,
+                            loading,
+                            startDate,
+                            endDate,
+                            setStartDate,
+                            setEndDate,
+                            setLayoutData: setData,
+                            openDetail: (type) => {
+                                setDetailType(type);
+                                setDetailOpen(true);
+                            },
+                        }}
+                    />
                 </Container>
             </Box>
 
@@ -262,15 +343,35 @@ export default function Layout({ mode, setMode }) {
                 open={Boolean(profileAnchor)}
                 onClose={() => setProfileAnchor(null)}
                 PaperProps={{
-                    sx: { borderRadius: "14px", mt: 1.5, minWidth: 200, boxShadow: "0 10px 25px rgba(0,0,0,0.1)", border: `1px solid ${borderColor}`, ...glassEffect }
+                    sx: {
+                        borderRadius: "14px",
+                        mt: 1.5,
+                        minWidth: 200,
+                        boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                        border: `1px solid ${borderColor}`,
+                        ...glassEffect,
+                    },
                 }}
             >
                 <Box sx={{ px: 2, py: 1.5 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>{user?.ad || "Kullanıcı"}</Typography>
-                    <Typography variant="caption" color="text.secondary">{user?.rol || "Yönetici"}</Typography>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>
+                        {user?.ad || "Kullanıcı"}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                        {user?.rol || "Yönetici"}
+                    </Typography>
                 </Box>
                 <Divider sx={{ opacity: 0.5 }} />
-                <MenuItem onClick={logout} sx={{ m: 0.5, borderRadius: "10px", py: 1.2, fontWeight: 700, color: "error.main" }}>
+                <MenuItem
+                    onClick={logout}
+                    sx={{
+                        m: 0.5,
+                        borderRadius: "10px",
+                        py: 1.2,
+                        fontWeight: 700,
+                        color: "error.main",
+                    }}
+                >
                     <LogoutRoundedIcon fontSize="small" sx={{ mr: 1.5 }} /> Çıkış Yap
                 </MenuItem>
             </Menu>
