@@ -1,6 +1,6 @@
 ﻿// src/App.js
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useMemo, useState } from "react";
 
 import Layout from "./bilesenler/Layout";
@@ -10,14 +10,28 @@ import BackendVeriEkrani from "./sayfalar/BackendVeriEkrani";
 import AnalizPaneli from "./ozellikler/analiz-paneli";
 import Login, { getUserFromSession } from "./sayfalar/Login";
 import Anasayfa from "./sayfalar/Anasayfa";
-
-// ✅ Yeni: Müşteri template tek sayfa (Layout’suz)
 import CustomerTemplatePage from "./sayfalar/CustomerTemplatePage";
 
-/* 🔐 Login kontrol */
+/* 🔐 Login + müşteri sayfası kilidi */
 function ProtectedRoute({ children }) {
     const user = getUserFromSession();
+    const location = useLocation();
+    const path = String(location.pathname || "").toLowerCase();
+
     if (!user?.kullanici_adi) return <Navigate to="/login" replace />;
+
+    const ka = String(user.kullanici_adi).trim().toLowerCase();
+
+    // eksun sadece /c/eksun
+    if (ka === "eksun" && path.startsWith("/c/") && !path.startsWith("/c/eksun")) {
+        return <Navigate to="/c/eksun" replace />;
+    }
+
+    // bunge sadece /c/bunge
+    if (ka === "bunge" && path.startsWith("/c/") && !path.startsWith("/c/bunge")) {
+        return <Navigate to="/c/bunge" replace />;
+    }
+
     return children;
 }
 
@@ -35,10 +49,7 @@ export default function App() {
     const theme = useMemo(
         () =>
             createTheme({
-                palette: {
-                    mode,
-                    primary: { main: "#2563eb" },
-                },
+                palette: { mode, primary: { main: "#2563eb" } },
             }),
         [mode]
     );
@@ -47,46 +58,44 @@ export default function App() {
         <ThemeProvider theme={theme}>
             <CssBaseline />
 
-            <BrowserRouter>
-                <Routes>
-                    <Route path="/login" element={<Login />} />
+            <Routes>
+                <Route path="/login" element={<Login />} />
 
-                    {/* ✅ Müşteri Template Route (SIDEBAR / LAYOUT YOK) */}
+                {/* Müşteri sayfası (Layout yok) */}
+                <Route
+                    path="/c/:customerKey"
+                    element={
+                        <ProtectedRoute>
+                            <CustomerTemplatePage />
+                        </ProtectedRoute>
+                    }
+                />
+
+                {/* Normal uygulama (Layout var) */}
+                <Route
+                    element={
+                        <ProtectedRoute>
+                            <Layout mode={mode} setMode={setMode} />
+                        </ProtectedRoute>
+                    }
+                >
+                    <Route path="/" element={<Anasayfa />} />
+                    <Route path="/siparis-analiz" element={<SiparisAnaliz />} />
+                    <Route path="/backend-veri" element={<BackendVeriEkrani />} />
+                    <Route path="/analiz-paneli" element={<AnalizPaneli />} />
+
                     <Route
-                        path="/c/:customerKey"
+                        path="/veri-aktarim"
                         element={
-                            <ProtectedRoute>
-                                <CustomerTemplatePage />
-                            </ProtectedRoute>
+                            <AdminRoute>
+                                <VeriAktarim />
+                            </AdminRoute>
                         }
                     />
+                </Route>
 
-                    {/* ✅ Normal Uygulama (Layout + Sidebar) */}
-                    <Route
-                        element={
-                            <ProtectedRoute>
-                                <Layout mode={mode} setMode={setMode} />
-                            </ProtectedRoute>
-                        }
-                    >
-                        <Route path="/" element={<Anasayfa />} />
-                        <Route path="/siparis-analiz" element={<SiparisAnaliz />} />
-                        <Route path="/backend-veri" element={<BackendVeriEkrani />} />
-                        <Route path="/analiz-paneli" element={<AnalizPaneli />} />
-
-                        <Route
-                            path="/veri-aktarim"
-                            element={
-                                <AdminRoute>
-                                    <VeriAktarim />
-                                </AdminRoute>
-                            }
-                        />
-                    </Route>
-
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-            </BrowserRouter>
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
         </ThemeProvider>
     );
 }

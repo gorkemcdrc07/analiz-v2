@@ -1,5 +1,6 @@
-﻿import React, { useMemo, useState, useCallback } from "react";
-import { Navigate } from "react-router-dom";
+﻿// src/sayfalar/CustomerTemplatePage.js
+import React, { useMemo, useState, useCallback } from "react";
+import { Navigate, useParams, useNavigate } from "react-router-dom";
 import {
     Box,
     Container,
@@ -17,6 +18,10 @@ import {
     Tooltip,
     Skeleton,
     LinearProgress,
+    Avatar,
+    Menu,
+    MenuItem,
+    ListItemIcon,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import {
@@ -29,6 +34,8 @@ import {
     SearchRounded,
     CloseRounded,
     TuneRounded,
+    LogoutRounded,
+    AccountCircleRounded,
 } from "@mui/icons-material";
 
 import * as XLSX from "xlsx";
@@ -38,6 +45,31 @@ import { BASE_URL } from "../ozellikler/yardimcilar/sabitler";
 import { extractItems } from "../ozellikler/yardimcilar/backend";
 import { toIsoLocalStart, toIsoLocalEnd } from "../ozellikler/yardimcilar/tarih";
 import { supabase2 } from "../supabase2/supabaseClient2";
+
+/* ------------------------ MÜŞTERİ/PROJE KONFİG ------------------------ */
+const CUSTOMER_PROJECTS = {
+    EKSUN: ["EKSUN GIDA FTL"],
+    BUNGE: ["BUNGE LÜLEBURGAZ FTL", "BUNGE PALET", "BUNGE GEBZE FTL"],
+};
+
+const getCustomerConfig = (key) => {
+    const k = String(key || "").trim().toUpperCase();
+    const projects = CUSTOMER_PROJECTS[k] || [];
+    return {
+        key: k,
+        projects,
+        title: projects.length === 1 ? projects[0] : `${k} Sevkiyat Takip`,
+        exportFileName: k ? `${k}_SEVKIYAT.xlsx` : "SEVKIYAT.xlsx",
+    };
+};
+
+/* ------------------------ SESSION HELPERS ------------------------ */
+const LS_KEY = "app_oturum_kullanici";
+const clearUserSession = () => {
+    try {
+        localStorage.removeItem(LS_KEY);
+    } catch { }
+};
 
 /* ------------------------ YARDIMCILAR ------------------------ */
 const clampDayStart = (d) => {
@@ -75,7 +107,6 @@ const buildWeekRangesBetween = (startDate, endDate) => {
     return out;
 };
 
-/* --------- TARİH FORMATLAMA --------- */
 const normalizeIsoMs = (s) => {
     if (!s || typeof s !== "string") return s;
     return s.replace(/(\.\d{3})\d+/, "$1");
@@ -116,35 +147,18 @@ const getStatusStyle = (status) => {
         "90": { label: "Filo Planlamada", color: "#0369a1", bg: "#f0f9ff" },
         "200": { label: "İptal", color: "#b91c1c", bg: "#fef2f2" },
     };
-    return (
-        statusMap[s] || {
-            label: status || "İşlemde",
-            color: "#3b82f6",
-            bg: "#eff6ff",
-        }
-    );
+    return statusMap[s] || { label: status || "İşlemde", color: "#3b82f6", bg: "#eff6ff" };
 };
 
 const isFilo = (v) => {
     const x = String(v || "").trim().toUpperCase();
     return x === "FİLO" || x === "FILO";
 };
-const isSpot = (v) => {
-    const x = String(v || "").trim().toUpperCase();
-    return x === "SPOT";
-};
+const isSpot = (v) => String(v || "").trim().toUpperCase() === "SPOT";
 
-const normalizeName = (v) =>
-    String(v || "")
-        .trim()
-        .toUpperCase()
-        .replace(/\s+/g, " ");
-
+const normalizeName = (v) => String(v || "").trim().toUpperCase().replace(/\s+/g, " ");
 const hasVal = (v) => v !== null && v !== undefined && String(v).trim() !== "";
 
-/**
- * ✅ FİLO OPERASYON DURUMU
- */
 const getFiloOperationalStatus = (row) => {
     if (!isFilo(row?.VehicleWorkingName)) return null;
     const p = row?.FILO_PLAN;
@@ -176,75 +190,54 @@ const getFiloOperationalChipStyle = (label) => {
 const calcStats = (items) => {
     const filoCount = items.filter((x) => isFilo(x.VehicleWorkingName)).length;
     const spotCount = items.filter((x) => isSpot(x.VehicleWorkingName)).length;
-    const seferSet = new Set(
-        items.map((x) => String(x.TMSDespatchDocumentNo || "").trim()).filter(Boolean)
-    );
-    return {
-        total: items.length,
-        filoCount,
-        spotCount,
-        seferCount: seferSet.size,
-    };
+    const seferSet = new Set(items.map((x) => String(x.TMSDespatchDocumentNo || "").trim()).filter(Boolean));
+    return { total: items.length, filoCount, spotCount, seferCount: seferSet.size };
 };
 
 const calcDashboard = (items) => {
     const base = calcStats(items);
-    const filoOpCounts = {
-        YÜKLEMEDE: 0,
-        YOLDA: 0,
-        BOŞALTMADA: 0,
-        "TESLİM EDİLDİ": 0,
-        BELİRSİZ: 0,
-    };
+    const filoOpCounts = { YÜKLEMEDE: 0, YOLDA: 0, BOŞALTMADA: 0, "TESLİM EDİLDİ": 0, BELİRSİZ: 0 };
 
     for (const r of items) {
         if (!isFilo(r.VehicleWorkingName)) continue;
         const op = getFiloOperationalStatus(r) || "BELİRSİZ";
         filoOpCounts[op] = (filoOpCounts[op] || 0) + 1;
     }
-
     return { ...base, filoOpCounts };
 };
 
-const getValueByPath = (obj, path) => {
-    if (!path.includes(".")) return obj?.[path];
-    const parts = path.split(".");
-    let cur = obj;
-    for (const p of parts) {
-        cur = cur?.[p];
-        if (cur === undefined || cur === null) return cur;
-    }
-    return cur;
-};
+/* ------------------------ ✅ EXCEL EXPORT (BOS FİLTRESİ DÜZELTİLDİ) ------------------------ */
+// default: excludeBOS = false  (artık excel eksik atmayacak)
+const exportToExcel = (rows, columns, fileName = "SEVKIYAT.xlsx", opts = { excludeBOS: false }) => {
+    const EXCLUDED_KEYS = new Set(["ServiceName", "TMSVehicleRequestDocumentNo", "TMSOrderId", "DeliveryDate"]);
+    const excludeBOS = Boolean(opts?.excludeBOS);
 
-const exportToExcel = (rows, columns, fileName = "EKSUN_GIDA_FTL.xlsx") => {
-    // ✅ 1) Export'tan çıkacak kolonlar
-    const EXCLUDED_KEYS = new Set([
-        "ServiceName",                 // Servis
-        "TMSVehicleRequestDocumentNo", // Pozisyon No
-        "TMSOrderId",                  // TMS ID
-        "DeliveryDate",                // Teslim Tarihi
-    ]);
-
-    // ✅ 2) "BOS" ile başlayan seferleri export'a alma
     const filteredRows = (rows || []).filter((r) => {
+        if (!excludeBOS) return true;
         const sefer = String(r?.TMSDespatchDocumentNo || "").trim().toUpperCase();
         if (sefer.startsWith("BOS")) return false;
         return true;
     });
 
-    // ✅ 1) Kolonları filtrele
     const exportColumns = (columns || []).filter((c) => !EXCLUDED_KEYS.has(c.key));
+
+    const getValueByPath = (obj, path) => {
+        if (!path.includes(".")) return obj?.[path];
+        const parts = path.split(".");
+        let cur = obj;
+        for (const p of parts) {
+            cur = cur?.[p];
+            if (cur === undefined || cur === null) return cur;
+        }
+        return cur;
+    };
 
     const data = filteredRows.map((r) => {
         const obj = {};
-
         for (const c of exportColumns) {
             const raw = getValueByPath(r, c.key);
 
-            // ✅ 3) Durum: ID değil yazı (label) gelsin
             if (c.key === "OrderStatu") {
-                // FİLO ise operasyon durumu varsa onu yaz (daha anlamlı)
                 const filoOp = getFiloOperationalStatus(r);
                 obj[c.label] = filoOp || getStatusStyle(raw)?.label || "—";
                 continue;
@@ -253,11 +246,6 @@ const exportToExcel = (rows, columns, fileName = "EKSUN_GIDA_FTL.xlsx") => {
             const val = c.type === "dt" ? formatDateTimeTR(raw) : raw ?? "—";
             obj[c.label] = val === "" ? "—" : val;
         }
-
-        // İstersen filo operasyon durumunu ayrıca ayrı bir kolon olarak da ekleyebilirsin:
-        // const filoOp = getFiloOperationalStatus(r);
-        // if (filoOp) obj["FİLO Operasyon Durumu"] = filoOp;
-
         return obj;
     });
 
@@ -279,21 +267,17 @@ const COLUMNS = [
     { key: "VehicleWorkingName", label: "Çalışma Tipi" },
     { key: "TMSDespatchDocumentNo", label: "Sefer No" },
     { key: "OrderStatu", label: "Durum" },
-
     { key: "PickupAddressCode", label: "Yükleme Nokta Kodu" },
     { key: "PickupCityName", label: "Yükleme İl" },
     { key: "PickupCountyName", label: "Yükleme İlçe" },
-
     { key: "DeliveryAddressCode", label: "Teslim Nokta Kodu" },
     { key: "DeliveryCityName", label: "Teslim İl" },
     { key: "DeliveryCountyName", label: "Teslim İlçe" },
-
     { key: "TMSDespatchCreatedDate", label: "Sefer Açılış", type: "dt" },
     { key: "PickupDate", label: "Yükleme Tarihi", type: "dt" },
     { key: "TMSDespatchVehicleDate", label: "Araç Yola Çıkış", type: "dt" },
     { key: "DeliveryDate", label: "Teslim Tarihi", type: "dt" },
     { key: "TMSDespatchDeliveryTime", label: "Teslim Zamanı", type: "dt" },
-
     { key: "FILO_PLAN.yukleme_varis", label: "Yükleme Varış", type: "dt" },
     { key: "FILO_PLAN.yukleme_cikis", label: "Yükleme Çıkış", type: "dt" },
     { key: "FILO_PLAN.teslim_varis", label: "Teslim Varış", type: "dt" },
@@ -303,15 +287,7 @@ const COLUMNS = [
 /* ------------------------ UI BİLEŞENLERİ ------------------------ */
 const MetricCard = ({ icon, title, value, hint }) => {
     return (
-        <Paper
-            elevation={0}
-            sx={{
-                p: 2,
-                borderRadius: 4,
-                border: "1px solid #eef2f7",
-                bgcolor: "#fff",
-            }}
-        >
+        <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: "1px solid #eef2f7", bgcolor: "#fff" }}>
             <Stack direction="row" spacing={1.5} alignItems="center">
                 <Box
                     sx={{
@@ -327,27 +303,12 @@ const MetricCard = ({ icon, title, value, hint }) => {
                 >
                     {icon}
                 </Box>
-
                 <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
-                        {title}
-                    </Typography>
-                    <Typography
-                        sx={{
-                            fontSize: 22,
-                            color: "#0f172a",
-                            fontWeight: 1100,
-                            letterSpacing: -0.6,
-                            lineHeight: 1.1,
-                        }}
-                    >
+                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>{title}</Typography>
+                    <Typography sx={{ fontSize: 22, color: "#0f172a", fontWeight: 1100, letterSpacing: -0.6, lineHeight: 1.1 }}>
                         {value}
                     </Typography>
-                    {hint ? (
-                        <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 800, mt: 0.3 }}>
-                            {hint}
-                        </Typography>
-                    ) : null}
+                    {hint ? <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 800, mt: 0.3 }}>{hint}</Typography> : null}
                 </Box>
             </Stack>
         </Paper>
@@ -359,23 +320,11 @@ const FiloStatusBar = ({ counts }) => {
     const total = order.reduce((acc, k) => acc + (counts?.[k] || 0), 0);
 
     return (
-        <Paper
-            elevation={0}
-            sx={{
-                p: 2,
-                borderRadius: 4,
-                border: "1px solid #eef2f7",
-                bgcolor: "#fff",
-            }}
-        >
+        <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: "1px solid #eef2f7", bgcolor: "#fff" }}>
             <Stack spacing={1}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between">
-                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
-                        FİLO Operasyon Dağılımı
-                    </Typography>
-                    <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 900 }}>
-                        {total ? `Toplam ${total}` : "—"}
-                    </Typography>
+                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>FİLO Operasyon Dağılımı</Typography>
+                    <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 900 }}>{total ? `Toplam ${total}` : "—"}</Typography>
                 </Stack>
 
                 {order.map((k) => {
@@ -387,34 +336,15 @@ const FiloStatusBar = ({ counts }) => {
                         <Box key={k}>
                             <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.6 }}>
                                 <Stack direction="row" spacing={1} alignItems="center">
-                                    <Box
-                                        sx={{
-                                            width: 10,
-                                            height: 10,
-                                            borderRadius: 999,
-                                            bgcolor: st.color,
-                                        }}
-                                    />
-                                    <Typography sx={{ fontSize: 12, color: "#0f172a", fontWeight: 900 }}>
-                                        {k}
-                                    </Typography>
+                                    <Box sx={{ width: 10, height: 10, borderRadius: 999, bgcolor: st.color }} />
+                                    <Typography sx={{ fontSize: 12, color: "#0f172a", fontWeight: 900 }}>{k}</Typography>
                                 </Stack>
                                 <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
                                     {v} ({pct}%)
                                 </Typography>
                             </Stack>
 
-                            {/* ✅ BURASI DÜZELTİLDİ: sx içinde renk override yok -> default MUI rengi kalsın
-                  Ama yine de modern görünmesi için background bırakıyoruz. */}
-                            <LinearProgress
-                                variant="determinate"
-                                value={pct}
-                                sx={{
-                                    height: 8,
-                                    borderRadius: 999,
-                                    bgcolor: st.bg,
-                                }}
-                            />
+                            <LinearProgress variant="determinate" value={pct} sx={{ height: 8, borderRadius: 999, bgcolor: st.bg }} />
                         </Box>
                     );
                 })}
@@ -426,6 +356,10 @@ const FiloStatusBar = ({ counts }) => {
 /* ------------------------ ANA SAYFA ------------------------ */
 export default function CustomerTemplatePage() {
     const user = getUserFromSession();
+    const params = useParams(); // /c/:customerKey
+    const navigate = useNavigate();
+
+    const cfg = useMemo(() => getCustomerConfig(params?.customerKey || user?.takip), [params?.customerKey, user?.takip]);
 
     const [range, setRange] = useState({
         start: new Date(new Date().setDate(new Date().getDate() - 3)),
@@ -444,8 +378,19 @@ export default function CustomerTemplatePage() {
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedRow, setSelectedRow] = useState(null);
 
-    // ✅ Modern: Filtre Drawer
     const [filterOpen, setFilterOpen] = useState(false);
+
+    // Navbar user menu
+    const [userMenuAnchor, setUserMenuAnchor] = useState(null);
+    const userMenuOpen = Boolean(userMenuAnchor);
+    const openUserMenu = (e) => setUserMenuAnchor(e.currentTarget);
+    const closeUserMenu = () => setUserMenuAnchor(null);
+
+    const handleLogout = () => {
+        closeUserMenu();
+        clearUserSession();
+        navigate("/login", { replace: true });
+    };
 
     const fetchTemplateData = useCallback(async () => {
         if (!user?.kullanici_adi) return;
@@ -475,12 +420,15 @@ export default function CustomerTemplatePage() {
                 }
             }
 
+            const allowedProjects = new Set(cfg.projects.map((p) => String(p).trim().toUpperCase()));
+
             const filteredBase = collected
-                .filter(
-                    (x) =>
-                        String(x?.ProjectName || "").trim().toUpperCase() === "EKSUN GIDA FTL" &&
-                        String(x?.OrderStatu) !== "200"
-                )
+                .filter((x) => {
+                    const pn = String(x?.ProjectName || "").trim().toUpperCase();
+                    const okProject = allowedProjects.size ? allowedProjects.has(pn) : true;
+                    const notCancelled = String(x?.OrderStatu) !== "200";
+                    return okProject && notCancelled;
+                })
                 .map((x) => ({
                     ProjectName: x.ProjectName,
                     ServiceName: x.ServiceName,
@@ -506,21 +454,11 @@ export default function CustomerTemplatePage() {
                 }));
 
             // ✅ Sadece FİLO için Supabase2 enrich
-            const filoRows = filteredBase.filter(
-                (r) => isFilo(r.VehicleWorkingName) && r.TMSDespatchDocumentNo
-            );
-
-            const seferNos = Array.from(
-                new Set(filoRows.map((r) => String(r.TMSDespatchDocumentNo).trim()).filter(Boolean))
-            );
+            const filoRows = filteredBase.filter((r) => isFilo(r.VehicleWorkingName) && r.TMSDespatchDocumentNo);
+            const seferNos = Array.from(new Set(filoRows.map((r) => String(r.TMSDespatchDocumentNo).trim()).filter(Boolean)));
 
             if (seferNos.length > 0) {
-                const { data: seferlerList, error: seferlerErr } = await supabase2
-                    .from("seferler")
-                    .select("id,sefer_no")
-                    .in("sefer_no", seferNos);
-
-                if (seferlerErr) console.log("seferlerErr:", seferlerErr);
+                const { data: seferlerList } = await supabase2.from("seferler").select("id,sefer_no").in("sefer_no", seferNos);
 
                 const seferIdByNo = new Map();
                 for (const s of seferlerList || []) {
@@ -529,14 +467,10 @@ export default function CustomerTemplatePage() {
 
                 const seferIds = Array.from(new Set(Array.from(seferIdByNo.values())));
                 if (seferIds.length > 0) {
-                    const { data: seferDetaylari, error: detayErr } = await supabase2
+                    const { data: seferDetaylari } = await supabase2
                         .from("sefer_detaylari")
-                        .select(
-                            "sefer_id,yukleme_noktasi,teslim_noktasi,yukleme_varis,yukleme_cikis,teslim_varis,teslim_cikis,nokta_sirasi"
-                        )
+                        .select("sefer_id,yukleme_noktasi,teslim_noktasi,yukleme_varis,yukleme_cikis,teslim_varis,teslim_cikis,nokta_sirasi")
                         .in("sefer_id", seferIds);
-
-                    if (detayErr) console.log("sefer_detaylari error:", detayErr);
 
                     const planByKey = new Map();
                     const planBySefer = new Map();
@@ -591,7 +525,7 @@ export default function CustomerTemplatePage() {
         } finally {
             setLoading(false);
         }
-    }, [range, user]);
+    }, [range, user, cfg]);
 
     const visibleRows = useMemo(() => {
         const query = normalizeName(q);
@@ -640,7 +574,6 @@ export default function CustomerTemplatePage() {
         setSelectedRow(null);
     };
 
-    /* ------------------------ DATAGRID KOLONLARI ------------------------ */
     const gridColumns = useMemo(() => {
         return [
             { field: "CustomerOrderNumber", headerName: "Sipariş No", width: 150 },
@@ -657,17 +590,7 @@ export default function CustomerTemplatePage() {
                     const bg = isF ? "#f0f9ff" : isS ? "#fff7ed" : "#f1f5f9";
                     const c = isF ? "#0369a1" : isS ? "#c2410c" : "#475569";
                     return (
-                        <Chip
-                            size="small"
-                            label={String(v || "—")}
-                            sx={{
-                                bgcolor: bg,
-                                color: c,
-                                fontWeight: 950,
-                                borderRadius: 2,
-                                border: `1px solid ${c}20`,
-                            }}
-                        />
+                        <Chip size="small" label={String(v || "—")} sx={{ bgcolor: bg, color: c, fontWeight: 950, borderRadius: 2, border: `1px solid ${c}20` }} />
                     );
                 },
             },
@@ -683,35 +606,13 @@ export default function CustomerTemplatePage() {
                         const st2 = getFiloOperationalChipStyle(filoOp);
                         return (
                             <Tooltip arrow title={`Filo Operasyon: ${filoOp}`} placement="top">
-                                <Chip
-                                    size="small"
-                                    label={filoOp}
-                                    sx={{
-                                        bgcolor: st2.bg,
-                                        color: st2.color,
-                                        fontWeight: 1000,
-                                        borderRadius: 2,
-                                        border: `1px solid ${st2.color}20`,
-                                    }}
-                                />
+                                <Chip size="small" label={filoOp} sx={{ bgcolor: st2.bg, color: st2.color, fontWeight: 1000, borderRadius: 2, border: `1px solid ${st2.color}20` }} />
                             </Tooltip>
                         );
                     }
 
                     const st = getStatusStyle(r?.OrderStatu);
-                    return (
-                        <Chip
-                            size="small"
-                            label={st.label}
-                            sx={{
-                                bgcolor: st.bg,
-                                color: st.color,
-                                fontWeight: 1000,
-                                borderRadius: 2,
-                                border: `1px solid ${st.color}20`,
-                            }}
-                        />
-                    );
+                    return <Chip size="small" label={st.label} sx={{ bgcolor: st.bg, color: st.color, fontWeight: 1000, borderRadius: 2, border: `1px solid ${st.color}20` }} />;
                 },
             },
             { field: "PickupAddressCode", headerName: "Yükleme Nokta", width: 140 },
@@ -720,46 +621,127 @@ export default function CustomerTemplatePage() {
             { field: "DeliveryAddressCode", headerName: "Teslim Nokta", width: 140 },
             { field: "DeliveryCityName", headerName: "Teslim İl", width: 130 },
             { field: "DeliveryCountyName", headerName: "Teslim İlçe", width: 140 },
-            {
-                field: "PickupDate",
-                headerName: "Yükleme Tarihi",
-                width: 170,
-                // ✅ FIX: params null gelebiliyor
-                valueFormatter: (p) => formatDateTimeTR(p?.value),
-            },
-            {
-                field: "DeliveryDate",
-                headerName: "Teslim Tarihi",
-                width: 170,
-                // ✅ FIX: params null gelebiliyor
-                valueFormatter: (p) => formatDateTimeTR(p?.value),
-            },
-            {
-                field: "TMSDespatchCreatedDate",
-                headerName: "Sefer Açılış",
-                width: 180,
-                // ✅ FIX: params null gelebiliyor
-                valueFormatter: (p) => formatDateTimeTR(p?.value),
-            },
+            { field: "PickupDate", headerName: "Yükleme Tarihi", width: 170, valueFormatter: (p) => formatDateTimeTR(p?.value) },
+            { field: "DeliveryDate", headerName: "Teslim Tarihi", width: 170, valueFormatter: (p) => formatDateTimeTR(p?.value) },
+            { field: "TMSDespatchCreatedDate", headerName: "Sefer Açılış", width: 180, valueFormatter: (p) => formatDateTimeTR(p?.value) },
         ];
     }, []);
 
-    // ✅ Hook’lar bittikten sonra erken return
     if (!user?.kullanici_adi) return <Navigate to="/login" replace />;
 
+    const userName = String(user?.kullanici_adi || "").trim() || "Kullanıcı";
+    const userSub = String(user?.takip || cfg.key || "").trim();
+    const avatarText = userName ? userName.slice(0, 1).toUpperCase() : "U";
+
     return (
-        <Box
-            sx={{
-                minHeight: "100vh",
-                bgcolor: "#f6f8fb",
-                pb: 6,
-            }}
-        >
-            {/* Modern AppBar */}
+        <Box sx={{ minHeight: "100vh", bgcolor: "#f6f8fb", pb: 6 }}>
+            {/* NAVBAR */}
             <Box
                 sx={{
                     position: "sticky",
                     top: 0,
+                    zIndex: 30,
+                    bgcolor: "rgba(255,255,255,0.85)",
+                    backdropFilter: "blur(14px)",
+                    borderBottom: "1px solid #e8edf4",
+                }}
+            >
+                <Container maxWidth="xl" sx={{ py: 1.2 }}>
+                    <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                            <Box
+                                sx={{
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: 2.5,
+                                    display: "grid",
+                                    placeItems: "center",
+                                    bgcolor: "#0f172a",
+                                    color: "white",
+                                    fontWeight: 1000,
+                                }}
+                            >
+                                F
+                            </Box>
+                            <Box>
+                                <Typography sx={{ fontWeight: 1100, color: "#0f172a", lineHeight: 1.1 }}>Flowline</Typography>
+                                <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>
+                                    {cfg.key ? `${cfg.key} paneli` : "Sevkiyat takip"}
+                                </Typography>
+                            </Box>
+                        </Stack>
+
+                        <Stack direction="row" spacing={1} alignItems="center">
+                            <Chip
+                                size="small"
+                                label={cfg.key || "GENEL"}
+                                sx={{
+                                    bgcolor: "#fff",
+                                    border: "1px solid #eef2f7",
+                                    color: "#334155",
+                                    fontWeight: 900,
+                                    borderRadius: 2,
+                                }}
+                            />
+
+                            <Button
+                                onClick={openUserMenu}
+                                variant="outlined"
+                                startIcon={
+                                    <Avatar sx={{ width: 22, height: 22, fontSize: 12, bgcolor: "#0f172a" }}>{avatarText}</Avatar>
+                                }
+                                endIcon={<AccountCircleRounded />}
+                                sx={{
+                                    borderRadius: 999,
+                                    textTransform: "none",
+                                    fontWeight: 1000,
+                                    borderColor: "#e8edf4",
+                                    color: "#0f172a",
+                                    bgcolor: "#fff",
+                                    "&:hover": { bgcolor: "#f8fafc", borderColor: "#dbe3ef" },
+                                }}
+                            >
+                                {userName}
+                            </Button>
+
+                            <Menu
+                                anchorEl={userMenuAnchor}
+                                open={userMenuOpen}
+                                onClose={closeUserMenu}
+                                anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                                transformOrigin={{ vertical: "top", horizontal: "right" }}
+                                PaperProps={{
+                                    sx: {
+                                        borderRadius: 3,
+                                        border: "1px solid #eef2f7",
+                                        boxShadow: "0 20px 60px rgba(15,23,42,0.12)",
+                                        minWidth: 260,
+                                        overflow: "hidden",
+                                    },
+                                }}
+                            >
+                                <Box sx={{ px: 2, py: 1.4, bgcolor: "#f8fafc", borderBottom: "1px solid #eef2f7" }}>
+                                    <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 14 }}>{userName}</Typography>
+                                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>{userSub ? `Takip: ${userSub}` : "—"}</Typography>
+                                </Box>
+
+                                <MenuItem onClick={handleLogout}>
+                                    <ListItemIcon>
+                                        <LogoutRounded fontSize="small" />
+                                    </ListItemIcon>
+                                    Çıkış Yap
+                                </MenuItem>
+                            </Menu>
+                        </Stack>
+                    </Stack>
+                </Container>
+            </Box>
+
+            {/* SAYFA HEADER */}
+            <Box
+                sx={{
+                    position: "sticky",
+                    top: 64,
                     zIndex: 10,
                     bgcolor: "rgba(246,248,251,0.9)",
                     backdropFilter: "blur(14px)",
@@ -767,86 +749,36 @@ export default function CustomerTemplatePage() {
                 }}
             >
                 <Container maxWidth="xl" sx={{ py: 1.6 }}>
-                    <Stack
-                        direction={{ xs: "column", md: "row" }}
-                        spacing={1.2}
-                        alignItems={{ xs: "stretch", md: "center" }}
-                        justifyContent="space-between"
-                    >
+                    <Stack direction={{ xs: "column", md: "row" }} spacing={1.2} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between">
                         <Stack spacing={0.3}>
                             <Stack direction="row" spacing={1} alignItems="center">
                                 <DescriptionRounded sx={{ color: "#3b82f6" }} />
-                                <Typography
-                                    sx={{
-                                        fontWeight: 1100,
-                                        color: "#0f172a",
-                                        fontSize: 18,
-                                        letterSpacing: -0.4,
-                                    }}
-                                >
-                                    EKSUN GIDA FTL
-                                </Typography>
-                                <Chip
-                                    size="small"
-                                    label="Sevkiyat Takip"
-                                    sx={{
-                                        bgcolor: "#fff",
-                                        border: "1px solid #eef2f7",
-                                        color: "#334155",
-                                        fontWeight: 900,
-                                        borderRadius: 2,
-                                    }}
-                                />
+                                <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 18, letterSpacing: -0.4 }}>{cfg.title}</Typography>
+                                <Chip size="small" label="Sevkiyat Takip" sx={{ bgcolor: "#fff", border: "1px solid #eef2f7", color: "#334155", fontWeight: 900, borderRadius: 2 }} />
                             </Stack>
                             <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>
                                 Son güncelleme: {lastUpdated ? formatDateTimeTR(lastUpdated.toISOString()) : "—"}
                             </Typography>
                         </Stack>
 
-                        <Stack
-                            direction={{ xs: "column", md: "row" }}
-                            spacing={1}
-                            alignItems={{ xs: "stretch", md: "center" }}
-                        >
+                        <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }}>
                             <Stack direction="row" spacing={1} alignItems="center">
-                                <Typography variant="caption" sx={{ color: "#94a3b8", fontWeight: 900 }}>
-                                    Başlangıç
-                                </Typography>
+                                <Typography variant="caption" sx={{ color: "#94a3b8", fontWeight: 900 }}>Başlangıç</Typography>
                                 <input
                                     type="date"
                                     value={dateInputValue(range.start)}
                                     onChange={(e) => setRange((p) => ({ ...p, start: new Date(e.target.value) }))}
-                                    style={{
-                                        border: "1px solid #e8edf4",
-                                        borderRadius: 12,
-                                        padding: "8px 10px",
-                                        fontWeight: 900,
-                                        color: "#0f172a",
-                                        outline: "none",
-                                        background: "#fff",
-                                        height: 36,
-                                    }}
+                                    style={{ border: "1px solid #e8edf4", borderRadius: 12, padding: "8px 10px", fontWeight: 900, color: "#0f172a", outline: "none", background: "#fff", height: 36 }}
                                 />
                             </Stack>
 
                             <Stack direction="row" spacing={1} alignItems="center">
-                                <Typography variant="caption" sx={{ color: "#94a3b8", fontWeight: 900 }}>
-                                    Bitiş
-                                </Typography>
+                                <Typography variant="caption" sx={{ color: "#94a3b8", fontWeight: 900 }}>Bitiş</Typography>
                                 <input
                                     type="date"
                                     value={dateInputValue(range.end)}
                                     onChange={(e) => setRange((p) => ({ ...p, end: new Date(e.target.value) }))}
-                                    style={{
-                                        border: "1px solid #e8edf4",
-                                        borderRadius: 12,
-                                        padding: "8px 10px",
-                                        fontWeight: 900,
-                                        color: "#0f172a",
-                                        outline: "none",
-                                        background: "#fff",
-                                        height: 36,
-                                    }}
+                                    style={{ border: "1px solid #e8edf4", borderRadius: 12, padding: "8px 10px", fontWeight: 900, color: "#0f172a", outline: "none", background: "#fff", height: 36 }}
                                 />
                             </Stack>
 
@@ -854,29 +786,19 @@ export default function CustomerTemplatePage() {
                                 onClick={fetchTemplateData}
                                 disabled={loading}
                                 variant="contained"
-                                startIcon={
-                                    loading ? <CircularProgress size={18} color="inherit" /> : <RefreshRounded />
-                                }
-                                sx={{
-                                    borderRadius: 2.5,
-                                    fontWeight: 1000,
-                                    textTransform: "none",
-                                    boxShadow: "none",
-                                }}
+                                startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <RefreshRounded />}
+                                sx={{ borderRadius: 2.5, fontWeight: 1000, textTransform: "none", boxShadow: "none" }}
                             >
                                 Yenile
                             </Button>
 
+                            {/* ✅ Export artık eksik atmaz (excludeBOS:false) */}
                             <Button
-                                onClick={() => exportToExcel(visibleRows, COLUMNS)}
+                                onClick={() => exportToExcel(visibleRows, COLUMNS, cfg.exportFileName, { excludeBOS: false })}
                                 disabled={!visibleRows.length}
                                 variant="outlined"
                                 startIcon={<FileDownloadRounded />}
-                                sx={{
-                                    borderRadius: 2.5,
-                                    fontWeight: 1000,
-                                    textTransform: "none",
-                                }}
+                                sx={{ borderRadius: 2.5, fontWeight: 1000, textTransform: "none" }}
                             >
                                 Excel
                             </Button>
@@ -890,51 +812,23 @@ export default function CustomerTemplatePage() {
                     {/* KPI */}
                     <Stack direction={{ xs: "column", lg: "row" }} spacing={1.5}>
                         <Box sx={{ flex: 1 }}>
-                            <MetricCard
-                                icon={<BarChartRounded sx={{ color: "#0f172a" }} />}
-                                title="Görünen Kayıt"
-                                value={dashboard.total}
-                                hint="Arama + filtre sonrası"
-                            />
+                            <MetricCard icon={<BarChartRounded sx={{ color: "#0f172a" }} />} title="Görünen Kayıt" value={dashboard.total} hint="Arama + filtre sonrası" />
                         </Box>
                         <Box sx={{ flex: 1 }}>
-                            <MetricCard
-                                icon={<LocalShippingRounded sx={{ color: "#0369a1" }} />}
-                                title="FİLO"
-                                value={dashboard.filoCount}
-                                hint="Çalışma tipi FİLO"
-                            />
+                            <MetricCard icon={<LocalShippingRounded sx={{ color: "#0369a1" }} />} title="FİLO" value={dashboard.filoCount} hint="Çalışma tipi FİLO" />
                         </Box>
                         <Box sx={{ flex: 1 }}>
-                            <MetricCard
-                                icon={<LocalShippingRounded sx={{ color: "#c2410c" }} />}
-                                title="SPOT"
-                                value={dashboard.spotCount}
-                                hint="Çalışma tipi SPOT"
-                            />
+                            <MetricCard icon={<LocalShippingRounded sx={{ color: "#c2410c" }} />} title="SPOT" value={dashboard.spotCount} hint="Çalışma tipi SPOT" />
                         </Box>
                         <Box sx={{ flex: 1 }}>
-                            <MetricCard
-                                icon={<Inventory2Rounded sx={{ color: "#6d28d9" }} />}
-                                title="Unique Sefer"
-                                value={dashboard.seferCount}
-                                hint="TMSDespatchDocumentNo"
-                            />
+                            <MetricCard icon={<Inventory2Rounded sx={{ color: "#6d28d9" }} />} title="Unique Sefer" value={dashboard.seferCount} hint="TMSDespatchDocumentNo" />
                         </Box>
                     </Stack>
 
                     <FiloStatusBar counts={dashboard.filoOpCounts} />
 
                     {/* Toolbar */}
-                    <Paper
-                        elevation={0}
-                        sx={{
-                            p: 1.2,
-                            borderRadius: 4,
-                            border: "1px solid #eef2f7",
-                            bgcolor: "#fff",
-                        }}
-                    >
+                    <Paper elevation={0} sx={{ p: 1.2, borderRadius: 4, border: "1px solid #eef2f7", bgcolor: "#fff" }}>
                         <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems="center">
                             <TextField
                                 value={q}
@@ -942,12 +836,8 @@ export default function CustomerTemplatePage() {
                                 placeholder="Ara: sipariş, sefer, pozisyon, il/ilçe, nokta kodu…"
                                 size="small"
                                 fullWidth
-                                InputProps={{
-                                    startAdornment: <SearchRounded sx={{ mr: 1, color: "#94a3b8" }} />,
-                                }}
-                                sx={{
-                                    "& .MuiOutlinedInput-root": { borderRadius: 3 },
-                                }}
+                                InputProps={{ startAdornment: <SearchRounded sx={{ mr: 1, color: "#94a3b8" }} /> }}
+                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
                             />
 
                             <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
@@ -993,13 +883,7 @@ export default function CustomerTemplatePage() {
                                     label="Filtreler"
                                     clickable
                                     onClick={() => setFilterOpen(true)}
-                                    sx={{
-                                        fontWeight: 900,
-                                        borderRadius: 2,
-                                        bgcolor: "#fff",
-                                        color: "#0f172a",
-                                        border: "1px solid #e8edf4",
-                                    }}
+                                    sx={{ fontWeight: 900, borderRadius: 2, bgcolor: "#fff", color: "#0f172a", border: "1px solid #e8edf4" }}
                                 />
                                 <Chip
                                     label="Temizle"
@@ -1008,13 +892,7 @@ export default function CustomerTemplatePage() {
                                         setQ("");
                                         setMode("ALL");
                                     }}
-                                    sx={{
-                                        fontWeight: 900,
-                                        borderRadius: 2,
-                                        bgcolor: "#fff",
-                                        color: "#0f172a",
-                                        border: "1px solid #e8edf4",
-                                    }}
+                                    sx={{ fontWeight: 900, borderRadius: 2, bgcolor: "#fff", color: "#0f172a", border: "1px solid #e8edf4" }}
                                 />
                             </Stack>
                         </Stack>
@@ -1022,9 +900,7 @@ export default function CustomerTemplatePage() {
 
                     {/* Content */}
                     {err ? (
-                        <Alert severity="error" sx={{ borderRadius: 3 }}>
-                            {err}
-                        </Alert>
+                        <Alert severity="error" sx={{ borderRadius: 3 }}>{err}</Alert>
                     ) : loading && rows.length === 0 ? (
                         <Paper elevation={0} sx={{ borderRadius: 4, border: "1px solid #eef2f7", bgcolor: "#fff", p: 3 }}>
                             <Stack spacing={1.2}>
@@ -1032,39 +908,26 @@ export default function CustomerTemplatePage() {
                                 <Skeleton variant="rounded" height={44} />
                                 <Skeleton variant="rounded" height={44} />
                                 <Skeleton variant="rounded" height={44} />
-                                <Typography sx={{ mt: 1, color: "#64748b", fontWeight: 900 }}>
-                                    Veriler yükleniyor…
-                                </Typography>
+                                <Typography sx={{ mt: 1, color: "#64748b", fontWeight: 900 }}>Veriler yükleniyor…</Typography>
                             </Stack>
                         </Paper>
                     ) : rows.length === 0 && !searched ? (
                         <Paper elevation={0} sx={{ borderRadius: 4, border: "1px dashed #dbe3ef", bgcolor: "#fff", p: 5, textAlign: "center" }}>
                             <Inventory2Rounded sx={{ fontSize: 70, color: "#e8edf4", mb: 1 }} />
-                            <Typography sx={{ fontWeight: 1100, color: "#0f172a", mb: 1 }}>
-                                Başlamak için tarih aralığını seç
-                            </Typography>
-                            <Typography sx={{ color: "#64748b", fontWeight: 800 }}>
-                                Üstten “Yenile” butonuna bas.
-                            </Typography>
+                            <Typography sx={{ fontWeight: 1100, color: "#0f172a", mb: 1 }}>Başlamak için tarih aralığını seç</Typography>
+                            <Typography sx={{ color: "#64748b", fontWeight: 800 }}>Üstten “Yenile” butonuna bas.</Typography>
                         </Paper>
                     ) : visibleRows.length === 0 ? (
                         <Paper elevation={0} sx={{ borderRadius: 4, border: "1px dashed #dbe3ef", bgcolor: "#fff", p: 5, textAlign: "center" }}>
                             <Inventory2Rounded sx={{ fontSize: 70, color: "#e8edf4", mb: 1 }} />
-                            <Typography sx={{ fontWeight: 1100, color: "#0f172a", mb: 1 }}>
-                                Kayıt Bulunamadı
-                            </Typography>
-                            <Typography sx={{ color: "#64748b", fontWeight: 800 }}>
-                                Aramayı/filtreleri temizleyip tekrar deneyebilirsin.
-                            </Typography>
+                            <Typography sx={{ fontWeight: 1100, color: "#0f172a", mb: 1 }}>Kayıt Bulunamadı</Typography>
+                            <Typography sx={{ color: "#64748b", fontWeight: 800 }}>Aramayı/filtreleri temizleyip tekrar deneyebilirsin.</Typography>
                         </Paper>
                     ) : (
                         <Paper elevation={0} sx={{ borderRadius: 4, border: "1px solid #eef2f7", bgcolor: "#fff", overflow: "hidden" }}>
                             <Box sx={{ height: "70vh" }}>
                                 <DataGrid
-                                    rows={visibleRows.map((r, idx) => ({
-                                        id: r.TMSOrderId || `${r.TMSDespatchDocumentNo || "row"}-${idx}`,
-                                        ...r,
-                                    }))}
+                                    rows={visibleRows.map((r, idx) => ({ id: r.TMSOrderId || `${r.TMSDespatchDocumentNo || "row"}-${idx}`, ...r }))}
                                     columns={gridColumns}
                                     disableRowSelectionOnClick
                                     onRowClick={(params) => openDetail(params.row)}
@@ -1073,13 +936,7 @@ export default function CustomerTemplatePage() {
                                     sx={{
                                         border: "none",
                                         "& .MuiDataGrid-columnHeaders": { bgcolor: "#fff", borderBottom: "1px solid #eef2f7" },
-                                        "& .MuiDataGrid-columnHeaderTitle": {
-                                            fontWeight: 1000,
-                                            letterSpacing: "0.06rem",
-                                            textTransform: "uppercase",
-                                            fontSize: "0.72rem",
-                                            color: "#64748b",
-                                        },
+                                        "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 1000, letterSpacing: "0.06rem", textTransform: "uppercase", fontSize: "0.72rem", color: "#64748b" },
                                         "& .MuiDataGrid-row": { borderBottom: "1px solid #f1f5f9" },
                                         "& .MuiDataGrid-row:hover": { bgcolor: "#f8fafc", cursor: "pointer" },
                                         "& .MuiDataGrid-cell": { color: "#0f172a", borderBottom: "1px solid #f1f5f9" },
@@ -1096,117 +953,65 @@ export default function CustomerTemplatePage() {
                 anchor="right"
                 open={filterOpen}
                 onClose={() => setFilterOpen(false)}
-                PaperProps={{
-                    sx: {
-                        width: { xs: "100%", md: 420 },
-                        bgcolor: "#fff",
-                        borderLeft: "1px solid #eef2f7",
-                    },
-                }}
+                PaperProps={{ sx: { width: { xs: "100%", md: 420 }, bgcolor: "#fff", borderLeft: "1px solid #eef2f7" } }}
             >
                 <Box sx={{ p: 2.2 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Box>
-                            <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 16 }}>
-                                Filtreler
-                            </Typography>
-                            <Typography sx={{ color: "#64748b", fontWeight: 800, fontSize: 12 }}>
-                                Detay filtreler için alan.
-                            </Typography>
+                            <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 16 }}>Filtreler</Typography>
+                            <Typography sx={{ color: "#64748b", fontWeight: 800, fontSize: 12 }}>Detay filtreler için alan.</Typography>
                         </Box>
-                        <IconButton onClick={() => setFilterOpen(false)}>
-                            <CloseRounded />
-                        </IconButton>
+                        <IconButton onClick={() => setFilterOpen(false)}><CloseRounded /></IconButton>
                     </Stack>
 
                     <Divider sx={{ my: 1.6 }} />
 
                     <Stack spacing={1.2}>
-                        <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
-                            Tarih Aralığı
-                        </Typography>
+                        <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>Tarih Aralığı</Typography>
 
                         <Stack direction="row" spacing={1}>
                             <Box sx={{ flex: 1 }}>
-                                <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 900, mb: 0.5 }}>
-                                    Başlangıç
-                                </Typography>
+                                <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 900, mb: 0.5 }}>Başlangıç</Typography>
                                 <input
                                     type="date"
                                     value={dateInputValue(range.start)}
                                     onChange={(e) => setRange((p) => ({ ...p, start: new Date(e.target.value) }))}
-                                    style={{
-                                        width: "100%",
-                                        border: "1px solid #e8edf4",
-                                        borderRadius: 12,
-                                        padding: "10px 10px",
-                                        fontWeight: 900,
-                                        color: "#0f172a",
-                                        outline: "none",
-                                        background: "#fff",
-                                    }}
+                                    style={{ width: "100%", border: "1px solid #e8edf4", borderRadius: 12, padding: "10px 10px", fontWeight: 900, color: "#0f172a", outline: "none", background: "#fff" }}
                                 />
                             </Box>
                             <Box sx={{ flex: 1 }}>
-                                <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 900, mb: 0.5 }}>
-                                    Bitiş
-                                </Typography>
+                                <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 900, mb: 0.5 }}>Bitiş</Typography>
                                 <input
                                     type="date"
                                     value={dateInputValue(range.end)}
                                     onChange={(e) => setRange((p) => ({ ...p, end: new Date(e.target.value) }))}
-                                    style={{
-                                        width: "100%",
-                                        border: "1px solid #e8edf4",
-                                        borderRadius: 12,
-                                        padding: "10px 10px",
-                                        fontWeight: 900,
-                                        color: "#0f172a",
-                                        outline: "none",
-                                        background: "#fff",
-                                    }}
+                                    style={{ width: "100%", border: "1px solid #e8edf4", borderRadius: 12, padding: "10px 10px", fontWeight: 900, color: "#0f172a", outline: "none", background: "#fff" }}
                                 />
                             </Box>
                         </Stack>
 
                         <Divider sx={{ my: 1 }} />
 
-                        <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
-                            Hızlı İşlemler
-                        </Typography>
-
                         <Stack direction="row" spacing={1}>
                             <Button
                                 fullWidth
                                 variant="contained"
-                                onClick={() => {
-                                    setFilterOpen(false);
-                                    fetchTemplateData();
-                                }}
+                                onClick={() => { setFilterOpen(false); fetchTemplateData(); }}
                                 disabled={loading}
                                 startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <RefreshRounded />}
                                 sx={{ borderRadius: 3, fontWeight: 1000, textTransform: "none", boxShadow: "none" }}
                             >
                                 Yenile
                             </Button>
-
                             <Button
                                 fullWidth
                                 variant="outlined"
-                                onClick={() => {
-                                    setQ("");
-                                    setMode("ALL");
-                                    setFilterOpen(false);
-                                }}
+                                onClick={() => { setQ(""); setMode("ALL"); setFilterOpen(false); }}
                                 sx={{ borderRadius: 3, fontWeight: 1000, textTransform: "none" }}
                             >
                                 Temizle
                             </Button>
                         </Stack>
-
-                        <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 800, mt: 0.5 }}>
-                            Not: Buraya il/ilçe, nokta kodu, durum gibi ek filtreler eklenebilir.
-                        </Typography>
                     </Stack>
                 </Box>
             </Drawer>
@@ -1216,28 +1021,15 @@ export default function CustomerTemplatePage() {
                 anchor="right"
                 open={detailOpen}
                 onClose={closeDetail}
-                PaperProps={{
-                    sx: {
-                        width: { xs: "100%", md: 520 },
-                        bgcolor: "#fff",
-                        borderLeft: "1px solid #eef2f7",
-                    },
-                }}
+                PaperProps={{ sx: { width: { xs: "100%", md: 520 }, bgcolor: "#fff", borderLeft: "1px solid #eef2f7" } }}
             >
                 <Box sx={{ p: 2.2 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Box>
-                            <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 16 }}>
-                                Sevkiyat Detayı
-                            </Typography>
-                            <Typography sx={{ color: "#64748b", fontWeight: 800, fontSize: 12 }}>
-                                Satıra tıklayarak açıldı
-                            </Typography>
+                            <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 16 }}>Sevkiyat Detayı</Typography>
+                            <Typography sx={{ color: "#64748b", fontWeight: 800, fontSize: 12 }}>Satıra tıklayarak açıldı</Typography>
                         </Box>
-
-                        <IconButton onClick={closeDetail}>
-                            <CloseRounded />
-                        </IconButton>
+                        <IconButton onClick={closeDetail}><CloseRounded /></IconButton>
                     </Stack>
 
                     <Divider sx={{ my: 1.6 }} />
@@ -1245,182 +1037,17 @@ export default function CustomerTemplatePage() {
                     {!selectedRow ? (
                         <Typography sx={{ color: "#64748b", fontWeight: 800 }}>—</Typography>
                     ) : (
-                        <Stack spacing={1.3}>
-                            <Stack direction="row" spacing={1} flexWrap="wrap">
-                                <Chip
-                                    size="small"
-                                    label={`Sipariş: ${selectedRow.CustomerOrderNumber || "—"}`}
-                                    sx={{
-                                        bgcolor: "#f8fafc",
-                                        border: "1px solid #e8edf4",
-                                        fontWeight: 900,
-                                        borderRadius: 2,
-                                    }}
-                                />
-                                <Chip
-                                    size="small"
-                                    label={`Sefer: ${selectedRow.TMSDespatchDocumentNo || "—"}`}
-                                    sx={{
-                                        bgcolor: "#f8fafc",
-                                        border: "1px solid #e8edf4",
-                                        fontWeight: 900,
-                                        borderRadius: 2,
-                                    }}
-                                />
-                                <Chip
-                                    size="small"
-                                    label={`${selectedRow.VehicleWorkingName || "—"}`}
-                                    sx={{
-                                        bgcolor: isFilo(selectedRow.VehicleWorkingName) ? "#e0f2fe" : "#ffedd5",
-                                        color: isFilo(selectedRow.VehicleWorkingName) ? "#0369a1" : "#c2410c",
-                                        border: "1px solid #e8edf4",
-                                        fontWeight: 900,
-                                        borderRadius: 2,
-                                    }}
-                                />
-                                {(() => {
-                                    const filoOp = getFiloOperationalStatus(selectedRow);
-                                    if (!filoOp) return null;
-                                    const st = getFiloOperationalChipStyle(filoOp);
-                                    return (
-                                        <Chip
-                                            size="small"
-                                            label={filoOp}
-                                            sx={{
-                                                bgcolor: st.bg,
-                                                color: st.color,
-                                                border: `1px solid ${st.color}20`,
-                                                fontWeight: 1000,
-                                                borderRadius: 2,
-                                            }}
-                                        />
-                                    );
-                                })()}
-                            </Stack>
-
-                            <Paper elevation={0} sx={{ p: 1.6, borderRadius: 3, border: "1px solid #eef2f7", bgcolor: "#fff" }}>
-                                <Typography sx={{ fontWeight: 1000, color: "#0f172a", mb: 1 }}>Genel</Typography>
-                                <Stack spacing={0.8}>
-                                    <RowLine label="Müşteri Ref" value={selectedRow.CustomerDocumentNumber} />
-                                    <RowLine label="Araç Tipi" value={selectedRow.VehicleTypeName} />
-                                    <RowLine label="Servis" value={selectedRow.ServiceName} />
-                                    <RowLine label="Pozisyon" value={selectedRow.TMSVehicleRequestDocumentNo} />
-                                    <RowLine label="TMS ID" value={selectedRow.TMSOrderId} />
-                                </Stack>
-                            </Paper>
-
-                            <Paper elevation={0} sx={{ p: 1.6, borderRadius: 3, border: "1px solid #eef2f7", bgcolor: "#fff" }}>
-                                <Typography sx={{ fontWeight: 1000, color: "#0f172a", mb: 1 }}>Rota</Typography>
-                                <Stack spacing={1}>
-                                    <RouteBox title="Yükleme" code={selectedRow.PickupAddressCode} city={selectedRow.PickupCityName} county={selectedRow.PickupCountyName} date={selectedRow.PickupDate} />
-                                    <RouteBox title="Teslim" code={selectedRow.DeliveryAddressCode} city={selectedRow.DeliveryCityName} county={selectedRow.DeliveryCountyName} date={selectedRow.DeliveryDate} />
-                                </Stack>
-                            </Paper>
-
-                            <Paper elevation={0} sx={{ p: 1.6, borderRadius: 3, border: "1px solid #eef2f7", bgcolor: "#fff" }}>
-                                <Typography sx={{ fontWeight: 1000, color: "#0f172a", mb: 1 }}>Zaman Çizelgesi</Typography>
-                                <Stack spacing={0.9}>
-                                    <TimelineItem title="Sefer Açılış" value={selectedRow.TMSDespatchCreatedDate} />
-                                    <TimelineItem title="Araç Yola Çıkış" value={selectedRow.TMSDespatchVehicleDate} />
-                                    <TimelineItem title="Teslim Zamanı (TMS)" value={selectedRow.TMSDespatchDeliveryTime} />
-
-                                    {isFilo(selectedRow.VehicleWorkingName) ? (
-                                        <>
-                                            <Divider sx={{ my: 0.8 }} />
-                                            <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
-                                                FİLO PLAN
-                                            </Typography>
-                                            <TimelineItem title="Yükleme Varış" value={selectedRow?.FILO_PLAN?.yukleme_varis} />
-                                            <TimelineItem title="Yükleme Çıkış" value={selectedRow?.FILO_PLAN?.yukleme_cikis} />
-                                            <TimelineItem title="Teslim Varış" value={selectedRow?.FILO_PLAN?.teslim_varis} />
-                                            <TimelineItem title="Teslim Çıkış" value={selectedRow?.FILO_PLAN?.teslim_cikis} />
-                                        </>
-                                    ) : null}
-                                </Stack>
-                            </Paper>
+                        <Stack spacing={1.2}>
+                            <Chip size="small" label={`Sipariş: ${selectedRow.CustomerOrderNumber || "—"}`} sx={{ bgcolor: "#f8fafc", border: "1px solid #e8edf4", fontWeight: 900, borderRadius: 2 }} />
+                            <Chip size="small" label={`Sefer: ${selectedRow.TMSDespatchDocumentNo || "—"}`} sx={{ bgcolor: "#f8fafc", border: "1px solid #e8edf4", fontWeight: 900, borderRadius: 2 }} />
+                            <Chip size="small" label={`Proje: ${selectedRow.ProjectName || "—"}`} sx={{ bgcolor: "#f8fafc", border: "1px solid #e8edf4", fontWeight: 900, borderRadius: 2 }} />
+                            <Typography sx={{ color: "#64748b", fontWeight: 900, fontSize: 12 }}>
+                                Yükleme: {selectedRow.PickupAddressCode || "—"} | Teslim: {selectedRow.DeliveryAddressCode || "—"}
+                            </Typography>
                         </Stack>
                     )}
                 </Box>
             </Drawer>
         </Box>
-    );
-}
-
-/* ------------------------ Drawer UI Helpers ------------------------ */
-function RowLine({ label, value }) {
-    return (
-        <Stack direction="row" justifyContent="space-between" spacing={2}>
-            <Typography sx={{ color: "#64748b", fontWeight: 900, fontSize: 12 }}>
-                {label}
-            </Typography>
-            <Typography
-                sx={{
-                    color: "#0f172a",
-                    fontWeight: 900,
-                    fontSize: 12,
-                    textAlign: "right",
-                    maxWidth: 320,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                }}
-                title={value ? String(value) : undefined}
-            >
-                {value ? String(value) : "—"}
-            </Typography>
-        </Stack>
-    );
-}
-
-function RouteBox({ title, code, city, county, date }) {
-    return (
-        <Paper
-            elevation={0}
-            sx={{
-                p: 1.2,
-                borderRadius: 3,
-                border: "1px solid #f1f5f9",
-                bgcolor: "#fafbfc",
-            }}
-        >
-            <Stack direction="row" justifyContent="space-between" alignItems="baseline">
-                <Typography sx={{ fontWeight: 1100, color: "#0f172a" }}>{title}</Typography>
-                <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
-                    {formatDateTimeTR(date)}
-                </Typography>
-            </Stack>
-
-            <Typography sx={{ mt: 0.6, color: "#0f172a", fontWeight: 1000, fontSize: 13 }}>
-                {code || "—"}
-            </Typography>
-            <Typography sx={{ color: "#64748b", fontWeight: 900, fontSize: 12 }}>
-                {(city || "—") + (county ? ` / ${county}` : "")}
-            </Typography>
-        </Paper>
-    );
-}
-
-function TimelineItem({ title, value }) {
-    const exists = value !== null && value !== undefined && String(value).trim() !== "";
-    return (
-        <Stack direction="row" spacing={1.2} alignItems="center">
-            <Box
-                sx={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: 999,
-                    bgcolor: exists ? "#3b82f6" : "#cbd5e1",
-                    flexShrink: 0,
-                }}
-            />
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography sx={{ color: "#64748b", fontWeight: 900, fontSize: 12 }}>
-                    {title}
-                </Typography>
-                <Typography sx={{ color: "#0f172a", fontWeight: 1000, fontSize: 13 }}>
-                    {formatDateTimeTR(value)}
-                </Typography>
-            </Box>
-        </Stack>
     );
 }
