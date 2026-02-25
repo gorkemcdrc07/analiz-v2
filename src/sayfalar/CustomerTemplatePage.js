@@ -49,7 +49,8 @@ import { supabase2 } from "../supabase2/supabaseClient2";
 /* ------------------------ MÜŞTERİ/PROJE KONFİG ------------------------ */
 const CUSTOMER_PROJECTS = {
     EKSUN: ["EKSUN GIDA FTL"],
-    BUNGE: ["BUNGE LÜLEBURGAZ FTL", "BUNGE PALET", "BUNGE GEBZE FTL"],
+    // ✅ İSTEK: BUNGE sadece LÜLEBURGAZ gelsin
+    BUNGE: ["BUNGE LÜLEBURGAZ FTL"],
 };
 
 const getCustomerConfig = (key) => {
@@ -206,8 +207,7 @@ const calcDashboard = (items) => {
     return { ...base, filoOpCounts };
 };
 
-/* ------------------------ ✅ EXCEL EXPORT (BOS FİLTRESİ DÜZELTİLDİ) ------------------------ */
-// default: excludeBOS = false  (artık excel eksik atmayacak)
+/* ------------------------ ✅ EXCEL EXPORT ------------------------ */
 const exportToExcel = (rows, columns, fileName = "SEVKIYAT.xlsx", opts = { excludeBOS: false }) => {
     const EXCLUDED_KEYS = new Set(["ServiceName", "TMSVehicleRequestDocumentNo", "TMSOrderId", "DeliveryDate"]);
     const excludeBOS = Boolean(opts?.excludeBOS);
@@ -527,10 +527,14 @@ export default function CustomerTemplatePage() {
         }
     }, [range, user, cfg]);
 
+    // ✅ İSTEK: tabloda BOS ile başlayan seferler görünmesin
     const visibleRows = useMemo(() => {
         const query = normalizeName(q);
 
         return rows.filter((r) => {
+            const sefer = String(r?.TMSDespatchDocumentNo || "").trim().toUpperCase();
+            if (sefer.startsWith("BOS")) return false;
+
             if (mode === "FILO" && !isFilo(r.VehicleWorkingName)) return false;
             if (mode === "SPOT" && !isSpot(r.VehicleWorkingName)) return false;
 
@@ -574,8 +578,9 @@ export default function CustomerTemplatePage() {
         setSelectedRow(null);
     };
 
+    // ✅ Filo kolonları renderCell ile (valueGetter crash fix)
     const gridColumns = useMemo(() => {
-        return [
+        const baseCols = [
             { field: "CustomerOrderNumber", headerName: "Sipariş No", width: 150 },
             { field: "TMSDespatchDocumentNo", headerName: "Sefer No", width: 140 },
             { field: "TMSVehicleRequestDocumentNo", headerName: "Pozisyon", width: 140 },
@@ -625,7 +630,42 @@ export default function CustomerTemplatePage() {
             { field: "DeliveryDate", headerName: "Teslim Tarihi", width: 170, valueFormatter: (p) => formatDateTimeTR(p?.value) },
             { field: "TMSDespatchCreatedDate", headerName: "Sefer Açılış", width: 180, valueFormatter: (p) => formatDateTimeTR(p?.value) },
         ];
-    }, []);
+
+        const filoCols = [
+            {
+                field: "FILO_PLAN_yukleme_varis",
+                headerName: "Yükleme Varış",
+                width: 170,
+                sortable: false,
+                renderCell: (params) => formatDateTimeTR(params?.row?.FILO_PLAN?.yukleme_varis),
+            },
+            {
+                field: "FILO_PLAN_yukleme_cikis",
+                headerName: "Yükleme Çıkış",
+                width: 170,
+                sortable: false,
+                renderCell: (params) => formatDateTimeTR(params?.row?.FILO_PLAN?.yukleme_cikis),
+            },
+            {
+                field: "FILO_PLAN_teslim_varis",
+                headerName: "Teslim Varış",
+                width: 170,
+                sortable: false,
+                renderCell: (params) => formatDateTimeTR(params?.row?.FILO_PLAN?.teslim_varis),
+            },
+            {
+                field: "FILO_PLAN_teslim_cikis",
+                headerName: "Teslim Çıkış",
+                width: 170,
+                sortable: false,
+                renderCell: (params) => formatDateTimeTR(params?.row?.FILO_PLAN?.teslim_cikis),
+            },
+        ];
+
+        // Sadece FİLO modunda kolonları ekle (tablo kalabalık olmasın)
+        if (mode === "FILO") return [...baseCols, ...filoCols];
+        return baseCols;
+    }, [mode]);
 
     if (!user?.kullanici_adi) return <Navigate to="/login" replace />;
 
@@ -665,9 +705,7 @@ export default function CustomerTemplatePage() {
                             </Box>
                             <Box>
                                 <Typography sx={{ fontWeight: 1100, color: "#0f172a", lineHeight: 1.1 }}>Flowline</Typography>
-                                <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>
-                                    {cfg.key ? `${cfg.key} paneli` : "Sevkiyat takip"}
-                                </Typography>
+                                <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>{cfg.key ? `${cfg.key} paneli` : "Sevkiyat takip"}</Typography>
                             </Box>
                         </Stack>
 
@@ -687,9 +725,7 @@ export default function CustomerTemplatePage() {
                             <Button
                                 onClick={openUserMenu}
                                 variant="outlined"
-                                startIcon={
-                                    <Avatar sx={{ width: 22, height: 22, fontSize: 12, bgcolor: "#0f172a" }}>{avatarText}</Avatar>
-                                }
+                                startIcon={<Avatar sx={{ width: 22, height: 22, fontSize: 12, bgcolor: "#0f172a" }}>{avatarText}</Avatar>}
                                 endIcon={<AccountCircleRounded />}
                                 sx={{
                                     borderRadius: 999,
@@ -756,14 +792,14 @@ export default function CustomerTemplatePage() {
                                 <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 18, letterSpacing: -0.4 }}>{cfg.title}</Typography>
                                 <Chip size="small" label="Sevkiyat Takip" sx={{ bgcolor: "#fff", border: "1px solid #eef2f7", color: "#334155", fontWeight: 900, borderRadius: 2 }} />
                             </Stack>
-                            <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>
-                                Son güncelleme: {lastUpdated ? formatDateTimeTR(lastUpdated.toISOString()) : "—"}
-                            </Typography>
+                            <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>Son güncelleme: {lastUpdated ? formatDateTimeTR(lastUpdated.toISOString()) : "—"}</Typography>
                         </Stack>
 
                         <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }}>
                             <Stack direction="row" spacing={1} alignItems="center">
-                                <Typography variant="caption" sx={{ color: "#94a3b8", fontWeight: 900 }}>Başlangıç</Typography>
+                                <Typography variant="caption" sx={{ color: "#94a3b8", fontWeight: 900 }}>
+                                    Başlangıç
+                                </Typography>
                                 <input
                                     type="date"
                                     value={dateInputValue(range.start)}
@@ -773,7 +809,9 @@ export default function CustomerTemplatePage() {
                             </Stack>
 
                             <Stack direction="row" spacing={1} alignItems="center">
-                                <Typography variant="caption" sx={{ color: "#94a3b8", fontWeight: 900 }}>Bitiş</Typography>
+                                <Typography variant="caption" sx={{ color: "#94a3b8", fontWeight: 900 }}>
+                                    Bitiş
+                                </Typography>
                                 <input
                                     type="date"
                                     value={dateInputValue(range.end)}
@@ -792,7 +830,6 @@ export default function CustomerTemplatePage() {
                                 Yenile
                             </Button>
 
-                            {/* ✅ Export artık eksik atmaz (excludeBOS:false) */}
                             <Button
                                 onClick={() => exportToExcel(visibleRows, COLUMNS, cfg.exportFileName, { excludeBOS: false })}
                                 disabled={!visibleRows.length}
@@ -900,7 +937,9 @@ export default function CustomerTemplatePage() {
 
                     {/* Content */}
                     {err ? (
-                        <Alert severity="error" sx={{ borderRadius: 3 }}>{err}</Alert>
+                        <Alert severity="error" sx={{ borderRadius: 3 }}>
+                            {err}
+                        </Alert>
                     ) : loading && rows.length === 0 ? (
                         <Paper elevation={0} sx={{ borderRadius: 4, border: "1px solid #eef2f7", bgcolor: "#fff", p: 3 }}>
                             <Stack spacing={1.2}>
@@ -949,19 +988,16 @@ export default function CustomerTemplatePage() {
             </Container>
 
             {/* FILTER DRAWER */}
-            <Drawer
-                anchor="right"
-                open={filterOpen}
-                onClose={() => setFilterOpen(false)}
-                PaperProps={{ sx: { width: { xs: "100%", md: 420 }, bgcolor: "#fff", borderLeft: "1px solid #eef2f7" } }}
-            >
+            <Drawer anchor="right" open={filterOpen} onClose={() => setFilterOpen(false)} PaperProps={{ sx: { width: { xs: "100%", md: 420 }, bgcolor: "#fff", borderLeft: "1px solid #eef2f7" } }}>
                 <Box sx={{ p: 2.2 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Box>
                             <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 16 }}>Filtreler</Typography>
                             <Typography sx={{ color: "#64748b", fontWeight: 800, fontSize: 12 }}>Detay filtreler için alan.</Typography>
                         </Box>
-                        <IconButton onClick={() => setFilterOpen(false)}><CloseRounded /></IconButton>
+                        <IconButton onClick={() => setFilterOpen(false)}>
+                            <CloseRounded />
+                        </IconButton>
                     </Stack>
 
                     <Divider sx={{ my: 1.6 }} />
@@ -996,7 +1032,10 @@ export default function CustomerTemplatePage() {
                             <Button
                                 fullWidth
                                 variant="contained"
-                                onClick={() => { setFilterOpen(false); fetchTemplateData(); }}
+                                onClick={() => {
+                                    setFilterOpen(false);
+                                    fetchTemplateData();
+                                }}
                                 disabled={loading}
                                 startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <RefreshRounded />}
                                 sx={{ borderRadius: 3, fontWeight: 1000, textTransform: "none", boxShadow: "none" }}
@@ -1006,7 +1045,11 @@ export default function CustomerTemplatePage() {
                             <Button
                                 fullWidth
                                 variant="outlined"
-                                onClick={() => { setQ(""); setMode("ALL"); setFilterOpen(false); }}
+                                onClick={() => {
+                                    setQ("");
+                                    setMode("ALL");
+                                    setFilterOpen(false);
+                                }}
                                 sx={{ borderRadius: 3, fontWeight: 1000, textTransform: "none" }}
                             >
                                 Temizle
@@ -1017,19 +1060,16 @@ export default function CustomerTemplatePage() {
             </Drawer>
 
             {/* DETAIL DRAWER */}
-            <Drawer
-                anchor="right"
-                open={detailOpen}
-                onClose={closeDetail}
-                PaperProps={{ sx: { width: { xs: "100%", md: 520 }, bgcolor: "#fff", borderLeft: "1px solid #eef2f7" } }}
-            >
+            <Drawer anchor="right" open={detailOpen} onClose={closeDetail} PaperProps={{ sx: { width: { xs: "100%", md: 520 }, bgcolor: "#fff", borderLeft: "1px solid #eef2f7" } }}>
                 <Box sx={{ p: 2.2 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Box>
                             <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 16 }}>Sevkiyat Detayı</Typography>
                             <Typography sx={{ color: "#64748b", fontWeight: 800, fontSize: 12 }}>Satıra tıklayarak açıldı</Typography>
                         </Box>
-                        <IconButton onClick={closeDetail}><CloseRounded /></IconButton>
+                        <IconButton onClick={closeDetail}>
+                            <CloseRounded />
+                        </IconButton>
                     </Stack>
 
                     <Divider sx={{ my: 1.6 }} />
@@ -1044,6 +1084,33 @@ export default function CustomerTemplatePage() {
                             <Typography sx={{ color: "#64748b", fontWeight: 900, fontSize: 12 }}>
                                 Yükleme: {selectedRow.PickupAddressCode || "—"} | Teslim: {selectedRow.DeliveryAddressCode || "—"}
                             </Typography>
+
+                            {isFilo(selectedRow.VehicleWorkingName) ? (
+                                <Paper elevation={0} sx={{ p: 1.4, borderRadius: 3, border: "1px solid #eef2f7", bgcolor: "#fff" }}>
+                                    <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 13, mb: 1 }}>FİLO Zamanları</Typography>
+
+                                    <Stack spacing={0.6}>
+                                        <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
+                                            Yükleme Varış: <span style={{ color: "#0f172a" }}>{formatDateTimeTR(selectedRow?.FILO_PLAN?.yukleme_varis)}</span>
+                                        </Typography>
+                                        <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
+                                            Yükleme Çıkış: <span style={{ color: "#0f172a" }}>{formatDateTimeTR(selectedRow?.FILO_PLAN?.yukleme_cikis)}</span>
+                                        </Typography>
+                                        <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
+                                            Teslim Varış: <span style={{ color: "#0f172a" }}>{formatDateTimeTR(selectedRow?.FILO_PLAN?.teslim_varis)}</span>
+                                        </Typography>
+                                        <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
+                                            Teslim Çıkış: <span style={{ color: "#0f172a" }}>{formatDateTimeTR(selectedRow?.FILO_PLAN?.teslim_cikis)}</span>
+                                        </Typography>
+
+                                        <Divider sx={{ my: 0.8 }} />
+
+                                        <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
+                                            Operasyon Durumu: <span style={{ color: "#0f172a" }}>{getFiloOperationalStatus(selectedRow) || "BELİRSİZ"}</span>
+                                        </Typography>
+                                    </Stack>
+                                </Paper>
+                            ) : null}
                         </Stack>
                     )}
                 </Box>
