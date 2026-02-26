@@ -54,7 +54,7 @@ function extractItems(payload) {
 }
 
 /* ---------------- CONST ---------------- */
-const PEOPLE = ["HALİT BAKACAK", "IŞIL GÖKÇE KATRAN", "YASEMİN YILMAZ", "İDİL ÇEVİK", "YASEMİN KARA"];
+const PEOPLE = ["HALİT BAKACAK", "IŞIL GÖKÇE KATRAN", "YASEMİN YILMAZ", "İDİL ÇEVİK", "YASEMİN KARA", "ZEYNEP HAFSA SAMUR"];
 const normTR = (s) =>
     (s ?? "").toString().trim().toLocaleUpperCase("tr-TR").replace(/\s+/g, " ");
 
