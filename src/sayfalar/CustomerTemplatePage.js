@@ -393,11 +393,10 @@ export default function CustomerTemplatePage() {
     };
 
     /**
-     * ✅ ENRICH STRATEJİSİ (FİLO için)
-     * 1) seferler + sefer_detaylari (aktif seferler)
-     * 2) bulunamazsa tamamlanan_detaylar (tamamlanan/arsiv detay)
-     *
-     * Not: "tamamlanan_seferler" tablosu yok dedin, o yüzden sadece tamamlanan_detaylar kullanıyoruz.
+     * ✅ ENRICH STRATEJİSİ (FİLO için) — GÜNCEL
+     * 1) seferler + sefer_detaylari (aktif)
+     * 2) eksik kalan sefer_no için tamamlanan_detaylar (arsiv)
+     *  -> artık "aktiften bir şey bulunduysa fallback çalışmıyor" problemi yok
      */
     const fetchTemplateData = useCallback(async () => {
         if (!user?.kullanici_adi) return;
@@ -425,7 +424,6 @@ export default function CustomerTemplatePage() {
                     const data = await res.json();
                     collected.push(...extractItems(data));
                 } else {
-                    // backend 4xx/5xx ise
                     const txt = await res.text().catch(() => "");
                     throw new Error(`Backend hata: ${res.status} ${txt ? `- ${txt}` : ""}`);
                 }
@@ -468,7 +466,6 @@ export default function CustomerTemplatePage() {
             const filoRows = filteredBase.filter((r) => isFilo(r.VehicleWorkingName) && r.TMSDespatchDocumentNo);
             const seferNos = Array.from(new Set(filoRows.map((r) => String(r.TMSDespatchDocumentNo).trim()).filter(Boolean)));
 
-            // küçük helper: aynı mantıkla map kurup rows enrich et
             const buildEnrichedRowsWithPlan = (planByKey, planBySefer) => {
                 const enriched = filteredBase.map((r) => {
                     if (!isFilo(r.VehicleWorkingName) || !r.TMSDespatchDocumentNo) return r;
@@ -487,17 +484,43 @@ export default function CustomerTemplatePage() {
                 setLastUpdated(new Date());
             };
 
+            // ✅ GÜNCEL ENRICH: aktif + eksik kalanlar için tamamlanan
             if (seferNos.length > 0) {
-                // 1) AKTİF SEFERLER: seferler -> sefer_detaylari
+                const planByKey = new Map();
+                const planBySefer = new Map();
+
+                const toTimes = (d) => ({
+                    yukleme_varis: d?.yukleme_varis,
+                    yukleme_cikis: d?.yukleme_cikis,
+                    teslim_varis: d?.teslim_varis,
+                    teslim_cikis: d?.teslim_cikis,
+                });
+
+                const scoreTimes = (t) => {
+                    const keys = ["yukleme_varis", "yukleme_cikis", "teslim_varis", "teslim_cikis"];
+                    return keys.reduce((acc, k) => acc + (hasVal(t?.[k]) ? 1 : 0), 0);
+                };
+
+                const upsertPlanBySefer = (seferNo, times) => {
+                    const prev = planBySefer.get(seferNo);
+                    if (!prev || scoreTimes(times) > scoreTimes(prev)) planBySefer.set(seferNo, times);
+                };
+
+                const upsertPlanByKey = (key, times) => {
+                    const prev = planByKey.get(key);
+                    if (!prev || scoreTimes(times) > scoreTimes(prev)) planByKey.set(key, times);
+                };
+
+                const buildKey = (seferNo, yuklemeNoktasi, teslimNoktasi) =>
+                    `${seferNo}|${normalizeName(yuklemeNoktasi)}|${normalizeName(teslimNoktasi)}`;
+
+                // 1) AKTİF: seferler -> sefer_detaylari
                 const { data: seferlerList, error: seferlerErr } = await supabase2
                     .from("seferler")
                     .select("id,sefer_no")
                     .in("sefer_no", seferNos);
 
-                if (seferlerErr) {
-                    // Supabase error ama yine de fallback'e gitmek isteyebiliriz
-                    console.warn("supabase seferler error:", seferlerErr);
-                }
+                if (seferlerErr) console.warn("supabase seferler error:", seferlerErr);
 
                 const seferIdByNo = new Map();
                 for (const s of seferlerList || []) {
@@ -512,24 +535,8 @@ export default function CustomerTemplatePage() {
                         .select("sefer_id,yukleme_noktasi,teslim_noktasi,yukleme_varis,yukleme_cikis,teslim_varis,teslim_cikis,nokta_sirasi")
                         .in("sefer_id", seferIds);
 
-                    if (detayErr) {
-                        console.warn("supabase sefer_detaylari error:", detayErr);
-                    }
+                    if (detayErr) console.warn("supabase sefer_detaylari error:", detayErr);
 
-                    const planByKey = new Map();
-                    const planBySefer = new Map();
-
-                    const buildKey = (seferNo, yuklemeNoktasi, teslimNoktasi) =>
-                        `${seferNo}|${normalizeName(yuklemeNoktasi)}|${normalizeName(teslimNoktasi)}`;
-
-                    const toTimes = (d) => ({
-                        yukleme_varis: d?.yukleme_varis,
-                        yukleme_cikis: d?.yukleme_cikis,
-                        teslim_varis: d?.teslim_varis,
-                        teslim_cikis: d?.teslim_cikis,
-                    });
-
-                    // detaylardan sefer_no'yu sefer_id üzerinden çekelim
                     const seferNoById = new Map();
                     for (const [no, id] of seferIdByNo.entries()) seferNoById.set(String(id), String(no));
 
@@ -540,63 +547,49 @@ export default function CustomerTemplatePage() {
                         const seferNo = seferNoById.get(String(sid));
                         if (!seferNo) continue;
 
-                        if (!planBySefer.has(seferNo)) planBySefer.set(seferNo, toTimes(d));
+                        const times = toTimes(d);
+                        upsertPlanBySefer(seferNo, times);
 
                         if (d?.yukleme_noktasi && d?.teslim_noktasi) {
-                            planByKey.set(buildKey(seferNo, d.yukleme_noktasi, d.teslim_noktasi), toTimes(d));
+                            upsertPlanByKey(buildKey(seferNo, d.yukleme_noktasi, d.teslim_noktasi), times);
                         }
                     }
-
-                    buildEnrichedRowsWithPlan(planByKey, planBySefer);
-                    return;
                 }
 
-                // 2) FALLBACK: tamamlanan_detaylar (sefer_no üzerinden)
-                const { data: doneDetaylar, error: doneErr } = await supabase2
-                    .from("tamamlanan_detaylar")
-                    .select("sefer_no,yukleme_noktasi,teslim_noktasi,yukleme_varis,yukleme_cikis,teslim_varis,teslim_cikis,nokta_sirasi")
-                    .in("sefer_no", seferNos);
+                // 2) TAMAMLANAN: aktifte bulunamayan sefer_no’lar için
+                const missingSeferNos = seferNos.filter((no) => !seferIdByNo.has(String(no).trim()));
 
-                if (doneErr) {
-                    console.warn("supabase tamamlanan_detaylar error:", doneErr);
-                }
+                if (missingSeferNos.length > 0) {
+                    const { data: doneDetaylar, error: doneErr } = await supabase2
+                        .from("tamamlanan_detaylar")
+                        .select("sefer_no,yukleme_noktasi,teslim_noktasi,yukleme_varis,yukleme_cikis,teslim_varis,teslim_cikis,nokta_sirasi")
+                        .in("sefer_no", missingSeferNos);
 
-                if ((doneDetaylar || []).length > 0) {
-                    const planByKey = new Map();
-                    const planBySefer = new Map();
-
-                    const buildKey = (seferNo, yuklemeNoktasi, teslimNoktasi) =>
-                        `${seferNo}|${normalizeName(yuklemeNoktasi)}|${normalizeName(teslimNoktasi)}`;
-
-                    const toTimes = (d) => ({
-                        yukleme_varis: d?.yukleme_varis,
-                        yukleme_cikis: d?.yukleme_cikis,
-                        teslim_varis: d?.teslim_varis,
-                        teslim_cikis: d?.teslim_cikis,
-                    });
+                    if (doneErr) console.warn("supabase tamamlanan_detaylar error:", doneErr);
 
                     for (const d of doneDetaylar || []) {
                         const seferNo = String(d?.sefer_no || "").trim();
                         if (!seferNo) continue;
 
-                        if (!planBySefer.has(seferNo)) planBySefer.set(seferNo, toTimes(d));
+                        const times = toTimes(d);
+                        upsertPlanBySefer(seferNo, times);
 
                         if (d?.yukleme_noktasi && d?.teslim_noktasi) {
-                            planByKey.set(buildKey(seferNo, d.yukleme_noktasi, d.teslim_noktasi), toTimes(d));
+                            upsertPlanByKey(buildKey(seferNo, d.yukleme_noktasi, d.teslim_noktasi), times);
                         }
                     }
-
-                    buildEnrichedRowsWithPlan(planByKey, planBySefer);
-                    return;
                 }
+
+                buildEnrichedRowsWithPlan(planByKey, planBySefer);
+                return;
             }
 
+            // filo yoksa / sefer yoksa
             setRows(filteredBase);
             setLastUpdated(new Date());
         } catch (e) {
             console.error(e);
 
-            // CORS "Failed to fetch" (tarayıcı preflight blokluyor) için daha anlaşılır mesaj
             const msg = String(e?.message || "");
             const isCorsLike = msg.toLowerCase().includes("failed to fetch");
 
@@ -759,7 +752,6 @@ export default function CustomerTemplatePage() {
             },
         ];
 
-        // Sadece FİLO modunda kolonları ekle (tablo kalabalık olmasın)
         if (mode === "FILO") return [...baseCols, ...filoCols];
         return baseCols;
     }, [mode]);
@@ -889,7 +881,9 @@ export default function CustomerTemplatePage() {
                                 <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 18, letterSpacing: -0.4 }}>{cfg.title}</Typography>
                                 <Chip size="small" label="Sevkiyat Takip" sx={{ bgcolor: "#fff", border: "1px solid #eef2f7", color: "#334155", fontWeight: 900, borderRadius: 2 }} />
                             </Stack>
-                            <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>Son güncelleme: {lastUpdated ? formatDateTimeTR(lastUpdated.toISOString()) : "—"}</Typography>
+                            <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>
+                                Son güncelleme: {lastUpdated ? formatDateTimeTR(lastUpdated.toISOString()) : "—"}
+                            </Typography>
                         </Stack>
 
                         <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }}>
@@ -1085,7 +1079,12 @@ export default function CustomerTemplatePage() {
             </Container>
 
             {/* FILTER DRAWER */}
-            <Drawer anchor="right" open={filterOpen} onClose={() => setFilterOpen(false)} PaperProps={{ sx: { width: { xs: "100%", md: 420 }, bgcolor: "#fff", borderLeft: "1px solid #eef2f7" } }}>
+            <Drawer
+                anchor="right"
+                open={filterOpen}
+                onClose={() => setFilterOpen(false)}
+                PaperProps={{ sx: { width: { xs: "100%", md: 420 }, bgcolor: "#fff", borderLeft: "1px solid #eef2f7" } }}
+            >
                 <Box sx={{ p: 2.2 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Box>
@@ -1157,7 +1156,12 @@ export default function CustomerTemplatePage() {
             </Drawer>
 
             {/* DETAIL DRAWER */}
-            <Drawer anchor="right" open={detailOpen} onClose={closeDetail} PaperProps={{ sx: { width: { xs: "100%", md: 520 }, bgcolor: "#fff", borderLeft: "1px solid #eef2f7" } }}>
+            <Drawer
+                anchor="right"
+                open={detailOpen}
+                onClose={closeDetail}
+                PaperProps={{ sx: { width: { xs: "100%", md: 520 }, bgcolor: "#fff", borderLeft: "1px solid #eef2f7" } }}
+            >
                 <Box sx={{ p: 2.2 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Box>
