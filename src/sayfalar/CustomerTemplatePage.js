@@ -237,6 +237,20 @@ const exportToExcel = (rows, columns, fileName = "SEVKIYAT.xlsx", opts = { exclu
         for (const c of exportColumns) {
             const raw = getValueByPath(r, c.key);
 
+            // ✅ FİLO ise TESLİM ZAMANI kolonunu teslim_cikis ile override et
+            if (c.key === "TMSDespatchDeliveryTime") {
+                const filoTeslimCikis = r?.FILO_PLAN?.teslim_cikis;
+
+                const chosen =
+                    isFilo(r?.VehicleWorkingName) && hasVal(filoTeslimCikis)
+                        ? filoTeslimCikis
+                        : raw;
+
+                obj[c.label] = formatDateTimeTR(chosen);
+                continue;
+            }
+
+            // Durum kolonu override (mevcut kod)
             if (c.key === "OrderStatu") {
                 const filoOp = getFiloOperationalStatus(r);
                 obj[c.label] = filoOp || getStatusStyle(raw)?.label || "—";
@@ -245,8 +259,7 @@ const exportToExcel = (rows, columns, fileName = "SEVKIYAT.xlsx", opts = { exclu
 
             const val = c.type === "dt" ? formatDateTimeTR(raw) : raw ?? "—";
             obj[c.label] = val === "" ? "—" : val;
-        }
-        return obj;
+        }        return obj;
     });
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -717,8 +730,24 @@ export default function CustomerTemplatePage() {
             { field: "DeliveryCityName", headerName: "Teslim İl", width: 130 },
             { field: "DeliveryCountyName", headerName: "Teslim İlçe", width: 140 },
             { field: "PickupDate", headerName: "Yükleme Tarihi", width: 170, valueFormatter: (p) => formatDateTimeTR(p?.value) },
-            { field: "DeliveryDate", headerName: "Teslim Tarihi", width: 170, valueFormatter: (p) => formatDateTimeTR(p?.value) },
-            { field: "TMSDespatchCreatedDate", headerName: "Sefer Açılış", width: 180, valueFormatter: (p) => formatDateTimeTR(p?.value) },
+            {
+                field: "DeliveryDate",
+                headerName: "Teslim Tarihi",
+                width: 170,
+                sortable: false,
+                renderCell: (params) => {
+                    const r = params.row;
+                    const fallback = r?.DeliveryDate;
+                    const filoTeslimCikis = r?.FILO_PLAN?.teslim_cikis;
+
+                    // ✅ FİLO ise: Teslim Tarihi = Teslim Çıkış (varsa)
+                    const val = isFilo(r?.VehicleWorkingName) && hasVal(filoTeslimCikis)
+                        ? filoTeslimCikis
+                        : fallback;
+
+                    return formatDateTimeTR(val);
+                },
+            },            { field: "TMSDespatchCreatedDate", headerName: "Sefer Açılış", width: 180, valueFormatter: (p) => formatDateTimeTR(p?.value) },
         ];
 
         const filoCols = [
