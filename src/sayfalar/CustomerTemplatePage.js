@@ -392,6 +392,13 @@ export default function CustomerTemplatePage() {
         navigate("/login", { replace: true });
     };
 
+    /**
+     * ✅ ENRICH STRATEJİSİ (FİLO için)
+     * 1) seferler + sefer_detaylari (aktif seferler)
+     * 2) bulunamazsa tamamlanan_detaylar (tamamlanan/arsiv detay)
+     *
+     * Not: "tamamlanan_seferler" tablosu yok dedin, o yüzden sadece tamamlanan_detaylar kullanıyoruz.
+     */
     const fetchTemplateData = useCallback(async () => {
         if (!user?.kullanici_adi) return;
 
@@ -417,6 +424,10 @@ export default function CustomerTemplatePage() {
                 if (res.ok) {
                     const data = await res.json();
                     collected.push(...extractItems(data));
+                } else {
+                    // backend 4xx/5xx ise
+                    const txt = await res.text().catch(() => "");
+                    throw new Error(`Backend hata: ${res.status} ${txt ? `- ${txt}` : ""}`);
                 }
             }
 
@@ -457,8 +468,36 @@ export default function CustomerTemplatePage() {
             const filoRows = filteredBase.filter((r) => isFilo(r.VehicleWorkingName) && r.TMSDespatchDocumentNo);
             const seferNos = Array.from(new Set(filoRows.map((r) => String(r.TMSDespatchDocumentNo).trim()).filter(Boolean)));
 
+            // küçük helper: aynı mantıkla map kurup rows enrich et
+            const buildEnrichedRowsWithPlan = (planByKey, planBySefer) => {
+                const enriched = filteredBase.map((r) => {
+                    if (!isFilo(r.VehicleWorkingName) || !r.TMSDespatchDocumentNo) return r;
+
+                    const seferNo = String(r.TMSDespatchDocumentNo).trim();
+                    const key = `${seferNo}|${normalizeName(r.PickupAddressCode)}|${normalizeName(r.DeliveryAddressCode)}`;
+
+                    return {
+                        ...r,
+                        FILO_PLAN: planByKey.get(key) || planBySefer.get(seferNo) || null,
+                        FILO_DONE: null,
+                    };
+                });
+
+                setRows(enriched);
+                setLastUpdated(new Date());
+            };
+
             if (seferNos.length > 0) {
-                const { data: seferlerList } = await supabase2.from("seferler").select("id,sefer_no").in("sefer_no", seferNos);
+                // 1) AKTİF SEFERLER: seferler -> sefer_detaylari
+                const { data: seferlerList, error: seferlerErr } = await supabase2
+                    .from("seferler")
+                    .select("id,sefer_no")
+                    .in("sefer_no", seferNos);
+
+                if (seferlerErr) {
+                    // Supabase error ama yine de fallback'e gitmek isteyebiliriz
+                    console.warn("supabase seferler error:", seferlerErr);
+                }
 
                 const seferIdByNo = new Map();
                 for (const s of seferlerList || []) {
@@ -466,17 +505,22 @@ export default function CustomerTemplatePage() {
                 }
 
                 const seferIds = Array.from(new Set(Array.from(seferIdByNo.values())));
+
                 if (seferIds.length > 0) {
-                    const { data: seferDetaylari } = await supabase2
+                    const { data: seferDetaylari, error: detayErr } = await supabase2
                         .from("sefer_detaylari")
                         .select("sefer_id,yukleme_noktasi,teslim_noktasi,yukleme_varis,yukleme_cikis,teslim_varis,teslim_cikis,nokta_sirasi")
                         .in("sefer_id", seferIds);
 
+                    if (detayErr) {
+                        console.warn("supabase sefer_detaylari error:", detayErr);
+                    }
+
                     const planByKey = new Map();
                     const planBySefer = new Map();
 
-                    const buildKey = (seferId, yuklemeNoktasi, teslimNoktasi) =>
-                        `${seferId}|${normalizeName(yuklemeNoktasi)}|${normalizeName(teslimNoktasi)}`;
+                    const buildKey = (seferNo, yuklemeNoktasi, teslimNoktasi) =>
+                        `${seferNo}|${normalizeName(yuklemeNoktasi)}|${normalizeName(teslimNoktasi)}`;
 
                     const toTimes = (d) => ({
                         yukleme_varis: d?.yukleme_varis,
@@ -485,34 +529,64 @@ export default function CustomerTemplatePage() {
                         teslim_cikis: d?.teslim_cikis,
                     });
 
+                    // detaylardan sefer_no'yu sefer_id üzerinden çekelim
+                    const seferNoById = new Map();
+                    for (const [no, id] of seferIdByNo.entries()) seferNoById.set(String(id), String(no));
+
                     for (const d of seferDetaylari || []) {
                         const sid = d?.sefer_id;
                         if (!sid) continue;
 
-                        if (!planBySefer.has(String(sid))) planBySefer.set(String(sid), toTimes(d));
+                        const seferNo = seferNoById.get(String(sid));
+                        if (!seferNo) continue;
+
+                        if (!planBySefer.has(seferNo)) planBySefer.set(seferNo, toTimes(d));
 
                         if (d?.yukleme_noktasi && d?.teslim_noktasi) {
-                            planByKey.set(buildKey(sid, d.yukleme_noktasi, d.teslim_noktasi), toTimes(d));
+                            planByKey.set(buildKey(seferNo, d.yukleme_noktasi, d.teslim_noktasi), toTimes(d));
                         }
                     }
 
-                    const enriched = filteredBase.map((r) => {
-                        if (!isFilo(r.VehicleWorkingName) || !r.TMSDespatchDocumentNo) return r;
+                    buildEnrichedRowsWithPlan(planByKey, planBySefer);
+                    return;
+                }
 
-                        const sid = seferIdByNo.get(String(r.TMSDespatchDocumentNo).trim());
-                        if (!sid) return r;
+                // 2) FALLBACK: tamamlanan_detaylar (sefer_no üzerinden)
+                const { data: doneDetaylar, error: doneErr } = await supabase2
+                    .from("tamamlanan_detaylar")
+                    .select("sefer_no,yukleme_noktasi,teslim_noktasi,yukleme_varis,yukleme_cikis,teslim_varis,teslim_cikis,nokta_sirasi")
+                    .in("sefer_no", seferNos);
 
-                        const key = buildKey(sid, r.PickupAddressCode, r.DeliveryAddressCode);
+                if (doneErr) {
+                    console.warn("supabase tamamlanan_detaylar error:", doneErr);
+                }
 
-                        return {
-                            ...r,
-                            FILO_PLAN: planByKey.get(key) || planBySefer.get(String(sid)) || null,
-                            FILO_DONE: null,
-                        };
+                if ((doneDetaylar || []).length > 0) {
+                    const planByKey = new Map();
+                    const planBySefer = new Map();
+
+                    const buildKey = (seferNo, yuklemeNoktasi, teslimNoktasi) =>
+                        `${seferNo}|${normalizeName(yuklemeNoktasi)}|${normalizeName(teslimNoktasi)}`;
+
+                    const toTimes = (d) => ({
+                        yukleme_varis: d?.yukleme_varis,
+                        yukleme_cikis: d?.yukleme_cikis,
+                        teslim_varis: d?.teslim_varis,
+                        teslim_cikis: d?.teslim_cikis,
                     });
 
-                    setRows(enriched);
-                    setLastUpdated(new Date());
+                    for (const d of doneDetaylar || []) {
+                        const seferNo = String(d?.sefer_no || "").trim();
+                        if (!seferNo) continue;
+
+                        if (!planBySefer.has(seferNo)) planBySefer.set(seferNo, toTimes(d));
+
+                        if (d?.yukleme_noktasi && d?.teslim_noktasi) {
+                            planByKey.set(buildKey(seferNo, d.yukleme_noktasi, d.teslim_noktasi), toTimes(d));
+                        }
+                    }
+
+                    buildEnrichedRowsWithPlan(planByKey, planBySefer);
                     return;
                 }
             }
@@ -521,7 +595,16 @@ export default function CustomerTemplatePage() {
             setLastUpdated(new Date());
         } catch (e) {
             console.error(e);
-            setErr("Veriler alınırken bir hata oluştu.");
+
+            // CORS "Failed to fetch" (tarayıcı preflight blokluyor) için daha anlaşılır mesaj
+            const msg = String(e?.message || "");
+            const isCorsLike = msg.toLowerCase().includes("failed to fetch");
+
+            setErr(
+                isCorsLike
+                    ? "Veriler alınamadı (CORS). Backend tarafında Access-Control-Allow-Origin ayarı gerekli veya dev proxy kullanmalısın."
+                    : "Veriler alınırken bir hata oluştu."
+            );
         } finally {
             setLoading(false);
         }
@@ -595,7 +678,11 @@ export default function CustomerTemplatePage() {
                     const bg = isF ? "#f0f9ff" : isS ? "#fff7ed" : "#f1f5f9";
                     const c = isF ? "#0369a1" : isS ? "#c2410c" : "#475569";
                     return (
-                        <Chip size="small" label={String(v || "—")} sx={{ bgcolor: bg, color: c, fontWeight: 950, borderRadius: 2, border: `1px solid ${c}20` }} />
+                        <Chip
+                            size="small"
+                            label={String(v || "—")}
+                            sx={{ bgcolor: bg, color: c, fontWeight: 950, borderRadius: 2, border: `1px solid ${c}20` }}
+                        />
                     );
                 },
             },
@@ -611,13 +698,23 @@ export default function CustomerTemplatePage() {
                         const st2 = getFiloOperationalChipStyle(filoOp);
                         return (
                             <Tooltip arrow title={`Filo Operasyon: ${filoOp}`} placement="top">
-                                <Chip size="small" label={filoOp} sx={{ bgcolor: st2.bg, color: st2.color, fontWeight: 1000, borderRadius: 2, border: `1px solid ${st2.color}20` }} />
+                                <Chip
+                                    size="small"
+                                    label={filoOp}
+                                    sx={{ bgcolor: st2.bg, color: st2.color, fontWeight: 1000, borderRadius: 2, border: `1px solid ${st2.color}20` }}
+                                />
                             </Tooltip>
                         );
                     }
 
                     const st = getStatusStyle(r?.OrderStatu);
-                    return <Chip size="small" label={st.label} sx={{ bgcolor: st.bg, color: st.color, fontWeight: 1000, borderRadius: 2, border: `1px solid ${st.color}20` }} />;
+                    return (
+                        <Chip
+                            size="small"
+                            label={st.label}
+                            sx={{ bgcolor: st.bg, color: st.color, fontWeight: 1000, borderRadius: 2, border: `1px solid ${st.color}20` }}
+                        />
+                    );
                 },
             },
             { field: "PickupAddressCode", headerName: "Yükleme Nokta", width: 140 },
