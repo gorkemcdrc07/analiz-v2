@@ -114,7 +114,7 @@ const parseTRDateTime = (v) => {
     return Number.isNaN(d2.getTime()) ? null : d2;
 };
 
-// ✅ Geç tedarik: (Yükleme - Sefer Açılış) > 30 saat ise geç
+// ✅ Geç tedarik: (Sefer Açılış - Yükleme) > 30 saat ise geç
 const isGecTedarik30s = (seferAcilisDate, pickupDate) => {
     const o = parseTRDateTime(seferAcilisDate);
     const p = parseTRDateTime(pickupDate);
@@ -562,6 +562,16 @@ export default function ProjeSatiri({
     // ✅ Zamanında yüzdesine göre renk
     const zamanindaRenk = useMemo(() => zamanindaRenkFromPct(zamanindaYuzde), [zamanindaYuzde]);
 
+    // ✅ Tedarik oranı (tedarik edilen / talep)
+    const tedarikOraniYuzde = useMemo(() => {
+        if (!talep || talep <= 0) return 0;
+        const pct = (tedarikEdilen / talep) * 100;
+        return Math.max(0, Math.min(100, Math.round(pct)));
+    }, [talep, tedarikEdilen]);
+
+    // ✅ Tedarik oranı rengi (yüzdeye göre)
+    const tedarikOraniRenk = useMemo(() => zamanindaRenkFromPct(tedarikOraniYuzde), [tedarikOraniYuzde]);
+
     // ✅ Gecikenler en üstte, sonra gecikme dakikası büyük olan üstte
     const siraliAltDetaylar = useMemo(() => {
         const list = Array.isArray(altDetaylar) ? [...altDetaylar] : [];
@@ -654,7 +664,19 @@ export default function ProjeSatiri({
                         <MiniIstatistik etiket="FİLO" deger={satir.filo} renk="#8b5cf6" />
                         <MiniIstatistik etiket="SHÖ Basım" deger={satir.sho_b} renk="#059669" />
 
-                        <MiniIstatistik etiket="Tedarik Oranı" deger={`%${zamanindaYuzde}`} renk={zamanindaRenk} tone={zamanindaRenk} />
+                        <MiniIstatistik
+                            etiket="Zamanında Tedarik Oranı"
+                            deger={`%${zamanindaYuzde}`}
+                            renk={zamanindaRenk}
+                            tone={zamanindaRenk}
+                        />
+
+                        <MiniIstatistik
+                            etiket="Tedarik Oranı"
+                            deger={`%${tedarikOraniYuzde}`}
+                            renk={tedarikOraniRenk}
+                            tone={tedarikOraniRenk}
+                        />
                     </Stack>
 
                     <GenisletButonu open={acik ? 1 : 0}>
@@ -689,9 +711,7 @@ export default function ProjeSatiri({
                             const deliveryCounty = item.DeliveryCountyName || "-";
 
                             const lateText =
-                                zaman?.lateMinutes != null && zaman.lateMinutes > 0
-                                    ? `${dakikaToSaatDakika(zaman.lateMinutes)} Geç Tedarik`
-                                    : null;
+                                zaman?.lateMinutes != null && zaman.lateMinutes > 0 ? `${dakikaToSaatDakika(zaman.lateMinutes)} Geç Tedarik` : null;
 
                             const vehicle = key ? vehicleMap?.[key] : null;
                             const hasVehicle = !!vehicle;

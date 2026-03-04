@@ -67,14 +67,20 @@ const GlassCard = ({ children, sx, noPadding = false }) => {
                 overflow: "hidden",
                 background:
                     theme.palette.mode === "dark"
-                        ? `linear-gradient(180deg, ${alpha(theme.palette.background.paper, 0.62)}, ${alpha(
+                        ? `linear-gradient(180deg, ${alpha(
                             theme.palette.background.paper,
-                            0.40
-                        )})`
-                        : `linear-gradient(180deg, ${alpha("#ffffff", 0.90)}, ${alpha("#ffffff", 0.72)})`,
+                            0.62
+                        )}, ${alpha(theme.palette.background.paper, 0.40)})`
+                        : `linear-gradient(180deg, ${alpha("#ffffff", 0.90)}, ${alpha(
+                            "#ffffff",
+                            0.72
+                        )})`,
                 backdropFilter: "blur(24px) saturate(170%)",
                 border: "1px solid",
-                borderColor: alpha(theme.palette.divider, theme.palette.mode === "dark" ? 0.18 : 0.12),
+                borderColor: alpha(
+                    theme.palette.divider,
+                    theme.palette.mode === "dark" ? 0.18 : 0.12
+                ),
                 boxShadow:
                     theme.palette.mode === "dark"
                         ? `0 26px 70px ${alpha("#000", 0.42)}`
@@ -127,10 +133,17 @@ export default function Anasayfa() {
         return ls || REGIONS_DEFAULT || {};
     });
 
-    const [selectedRegion, setSelectedRegion] = useState(() => Object.keys(regionsMap)[0] || "");
+    const [selectedRegion, setSelectedRegion] = useState(
+        () => Object.keys(regionsMap)[0] || ""
+    );
     const [newRegionName, setNewRegionName] = useState("");
     const [newProjectName, setNewProjectName] = useState("");
+
+    // ✅ Seçili bölge içi arama
     const [search, setSearch] = useState("");
+
+    // ✅ Tüm bölgelerde arama
+    const [globalSearch, setGlobalSearch] = useState("");
 
     const [toast, setToast] = useState({ open: false, msg: "", severity: "success" });
 
@@ -154,7 +167,25 @@ export default function Anasayfa() {
         return list.filter((p) => p.toLowerCase().includes(q));
     }, [regionsMap, selectedRegion, search]);
 
-    const totalProjects = useMemo(() => rows.reduce((acc, curr) => acc + curr.count, 0), [rows]);
+    // ✅ GLOBAL sonuçlar: tüm bölgeler + proje
+    const globalResults = useMemo(() => {
+        const q = globalSearch.trim().toLowerCase();
+        if (!q) return [];
+        const res = [];
+        for (const [region, projects] of Object.entries(regionsMap)) {
+            for (const p of projects || []) {
+                if (p.toLowerCase().includes(q)) {
+                    res.push({ region, project: p });
+                }
+            }
+        }
+        return res;
+    }, [regionsMap, globalSearch]);
+
+    const totalProjects = useMemo(
+        () => rows.reduce((acc, curr) => acc + curr.count, 0),
+        [rows]
+    );
 
     const handleAddRegion = () => {
         const key = newRegionName.trim().toUpperCase();
@@ -203,6 +234,7 @@ export default function Anasayfa() {
             setRegionsMap(REGIONS_DEFAULT);
             setSelectedRegion(Object.keys(REGIONS_DEFAULT)[0] || "");
             setSearch("");
+            setGlobalSearch("");
             setToast({ open: true, msg: "Varsayılana döndürüldü.", severity: "warning" });
         }
     };
@@ -237,10 +269,7 @@ export default function Anasayfa() {
                     <Box>
                         <Stack direction="row" spacing={1} alignItems="center">
                             <SettingsSuggestRounded color="primary" />
-                            <Typography
-                                variant="h4"
-                                sx={{ fontWeight: 950, letterSpacing: -1.2, lineHeight: 1.05 }}
-                            >
+                            <Typography variant="h4" sx={{ fontWeight: 950, letterSpacing: -1.2, lineHeight: 1.05 }}>
                                 Bölge Proje Ayarla
                             </Typography>
                         </Stack>
@@ -349,8 +378,8 @@ export default function Anasayfa() {
                     <GlassCard
                         noPadding
                         sx={{
-                            height: "fit-content",     // <-- DEĞİŞTİR
-                            maxHeight: isLgUp ? 640 : "none", // istersen sınır koy
+                            height: "fit-content",
+                            maxHeight: isLgUp ? 640 : "none",
                         }}
                     >
                         <Box
@@ -359,7 +388,10 @@ export default function Anasayfa() {
                                 position: "sticky",
                                 top: 0,
                                 zIndex: 2,
-                                background: alpha(theme.palette.background.paper, theme.palette.mode === "dark" ? 0.45 : 0.72),
+                                background: alpha(
+                                    theme.palette.background.paper,
+                                    theme.palette.mode === "dark" ? 0.45 : 0.72
+                                ),
                                 backdropFilter: "blur(18px)",
                                 borderBottom: "1px solid",
                                 borderColor: alpha(theme.palette.divider, 0.10),
@@ -386,7 +418,10 @@ export default function Anasayfa() {
                                     ),
                                     sx: {
                                         borderRadius: 4,
-                                        bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.05 : 0.03),
+                                        bgcolor: alpha(
+                                            theme.palette.text.primary,
+                                            theme.palette.mode === "dark" ? 0.05 : 0.03
+                                        ),
                                     },
                                 }}
                             />
@@ -417,7 +452,10 @@ export default function Anasayfa() {
                                         bgcolor:
                                             selectedRegion === r.name
                                                 ? alpha(theme.palette.primary.main, 0.10)
-                                                : alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.035 : 0.02),
+                                                : alpha(
+                                                    theme.palette.text.primary,
+                                                    theme.palette.mode === "dark" ? 0.035 : 0.02
+                                                ),
                                         "&:hover": {
                                             bgcolor: alpha(theme.palette.primary.main, 0.08),
                                             borderColor: alpha(theme.palette.primary.main, 0.20),
@@ -462,6 +500,75 @@ export default function Anasayfa() {
 
                     {/* Projects */}
                     <GlassCard>
+                        {/* ✅ Global Search (tüm bölgelerde) */}
+                        <TextField
+                            fullWidth
+                            placeholder="Tüm bölgelerde proje ara..."
+                            value={globalSearch}
+                            onChange={(e) => setGlobalSearch(e.target.value)}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchRounded sx={{ color: "text.disabled" }} />
+                                    </InputAdornment>
+                                ),
+                                sx: {
+                                    borderRadius: 4,
+                                    bgcolor: alpha(
+                                        theme.palette.text.primary,
+                                        theme.palette.mode === "dark" ? 0.05 : 0.03
+                                    ),
+                                },
+                            }}
+                            sx={{ mb: 2 }}
+                        />
+
+                        {/* ✅ Global Search Results */}
+                        {globalSearch.trim() && (
+                            <Box sx={{ mb: 3 }}>
+                                <Typography variant="overline" sx={{ opacity: 0.7, fontWeight: 950 }}>
+                                    Arama Sonuçları ({globalResults.length})
+                                </Typography>
+
+                                <Box
+                                    sx={{
+                                        mt: 1,
+                                        display: "grid",
+                                        gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                                        gap: 2,
+                                    }}
+                                >
+                                    {globalResults.map((x) => (
+                                        <Box
+                                            key={`${x.region}__${x.project}`}
+                                            onClick={() => {
+                                                setSelectedRegion(x.region);
+                                                setSearch(x.project); // seçili bölge aramasına bas
+                                            }}
+                                            role="button"
+                                            tabIndex={0}
+                                            style={{ cursor: "pointer" }}
+                                            sx={{
+                                                p: 2,
+                                                borderRadius: 4,
+                                                border: "1px solid",
+                                                borderColor: alpha(theme.palette.primary.main, 0.18),
+                                                bgcolor: alpha(theme.palette.primary.main, 0.06),
+                                                "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.10) },
+                                            }}
+                                        >
+                                            <Typography sx={{ fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis" }}>
+                                                {x.project}
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                                                {x.region}
+                                            </Typography>
+                                        </Box>
+                                    ))}
+                                </Box>
+                            </Box>
+                        )}
+
                         <Stack
                             direction={{ xs: "column", md: "row" }}
                             spacing={2}
@@ -477,9 +584,10 @@ export default function Anasayfa() {
                                 </Typography>
                             </Box>
 
+                            {/* Seçili bölge içinde arama */}
                             <TextField
                                 fullWidth
-                                placeholder="Proje ara..."
+                                placeholder="Bu bölgede proje ara..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 InputProps={{
@@ -490,7 +598,10 @@ export default function Anasayfa() {
                                     ),
                                     sx: {
                                         borderRadius: 4,
-                                        bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.05 : 0.03),
+                                        bgcolor: alpha(
+                                            theme.palette.text.primary,
+                                            theme.palette.mode === "dark" ? 0.05 : 0.03
+                                        ),
                                     },
                                 }}
                             />
@@ -546,7 +657,10 @@ export default function Anasayfa() {
                                             borderRadius: 4,
                                             border: "1px solid",
                                             borderColor: alpha(theme.palette.divider, 0.12),
-                                            bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.035 : 0.02),
+                                            bgcolor: alpha(
+                                                theme.palette.text.primary,
+                                                theme.palette.mode === "dark" ? 0.035 : 0.02
+                                            ),
                                             display: "flex",
                                             alignItems: "center",
                                             justifyContent: "space-between",
