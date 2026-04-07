@@ -243,8 +243,8 @@ export default function DetayPaneli({ type, data, onClose }) {
                     {filtered.length > 0 ? (
                         filtered.map((item, idx) => {
                             const diff = diffHuman(
-                                pickField(item, ["sefer_acilis_zamani", "SeferAcilisZamani", "OrderCreatedDate"]),
-                                pickField(item, ["yukleme_tarihi", "YuklemeTarihi", "PickupDate"])
+                                pickField(item, ["EstimatedArrivalTime", "estimatedArrivalTime"]),
+                                pickField(item, ["TMSLoadingDocumentPrintedDate", "tmsLoadingDocumentPrintedDate"])
                             );
 
                             const hasDespatch = Boolean(item.TMSDespatchDocumentNo);

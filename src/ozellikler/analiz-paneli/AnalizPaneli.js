@@ -1,15 +1,18 @@
 // src/ozellikler/analiz-paneli/AnalizPaneli.js
 import React, { useMemo, useState, useCallback, useEffect } from "react";
-import { Box, Stack, Typography, alpha, Avatar, Button } from "@mui/material";
+import { Box, Stack, Typography, alpha, Chip } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import {
     RiRefreshLine,
-    RiCalendarCheckLine,
-    RiFocus3Line,
+    RiCalendarLine,
     RiDatabaseLine,
+    RiTruckLine,
+    RiPrinterLine,
+    RiCheckLine,
+    RiErrorWarningLine,
+    RiLoader4Line,
 } from "react-icons/ri";
 import { motion, AnimatePresence } from "framer-motion";
-
 import AnalizTablosu from "./AnalizTablosu";
 import { BASE_URL } from "../yardimcilar/sabitler";
 import { extractItems } from "../yardimcilar/backend";
@@ -17,57 +20,134 @@ import { toIsoLocalEnd, toIsoLocalStart } from "../yardimcilar/tarih";
 import { seferNoNormalizeEt } from "../yardimcilar/metin";
 import { getRegions } from "../yardimcilar/regionsStore";
 
-// Print API
 const PRINTS_BASE_URL = "https://tedarik-analiz-sho-api.onrender.com";
 
-/* ------------------------ küçük tarih yardımcıları ------------------------ */
-const clampDayStart = (d) => {
-    const x = new Date(d);
-    x.setHours(0, 0, 0, 0);
-    return x;
-};
-
-const addDays = (d, n) => {
-    const x = new Date(d);
-    x.setDate(x.getDate() + n);
-    return x;
-};
-
-// Pazartesi başlangıçlı hafta
-const startOfWeekMon = (d) => {
-    const x = clampDayStart(d);
-    const day = x.getDay(); // 0 pazar
-    const diff = (day + 6) % 7; // pazartesi=0
-    x.setDate(x.getDate() - diff);
-    return x;
-};
-
-// Haftalık aralıkları üret (range içindeki haftaları kapsar)
+/* ─── tarih yardımcıları ─────────────────────────────────────────────────── */
+const clampDayStart = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const startOfWeekMon = (d) => { const x = clampDayStart(d); const diff = (x.getDay() + 6) % 7; x.setDate(x.getDate() - diff); return x; };
 const buildWeekRangesBetween = (startDate, endDate) => {
     const s0 = clampDayStart(new Date(startDate));
     const e0 = clampDayStart(new Date(endDate));
-
-    const firstWeekStart = startOfWeekMon(s0);
+    let cur = new Date(startOfWeekMon(s0));
     const out = [];
-
-    let cur = new Date(firstWeekStart);
     while (cur <= e0) {
         const wStart = new Date(cur);
-        const wEnd = addDays(wStart, 6);
-        wEnd.setHours(23, 59, 59, 999);
-
-        // range ile kesişim
+        const wEnd = addDays(wStart, 6); wEnd.setHours(23, 59, 59, 999);
         const a = new Date(Math.max(wStart.getTime(), s0.getTime()));
         const b = new Date(Math.min(wEnd.getTime(), new Date(endDate).getTime()));
-
         if (a <= b) out.push({ start: a, end: b });
-
         cur = addDays(cur, 7);
     }
-
     return out;
 };
 
+/* ─── küçük atom bileşenler ──────────────────────────────────────────────── */
+
+function SpinnerIcon({ size = 18 }) {
+    return (
+        <motion.span
+            animate={{ rotate: 360 }}
+            transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
+            style={{ display: "inline-flex" }}
+        >
+            <RiLoader4Line size={size} />
+        </motion.span>
+    );
+}
+
+function StatusPill({ color, icon, label }) {
+    const colors = {
+        green: { bg: "rgba(16,185,129,0.12)", text: "#10b981", border: "rgba(16,185,129,0.25)" },
+        amber: { bg: "rgba(245,158,11,0.12)", text: "#f59e0b", border: "rgba(245,158,11,0.25)" },
+        red: { bg: "rgba(239,68,68,0.12)", text: "#ef4444", border: "rgba(239,68,68,0.25)" },
+        blue: { bg: "rgba(99,102,241,0.12)", text: "#818cf8", border: "rgba(99,102,241,0.25)" },
+    };
+    const c = colors[color] || colors.blue;
+    return (
+        <motion.div
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={{
+                display: "inline-flex", alignItems: "center", gap: 5,
+                padding: "3px 10px", borderRadius: 999,
+                background: c.bg, border: `1px solid ${c.border}`,
+                color: c.text, fontSize: "0.72rem", fontWeight: 700,
+            }}
+        >
+            {icon}
+            {label}
+        </motion.div>
+    );
+}
+
+/* ─── tarih girdisi ──────────────────────────────────────────────────────── */
+function DateInput({ label, value, onChange, isDark }) {
+    return (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.4 }}>
+            <Typography sx={{ fontSize: "0.65rem", fontWeight: 700, opacity: 0.45, textTransform: "uppercase", letterSpacing: 1 }}>
+                {label}
+            </Typography>
+            <input
+                type="date"
+                value={value}
+                onChange={onChange}
+                style={{
+                    border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
+                    borderRadius: 10,
+                    padding: "7px 12px",
+                    background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+                    color: isDark ? "#f1f5f9" : "#0f172a",
+                    fontSize: "0.875rem",
+                    fontWeight: 700,
+                    fontFamily: "inherit",
+                    outline: "none",
+                    cursor: "pointer",
+                    transition: "border-color 0.2s",
+                }}
+                onFocus={e => e.target.style.borderColor = isDark ? "rgba(99,102,241,0.5)" : "rgba(99,102,241,0.4)"}
+                onBlur={e => e.target.style.borderColor = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}
+            />
+        </Box>
+    );
+}
+
+/* ─── aksiyon butonu ─────────────────────────────────────────────────────── */
+function ActionButton({ onClick, disabled, loading, icon, label, loadingLabel, variant = "primary", isDark }) {
+    const isPrimary = variant === "primary";
+    return (
+        <motion.button
+            onClick={onClick}
+            disabled={disabled}
+            whileHover={!disabled ? { y: -1 } : {}}
+            whileTap={!disabled ? { scale: 0.97 } : {}}
+            style={{
+                display: "inline-flex", alignItems: "center", gap: 7,
+                padding: "10px 20px",
+                borderRadius: 12,
+                border: isPrimary ? "none" : `1px solid rgba(99,102,241,0.35)`,
+                background: isPrimary
+                    ? "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
+                    : isDark ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.06)",
+                color: isPrimary ? "#fff" : isDark ? "#818cf8" : "#4f46e5",
+                fontSize: "0.85rem",
+                fontWeight: 800,
+                fontFamily: "inherit",
+                cursor: disabled ? "not-allowed" : "pointer",
+                opacity: disabled ? 0.45 : 1,
+                transition: "all 0.2s",
+                boxShadow: isPrimary && !disabled ? "0 4px 20px rgba(99,102,241,0.35)" : "none",
+                letterSpacing: "-0.01em",
+                whiteSpace: "nowrap",
+            }}
+        >
+            {loading ? <SpinnerIcon size={16} /> : icon}
+            {loading ? loadingLabel : label}
+        </motion.button>
+    );
+}
+
+/* ─── ana bileşen ────────────────────────────────────────────────────────── */
 export default function AnalizPaneli() {
     const theme = useTheme();
     const isDark = theme.palette.mode === "dark";
@@ -77,12 +157,10 @@ export default function AnalizPaneli() {
     const [error, setError] = useState("");
     const [userId] = useState(1);
 
-    // prints state
     const [printsMap, setPrintsMap] = useState({});
     const [printsLoading, setPrintsLoading] = useState(false);
     const [printsError, setPrintsError] = useState("");
 
-    // vehicle state (prints/search içinden maplenecek)
     const [vehicleMap, setVehicleMap] = useState({});
     const [vehicleLoading, setVehicleLoading] = useState(false);
     const [vehicleError, setVehicleError] = useState("");
@@ -92,515 +170,364 @@ export default function AnalizPaneli() {
         end: new Date(),
     });
 
-    // ✅ REGIONS (Anasayfa'da eklenenler dahil): AnalizTablosu alt sekmelerinde kullanılacak
     const [regionsMap, setRegionsMap] = useState(() => getRegions());
-
-    // Anasayfa'dan değişince otomatik güncelle
     useEffect(() => {
         const refresh = () => setRegionsMap(getRegions());
         window.addEventListener("regions:changed", refresh);
         window.addEventListener("storage", refresh);
-        return () => {
-            window.removeEventListener("regions:changed", refresh);
-            window.removeEventListener("storage", refresh);
-        };
+        return () => { window.removeEventListener("regions:changed", refresh); window.removeEventListener("storage", refresh); };
     }, []);
 
-    // ✅ TMS verisi çek (MANUEL) — /tmsorders/week kullan
+    /* ── fetch TMS ───────────────────────────────────────────────────────── */
     const handleFetchData = useCallback(async () => {
-        setLoading(true);
-        setError("");
-
-        // prints/vehicle reset
-        setPrintsError("");
-        setPrintsMap({});
-        setVehicleError("");
-        setVehicleMap({});
-
-        setRaw({ items: [] }); // UI hemen başlasın
-
+        setLoading(true); setError("");
+        setPrintsError(""); setPrintsMap({}); setVehicleError(""); setVehicleMap({});
+        setRaw({ items: [] });
         const TMS_WEEK_URL = `${BASE_URL}/tmsorders/week`;
-
         try {
             const weeks = buildWeekRangesBetween(range.start, range.end);
             const collected = [];
-
             for (let i = 0; i < weeks.length; i++) {
                 const w = weeks[i];
-
-                const body = {
-                    startDate: toIsoLocalStart(w.start),
-                    endDate: toIsoLocalEnd(w.end),
-                    userId: Number(userId),
-                };
-
+                const body = { startDate: toIsoLocalStart(w.start), endDate: toIsoLocalEnd(w.end), userId: Number(userId) };
                 const controller = new AbortController();
                 const t = setTimeout(() => controller.abort(), 35_000);
-
                 try {
-                    const res = await fetch(TMS_WEEK_URL, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json", Accept: "application/json" },
-                        body: JSON.stringify(body),
-                        signal: controller.signal,
-                    });
-
+                    const res = await fetch(TMS_WEEK_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body), signal: controller.signal });
                     const text = await res.text();
                     let payload = null;
-                    try {
-                        payload = text ? JSON.parse(text) : null;
-                    } catch {
-                        payload = text;
-                    }
-
-                    if (!res.ok) {
-                        console.error("TMS WEEK ERROR", {
-                            url: TMS_WEEK_URL,
-                            status: res.status,
-                            bodySent: body,
-                            response: payload,
-                        });
-                        // tek hafta patlarsa devam
-                        continue;
-                    }
-
-                    const items = extractItems(payload);
-                    collected.push(...items);
-
-                    // kademeli UI update
+                    try { payload = text ? JSON.parse(text) : null; } catch { payload = text; }
+                    if (!res.ok) { console.error("TMS WEEK ERROR", { url: TMS_WEEK_URL, status: res.status, bodySent: body, response: payload }); continue; }
+                    collected.push(...extractItems(payload));
                     setRaw({ items: [...collected] });
-                } catch (e) {
-                    console.warn("TMS WEEK FAILED", i, e?.message);
-                } finally {
-                    clearTimeout(t);
-                }
+                } catch (e) { console.warn("TMS WEEK FAILED", i, e?.message); } finally { clearTimeout(t); }
             }
-
-            if (collected.length === 0) {
-                throw new Error("TMS verisi çekilemedi. (Endpoint /tmsorders/week yanıt vermedi)");
-            }
-        } catch (e) {
-            setError(e?.message || "Bağlantı hatası");
-            setRaw(null);
-        } finally {
-            setLoading(false);
-        }
+            if (collected.length === 0) throw new Error("TMS verisi çekilemedi. (/tmsorders/week yanıt vermedi)");
+        } catch (e) { setError(e?.message || "Bağlantı hatası"); setRaw(null); } finally { setLoading(false); }
     }, [range.start, range.end, userId]);
 
-    const data = useMemo(() => (raw?.items ? raw.items : extractItems(raw)), [raw]);
+    const rawData = useMemo(() => (raw?.items ? raw.items : extractItems(raw)), [raw]);
 
-    // TMS içinden SFR listesi
+    // AnalizPaneli.js
+    const data = useMemo(() => {
+        const items = Array.isArray(rawData) ? rawData : [];
+        return items.map((item) => {
+            const seferKey = seferNoNormalizeEt(item?.TMSDespatchDocumentNo);
+            return {
+                ...item,
+                EstimatedArrivalTime:
+                    item?.EstimatedArrivalTime ??
+                    item?.estimatedArrivalTime ??
+                    (seferKey ? printsMap?.[seferKey]?.EstimatedArrivalTime ?? null : null),
+
+                TMSLoadingDocumentPrintedDate:
+                    item?.TMSLoadingDocumentPrintedDate ??
+                    (seferKey ? printsMap?.[seferKey]?.TMSLoadingDocumentPrintedDate ?? null : null),
+
+                TMSLoadingDocumentPrintedBy:
+                    item?.TMSLoadingDocumentPrintedBy ??
+                    (seferKey ? printsMap?.[seferKey]?.TMSLoadingDocumentPrintedBy ?? null : null),
+            };
+        });
+    }, [rawData, printsMap]);
     const docNos = useMemo(() => {
-        const items = Array.isArray(data) ? data : [];
         const set = new Set();
-        for (const x of items) {
+        for (const x of (Array.isArray(data) ? data : [])) {
             const key = seferNoNormalizeEt(x?.TMSDespatchDocumentNo);
             if (key && key.startsWith("SFR")) set.add(key);
         }
         return Array.from(set);
     }, [data]);
 
-    // ✅ Prints çek (MANUEL BUTON)
+    /* ── fetch Prints ────────────────────────────────────────────────────── */
     const handleFetchPrints = useCallback(async () => {
-        setPrintsLoading(true);
-        setPrintsError("");
-
+        setPrintsLoading(true); setPrintsError("");
         try {
             if (!raw) throw new Error("Önce TMS verisini çekmelisiniz.");
-
-            const body = {
-                startDate: toIsoLocalStart(range.start),
-                endDate: toIsoLocalEnd(range.end),
-                userId: Number(userId),
-                CustomerId: 0,
-                SupplierId: 0,
-                DriverId: 0,
-                TMSDespatchId: 0,
-                VehicleId: 0,
-                DocumentPrint: "1",
-                WorkingTypesId: [],
-            };
-
+            const body = { startDate: toIsoLocalStart(range.start), endDate: toIsoLocalEnd(range.end), userId: Number(userId), CustomerId: 0, SupplierId: 0, DriverId: 0, TMSDespatchId: 0, VehicleId: 0, DocumentPrint: "1", WorkingTypesId: [] };
             const url = `${PRINTS_BASE_URL}/prints/search`;
-            const res = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Accept: "application/json" },
-                body: JSON.stringify(body),
-            });
-
+            const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body) });
             const text = await res.text();
             let payload = null;
-            try {
-                payload = text ? JSON.parse(text) : null;
-            } catch {
-                payload = text;
-            }
-
-            if (!res.ok) {
-                console.error("PRINT API ERROR", {
-                    url,
-                    status: res.status,
-                    bodySent: body,
-                    response: payload,
-                    responseText: text,
-                });
-
-                const msg =
-                    payload?.message ||
-                    payload?.error ||
-                    (typeof payload === "string" ? payload : null) ||
-                    `Print API hata: ${res.status}`;
-
-                throw new Error("Basım servisi (Odak) hata veriyor. Detay: " + msg);
-            }
-
+            try { payload = text ? JSON.parse(text) : null; } catch { payload = text; }
+            if (!res.ok) { const msg = payload?.message || payload?.error || (typeof payload === "string" ? payload : null) || `Print API hata: ${res.status}`; throw new Error("Basım servisi hata veriyor. Detay: " + msg); }
             const list = Array.isArray(payload) ? payload : payload?.items || payload?.data || [];
             const docNoSet = new Set(docNos);
-
             const map = {};
             for (const p of list) {
                 const key = seferNoNormalizeEt(p?.DocumentNo || p?.documentNo || p?.DOCUMENTNO);
-                if (!key) continue;
-
-                // sadece ekrandaki seferler
-                if (docNoSet.size && !docNoSet.has(key)) continue;
-
+                if (!key || (docNoSet.size && !docNoSet.has(key))) continue;
                 map[key] = {
                     PrintedDate: p?.PrintedDate ?? p?.printedDate ?? null,
                     PrintedBy: p?.PrintedBy ?? p?.printedBy ?? null,
+
+                    EstimatedArrivalTime:
+                        p?.EstimatedArrivalTime ??
+                        p?.estimatedArrivalTime ??
+                        p?.ETA ??
+                        p?.eta ??
+                        null,
+
+                    TMSLoadingDocumentPrintedDate:
+                        p?.TMSLoadingDocumentPrintedDate ??
+                        p?.tmsLoadingDocumentPrintedDate ??
+                        null,
+
+                    TMSLoadingDocumentPrintedBy:
+                        p?.TMSLoadingDocumentPrintedBy ??
+                        p?.tmsLoadingDocumentPrintedBy ??
+                        null,
                 };
             }
-
             setPrintsMap(map);
-        } catch (e) {
-            setPrintsError(e?.message || "Print bilgisi çekilemedi");
-            setPrintsMap({});
-        } finally {
-            setPrintsLoading(false);
-        }
+        } catch (e) { setPrintsError(e?.message || "Print bilgisi çekilemedi"); setPrintsMap({}); } finally { setPrintsLoading(false); }
     }, [raw, range.start, range.end, userId, docNos]);
 
-    // ✅ Araç Bilgileri çek (MANUEL BUTON) — AYNI SERVİS: /prints/search
-    // Not: backend prints/search response'unda alanlar farklı isimde gelebilir.
-    // Aşağıda olası alan adlarını güvenli şekilde okuyoruz.
+    /* ── fetch Vehicles ──────────────────────────────────────────────────── */
     const handleFetchVehicles = useCallback(async () => {
-        setVehicleLoading(true);
-        setVehicleError("");
-
+        setVehicleLoading(true); setVehicleError("");
         try {
             if (!raw) throw new Error("Önce TMS verisini çekmelisiniz.");
-
-            // Aynı body yapısı (prints/search)
-            const body = {
-                startDate: toIsoLocalStart(range.start),
-                endDate: toIsoLocalEnd(range.end),
-                userId: Number(userId),
-                CustomerId: 0,
-                SupplierId: 0,
-                DriverId: 0,
-                TMSDespatchId: 0,
-                VehicleId: 0,
-                DocumentPrint: "1",
-                WorkingTypesId: [],
-            };
-
-            const url = `${PRINTS_BASE_URL}/prints/search`; // ✅ vehicles/search değil!
-            const res = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Accept: "application/json" },
-                body: JSON.stringify(body),
-            });
-
+            const body = { startDate: toIsoLocalStart(range.start), endDate: toIsoLocalEnd(range.end), userId: Number(userId), CustomerId: 0, SupplierId: 0, DriverId: 0, TMSDespatchId: 0, VehicleId: 0, DocumentPrint: "1", WorkingTypesId: [] };
+            const url = `${PRINTS_BASE_URL}/prints/search`;
+            const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body) });
             const text = await res.text();
             let payload = null;
-            try {
-                payload = text ? JSON.parse(text) : null;
-            } catch {
-                payload = text;
-            }
-
-            if (!res.ok) {
-                console.error("VEHICLE VIA PRINT API ERROR", {
-                    url,
-                    status: res.status,
-                    bodySent: body,
-                    response: payload,
-                    responseText: text,
-                });
-
-                const msg =
-                    payload?.message ||
-                    payload?.error ||
-                    (typeof payload === "string" ? payload : null) ||
-                    `Print API hata: ${res.status}`;
-
-                throw new Error("Araç bilgileri servisi (prints/search) hata veriyor. Detay: " + msg);
-            }
-
+            try { payload = text ? JSON.parse(text) : null; } catch { payload = text; }
+            if (!res.ok) { const msg = payload?.message || payload?.error || (typeof payload === "string" ? payload : null) || `Print API hata: ${res.status}`; throw new Error("Araç bilgileri servisi hata veriyor. Detay: " + msg); }
             const list = Array.isArray(payload) ? payload : payload?.items || payload?.data || [];
             const docNoSet = new Set(docNos);
-
-            const pick = (obj, keys) => {
-                for (const k of keys) {
-                    const v = obj?.[k];
-                    if (v != null && v !== "") return v;
-                }
-                return null;
-            };
-
+            const pick = (obj, keys) => { for (const k of keys) { const v = obj?.[k]; if (v != null && v !== "") return v; } return null; };
             const map = {};
             for (const p of list) {
                 const key = seferNoNormalizeEt(p?.DocumentNo || p?.documentNo || p?.DOCUMENTNO);
-                if (!key) continue;
-
-                // sadece ekrandaki seferler
-                if (docNoSet.size && !docNoSet.has(key)) continue;
-
+                if (!key || (docNoSet.size && !docNoSet.has(key))) continue;
                 map[key] = {
-                    VehicleCurrentAccountTitle: pick(p, [
-                        "VehicleCurrentAccountTitle",
-                        "vehicleCurrentAccountTitle",
-                        "VEHICLECURRENTACCOUNTTITLE",
-                        "VehicleAccountTitle",
-                        "vehicleAccountTitle",
-                    ]),
+                    VehicleCurrentAccountTitle: pick(p, ["VehicleCurrentAccountTitle", "vehicleCurrentAccountTitle", "VEHICLECURRENTACCOUNTTITLE", "VehicleAccountTitle", "vehicleAccountTitle"]),
                     KasaTipi: pick(p, ["KasaTipi", "kasaTipi", "KASATIPI", "BodyType", "bodyType"]),
                     FreightAmount: pick(p, ["FreightAmount", "freightAmount", "FREIGHTAMOUNT", "Navlun", "navlun"]),
                     PlateNumber: pick(p, ["PlateNumber", "plateNumber", "PLATENUMBER", "Plate", "plate"]),
-                    TrailerPlateNumber: pick(p, [
-                        "TrailerPlateNumber",
-                        "trailerPlateNumber",
-                        "TRAILERPLATENUMBER",
-                        "TrailerPlate",
-                        "trailerPlate",
-                    ]),
+                    TrailerPlateNumber: pick(p, ["TrailerPlateNumber", "trailerPlateNumber", "TRAILERPLATENUMBER", "TrailerPlate", "trailerPlate"]),
                     FullName: pick(p, ["FullName", "fullName", "FULLNAME", "DriverName", "driverName", "Sofor", "sofor"]),
                     PhoneNumber: pick(p, ["PhoneNumber", "phoneNumber", "PHONENUMBER", "DriverPhone", "driverPhone", "Telefon", "telefon"]),
-                    CitizenNumber: pick(p, [
-                        "CitizenNumber",
-                        "citizenNumber",
-                        "CITIZENNUMBER",
-                        "TC",
-                        "tc",
-                        "TCKN",
-                        "tckn",
-                        "IdentityNumber",
-                        "identityNumber",
-                    ]),
+                    CitizenNumber: pick(p, ["CitizenNumber", "citizenNumber", "CITIZENNUMBER", "TC", "tc", "TCKN", "tckn", "IdentityNumber", "identityNumber"]),
                 };
             }
-
             setVehicleMap(map);
-        } catch (e) {
-            setVehicleError(e?.message || "Araç bilgileri çekilemedi");
-            setVehicleMap({});
-        } finally {
-            setVehicleLoading(false);
-        }
+        } catch (e) { setVehicleError(e?.message || "Araç bilgileri çekilemedi"); setVehicleMap({}); } finally { setVehicleLoading(false); }
     }, [raw, range.start, range.end, userId, docNos]);
 
+    /* ── durum pill'leri ─────────────────────────────────────────────────── */
+    const statusPills = useMemo(() => {
+        const pills = [];
+        if (error) pills.push({ color: "red", icon: <RiErrorWarningLine size={11} />, label: error.slice(0, 60) });
+        if (printsError) pills.push({ color: "amber", icon: <RiErrorWarningLine size={11} />, label: `SHÖ: ${printsError.slice(0, 50)}` });
+        if (vehicleError) pills.push({ color: "amber", icon: <RiErrorWarningLine size={11} />, label: `Araç: ${vehicleError.slice(0, 50)}` });
+        if (!printsError && Object.keys(printsMap).length) pills.push({ color: "green", icon: <RiCheckLine size={11} />, label: `${Object.keys(printsMap).length} SHÖ eşleşti` });
+        if (!vehicleError && Object.keys(vehicleMap).length) pills.push({ color: "green", icon: <RiCheckLine size={11} />, label: `${Object.keys(vehicleMap).length} araç eşleşti` });
+        if (!error && raw && data.length) pills.push({ color: "blue", icon: <RiCheckLine size={11} />, label: `${data.length} sefer yüklendi` });
+        return pills;
+    }, [error, printsError, vehicleError, printsMap, vehicleMap, raw, data]);
+
+    /* ── render ──────────────────────────────────────────────────────────── */
     return (
         <Box
             sx={{
                 width: "100%",
-                p: { xs: 2, md: 4 },
                 minHeight: "100vh",
+                p: { xs: 2, md: 3 },
                 background: isDark
-                    ? `radial-gradient(circle at 50% 0%, ${alpha(theme.palette.primary.main, 0.1)} 0%, transparent 50%)`
-                    : `radial-gradient(circle at 50% 0%, ${alpha(theme.palette.primary.main, 0.05)} 0%, transparent 50%)`,
+                    ? "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(99,102,241,0.08) 0%, transparent 70%)"
+                    : "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(99,102,241,0.06) 0%, transparent 70%)",
             }}
         >
-            <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-                <Stack
-                    direction={{ xs: "column", lg: "row" }}
-                    spacing={3}
+            {/* ── HEADER ─────────────────────────────────────────────────── */}
+            <motion.div initial={{ y: -16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.4, ease: "easeOut" }}>
+                <Box
                     sx={{
-                        mb: 6,
-                        p: 2,
-                        borderRadius: "24px",
-                        bgcolor: isDark ? alpha("#1e293b", 0.4) : alpha("#ffffff", 0.6),
-                        backdropFilter: "blur(20px)",
+                        mb: 3,
+                        p: { xs: 2, sm: 2.5 },
+                        borderRadius: "20px",
+                        background: isDark
+                            ? "rgba(15,23,42,0.7)"
+                            : "rgba(255,255,255,0.85)",
+                        backdropFilter: "blur(24px)",
                         border: "1px solid",
-                        borderColor: isDark ? alpha("#ffffff", 0.08) : alpha("#e2e8f0", 0.5),
-                        boxShadow: "0 25px 50px -12px rgba(0,0,0,0.1)",
-                        alignItems: "center",
-                        justifyContent: "space-between",
+                        borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.07)",
+                        boxShadow: isDark
+                            ? "0 1px 0 rgba(255,255,255,0.04) inset, 0 20px 40px -12px rgba(0,0,0,0.4)"
+                            : "0 1px 0 rgba(255,255,255,0.9) inset, 0 20px 40px -12px rgba(0,0,0,0.06)",
                     }}
                 >
-                    <Stack direction="row" spacing={2} alignItems="center">
-                        <Avatar sx={{ bgcolor: "primary.main", width: 42, height: 42, boxShadow: 3 }}>
-                            <RiFocus3Line size={24} />
-                        </Avatar>
-                        <Box>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 900, lineHeight: 1.2 }}>
-                                Operasyon Paneli
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
-                                Tarih seçip analizi başlatın
-                            </Typography>
-
-                            {error && (
-                                <Typography sx={{ mt: 0.7, fontSize: "0.78rem", fontWeight: 800, color: "#ef4444" }}>
-                                    {error}
+                    {/* üst satır: başlık + tarihler + butonlar */}
+                    <Stack
+                        direction={{ xs: "column", lg: "row" }}
+                        spacing={2}
+                        alignItems={{ lg: "center" }}
+                        justifyContent="space-between"
+                    >
+                        {/* sol: başlık */}
+                        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flexShrink: 0 }}>
+                            <Box
+                                sx={{
+                                    width: 38, height: 38, borderRadius: "12px",
+                                    background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    boxShadow: "0 4px 12px rgba(99,102,241,0.4)",
+                                    flexShrink: 0,
+                                }}
+                            >
+                                <RiDatabaseLine size={19} color="#fff" />
+                            </Box>
+                            <Box>
+                                <Typography sx={{ fontWeight: 900, fontSize: "1rem", lineHeight: 1.2, letterSpacing: "-0.02em" }}>
+                                    Operasyon Paneli
                                 </Typography>
-                            )}
-
-                            {printsError && (
-                                <Typography sx={{ mt: 0.2, fontSize: "0.78rem", fontWeight: 800, color: "#f59e0b" }}>
-                                    Print: {printsError}
+                                <Typography variant="caption" sx={{ opacity: 0.45, fontWeight: 500 }}>
+                                    TMS · SHÖ · Araç bilgileri
                                 </Typography>
-                            )}
+                            </Box>
+                        </Stack>
 
-                            {vehicleError && (
-                                <Typography sx={{ mt: 0.2, fontSize: "0.78rem", fontWeight: 800, color: "#f59e0b" }}>
-                                    Araç: {vehicleError}
-                                </Typography>
-                            )}
+                        {/* sağ: kontroller */}
+                        <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={1.5}
+                            alignItems={{ sm: "flex-end" }}
+                            flexWrap="wrap"
+                        >
+                            {/* tarih aralığı */}
+                            <Stack direction="row" spacing={1.5} alignItems="flex-end">
+                                <DateInput
+                                    label="Başlangıç"
+                                    value={range.start.toISOString().split("T")[0]}
+                                    onChange={(e) => setRange((p) => ({ ...p, start: new Date(e.target.value) }))}
+                                    isDark={isDark}
+                                />
+                                <Box sx={{ pb: "9px", opacity: 0.3 }}>
+                                    <Typography sx={{ fontSize: "0.8rem" }}>→</Typography>
+                                </Box>
+                                <DateInput
+                                    label="Bitiş"
+                                    value={range.end.toISOString().split("T")[0]}
+                                    onChange={(e) => setRange((p) => ({ ...p, end: new Date(e.target.value) }))}
+                                    isDark={isDark}
+                                />
+                            </Stack>
 
-                            {!!Object.keys(printsMap || {}).length && !printsError && (
-                                <Typography sx={{ mt: 0.2, fontSize: "0.78rem", fontWeight: 800, color: "#10b981" }}>
-                                    Print eşleşme: {Object.keys(printsMap).length}
-                                </Typography>
-                            )}
+                            {/* divider */}
+                            <Box sx={{ display: { xs: "none", sm: "block" }, width: "1px", height: 38, background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)", alignSelf: "flex-end", mb: "1px" }} />
 
-                            {!!Object.keys(vehicleMap || {}).length && !vehicleError && (
-                                <Typography sx={{ mt: 0.2, fontSize: "0.78rem", fontWeight: 800, color: "#10b981" }}>
-                                    Araç eşleşme: {Object.keys(vehicleMap).length}
-                                </Typography>
-                            )}
-                        </Box>
+                            {/* butonlar */}
+                            <Stack direction="row" spacing={1} alignItems="flex-end" flexWrap="wrap">
+                                <ActionButton
+                                    onClick={handleFetchData}
+                                    disabled={loading}
+                                    loading={loading}
+                                    icon={<RiRefreshLine size={16} />}
+                                    label="Verileri Analiz Et"
+                                    loadingLabel="Çekiliyor..."
+                                    variant="primary"
+                                    isDark={isDark}
+                                />
+                                <ActionButton
+                                    onClick={handleFetchPrints}
+                                    disabled={printsLoading || !raw}
+                                    loading={printsLoading}
+                                    icon={<RiPrinterLine size={16} />}
+                                    label="Yükleme Tarihleri"
+                                    loadingLabel="Tarihler..."
+                                    variant="secondary"
+                                    isDark={isDark}
+                                />
+                                <ActionButton
+                                    onClick={handleFetchVehicles}
+                                    disabled={vehicleLoading || !raw}
+                                    loading={vehicleLoading}
+                                    icon={<RiTruckLine size={16} />}
+                                    label="Araç Getir"
+                                    loadingLabel="Araç..."
+                                    variant="secondary"
+                                    isDark={isDark}
+                                />
+                            </Stack>
+                        </Stack>
                     </Stack>
 
-                    <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="center">
-                        {/* Tarih */}
-                        <Box
-                            sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1.5,
-                                px: 2.5,
-                                py: 1.2,
-                                borderRadius: "16px",
-                                bgcolor: isDark ? alpha("#000", 0.2) : "#fff",
-                                border: "1px solid",
-                                borderColor: isDark ? alpha("#fff", 0.05) : alpha("#e2e8f0", 0.8),
-                            }}
-                        >
-                            <RiCalendarCheckLine size={20} color={theme.palette.primary.main} />
-                            <input
-                                type="date"
-                                value={range.start.toISOString().split("T")[0]}
-                                onChange={(e) => setRange((prev) => ({ ...prev, start: new Date(e.target.value) }))}
-                                style={{
-                                    border: "none",
-                                    outline: "none",
-                                    background: "transparent",
-                                    color: isDark ? "#fff" : "#000",
-                                    fontSize: "0.9rem",
-                                    fontWeight: 700,
-                                    fontFamily: "inherit",
-                                }}
-                            />
-                            <Typography sx={{ opacity: 0.3, fontWeight: 300 }}>—</Typography>
-                            <input
-                                type="date"
-                                value={range.end.toISOString().split("T")[0]}
-                                onChange={(e) => setRange((prev) => ({ ...prev, end: new Date(e.target.value) }))}
-                                style={{
-                                    border: "none",
-                                    outline: "none",
-                                    background: "transparent",
-                                    color: isDark ? "#fff" : "#000",
-                                    fontSize: "0.9rem",
-                                    fontWeight: 700,
-                                    fontFamily: "inherit",
-                                }}
-                            />
-                        </Box>
-
-                        {/* TMS Buton */}
-                        <Button
-                            variant="contained"
-                            disableElevation
-                            onClick={handleFetchData}
-                            disabled={loading}
-                            startIcon={loading ? null : <RiRefreshLine size={20} />}
-                            sx={{
-                                borderRadius: "16px",
-                                px: 4,
-                                py: 1.5,
-                                fontWeight: 800,
-                                textTransform: "none",
-                                fontSize: "0.95rem",
-                                background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-                                boxShadow: `0 8px 20px ${alpha(theme.palette.primary.main, 0.3)}`,
-                                "&:hover": { boxShadow: "none" },
-                            }}
-                        >
-                            {loading ? "Veriler Çekiliyor..." : "Verileri Analiz Et"}
-                        </Button>
-
-                        {/* Prints Buton */}
-                        <Button
-                            variant="outlined"
-                            onClick={handleFetchPrints}
-                            disabled={printsLoading || !raw}
-                            sx={{
-                                borderRadius: "16px",
-                                px: 3,
-                                py: 1.5,
-                                fontWeight: 900,
-                                textTransform: "none",
-                                fontSize: "0.9rem",
-                                borderColor: alpha(theme.palette.primary.main, 0.4),
-                            }}
-                        >
-                            {printsLoading ? "SHÖ Çekiliyor..." : "SHÖ Verisini Getir"}
-                        </Button>
-
-                        {/* Araç Bilgileri Buton */}
-                        <Button
-                            variant="outlined"
-                            onClick={handleFetchVehicles}
-                            disabled={vehicleLoading || !raw}
-                            sx={{
-                                borderRadius: "16px",
-                                px: 3,
-                                py: 1.5,
-                                fontWeight: 900,
-                                textTransform: "none",
-                                fontSize: "0.9rem",
-                                borderColor: alpha(theme.palette.primary.main, 0.4),
-                            }}
-                        >
-                            {vehicleLoading ? "Araç Bilgileri..." : "Araç Bilgileri Getir"}
-                        </Button>
-                    </Stack>
-                </Stack>
+                    {/* durum pill'leri */}
+                    <AnimatePresence>
+                        {statusPills.length > 0 && (
+                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}>
+                                <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: "wrap", gap: 1 }}>
+                                    {statusPills.map((p, i) => <StatusPill key={i} {...p} />)}
+                                </Stack>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </Box>
             </motion.div>
 
-            {/* İçerik */}
+            {/* ── İÇERİK ─────────────────────────────────────────────────── */}
             <AnimatePresence mode="wait">
                 {!raw && !loading ? (
-                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
-                        <Stack alignItems="center" justifyContent="center" sx={{ py: 15, opacity: 0.6 }}>
-                            <RiDatabaseLine size={80} style={{ marginBottom: 20, opacity: 0.2 }} />
-                            <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                                Analiz İçin Hazırız
-                            </Typography>
-                            <Typography variant="body2">Tarih aralığı seçin ve "Verileri Analiz Et" butonuna tıklayın.</Typography>
+                    <motion.div
+                        key="empty"
+                        initial={{ opacity: 0, scale: 0.97 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.97 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        <Stack
+                            alignItems="center"
+                            justifyContent="center"
+                            spacing={2}
+                            sx={{
+                                py: { xs: 10, md: 16 },
+                                borderRadius: "20px",
+                                border: "1px dashed",
+                                borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.07)",
+                            }}
+                        >
+                            {/* ikon */}
+                            <Box
+                                sx={{
+                                    width: 72, height: 72, borderRadius: "22px",
+                                    background: isDark ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.06)",
+                                    border: "1px solid",
+                                    borderColor: isDark ? "rgba(99,102,241,0.15)" : "rgba(99,102,241,0.12)",
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                }}
+                            >
+                                <RiDatabaseLine size={32} color={isDark ? "rgba(99,102,241,0.5)" : "rgba(99,102,241,0.4)"} />
+                            </Box>
+                            <Box sx={{ textAlign: "center" }}>
+                                <Typography sx={{ fontWeight: 800, fontSize: "1.05rem", mb: 0.5 }}>
+                                    Analiz için hazır
+                                </Typography>
+                                <Typography variant="body2" sx={{ opacity: 0.45 }}>
+                                    Tarih aralığını seçin ve "Verileri Analiz Et" butonuna tıklayın
+                                </Typography>
+                            </Box>
                         </Stack>
                     </motion.div>
                 ) : (
-                    <motion.div key="data-view" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+                    <motion.div
+                        key="data-view"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35 }}
+                    >
                         <Box
                             sx={{
-                                borderRadius: "32px",
+                                borderRadius: "20px",
                                 overflow: "hidden",
-                                bgcolor: isDark ? alpha("#0f172a", 0.4) : "#fff",
                                 border: "1px solid",
-                                borderColor: isDark ? alpha("#ffffff", 0.05) : alpha("#e2e8f0", 0.7),
-                                boxShadow: "0 40px 80px -20px rgba(0,0,0,0.08)",
+                                borderColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.07)",
+                                background: isDark ? "rgba(15,23,42,0.6)" : "#fff",
+                                backdropFilter: "blur(20px)",
+                                boxShadow: isDark
+                                    ? "0 20px 60px -20px rgba(0,0,0,0.5)"
+                                    : "0 20px 60px -20px rgba(0,0,0,0.06)",
                             }}
                         >
                             <AnalizTablosu

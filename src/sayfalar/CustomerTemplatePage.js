@@ -49,7 +49,6 @@ import { supabase2 } from "../supabase2/supabaseClient2";
 /* ------------------------ MÜŞTERİ/PROJE KONFİG ------------------------ */
 const CUSTOMER_PROJECTS = {
     EKSUN: ["EKSUN GIDA FTL"],
-    // ✅ İSTEK: BUNGE sadece LÜLEBURGAZ gelsin
     BUNGE: ["BUNGE LÜLEBURGAZ FTL"],
 };
 
@@ -78,11 +77,13 @@ const clampDayStart = (d) => {
     x.setHours(0, 0, 0, 0);
     return x;
 };
+
 const addDays = (d, n) => {
     const x = new Date(d);
     x.setDate(x.getDate() + n);
     return x;
 };
+
 const startOfWeekMon = (d) => {
     const x = clampDayStart(d);
     const day = x.getDay();
@@ -90,21 +91,26 @@ const startOfWeekMon = (d) => {
     x.setDate(x.getDate() - diff);
     return x;
 };
+
 const buildWeekRangesBetween = (startDate, endDate) => {
     const s0 = clampDayStart(new Date(startDate));
     const e0 = clampDayStart(new Date(endDate));
     const firstWeekStart = startOfWeekMon(s0);
     const out = [];
     let cur = new Date(firstWeekStart);
+
     while (cur <= e0) {
         const wStart = new Date(cur);
         const wEnd = addDays(wStart, 6);
         wEnd.setHours(23, 59, 59, 999);
+
         const a = new Date(Math.max(wStart.getTime(), s0.getTime()));
         const b = new Date(Math.min(wEnd.getTime(), new Date(endDate).getTime()));
+
         if (a <= b) out.push({ start: a, end: b });
         cur = addDays(cur, 7);
     }
+
     return out;
 };
 
@@ -119,6 +125,7 @@ const formatDateTimeTR = (value) => {
     const normalized = normalizeIsoMs(raw);
     const d = new Date(normalized);
     if (Number.isNaN(d.getTime())) return raw;
+
     return new Intl.DateTimeFormat("tr-TR", {
         day: "2-digit",
         month: "2-digit",
@@ -155,8 +162,8 @@ const isFilo = (v) => {
     const x = String(v || "").trim().toUpperCase();
     return x === "FİLO" || x === "FILO";
 };
-const isSpot = (v) => String(v || "").trim().toUpperCase() === "SPOT";
 
+const isSpot = (v) => String(v || "").trim().toUpperCase() === "SPOT";
 const normalizeName = (v) => String(v || "").trim().toUpperCase().replace(/\s+/g, " ");
 const hasVal = (v) => v !== null && v !== undefined && String(v).trim() !== "";
 
@@ -192,18 +199,31 @@ const calcStats = (items) => {
     const filoCount = items.filter((x) => isFilo(x.VehicleWorkingName)).length;
     const spotCount = items.filter((x) => isSpot(x.VehicleWorkingName)).length;
     const seferSet = new Set(items.map((x) => String(x.TMSDespatchDocumentNo || "").trim()).filter(Boolean));
-    return { total: items.length, filoCount, spotCount, seferCount: seferSet.size };
+
+    return {
+        total: items.length,
+        filoCount,
+        spotCount,
+        seferCount: seferSet.size,
+    };
 };
 
 const calcDashboard = (items) => {
     const base = calcStats(items);
-    const filoOpCounts = { YÜKLEMEDE: 0, YOLDA: 0, BOŞALTMADA: 0, "TESLİM EDİLDİ": 0, BELİRSİZ: 0 };
+    const filoOpCounts = {
+        YÜKLEMEDE: 0,
+        YOLDA: 0,
+        BOŞALTMADA: 0,
+        "TESLİM EDİLDİ": 0,
+        BELİRSİZ: 0,
+    };
 
     for (const r of items) {
         if (!isFilo(r.VehicleWorkingName)) continue;
         const op = getFiloOperationalStatus(r) || "BELİRSİZ";
         filoOpCounts[op] = (filoOpCounts[op] || 0) + 1;
     }
+
     return { ...base, filoOpCounts };
 };
 
@@ -234,23 +254,17 @@ const exportToExcel = (rows, columns, fileName = "SEVKIYAT.xlsx", opts = { exclu
 
     const data = filteredRows.map((r) => {
         const obj = {};
+
         for (const c of exportColumns) {
             const raw = getValueByPath(r, c.key);
 
-            // ✅ FİLO ise TESLİM ZAMANI kolonunu teslim_cikis ile override et
             if (c.key === "TMSDespatchDeliveryTime") {
                 const filoTeslimCikis = r?.FILO_PLAN?.teslim_cikis;
-
-                const chosen =
-                    isFilo(r?.VehicleWorkingName) && hasVal(filoTeslimCikis)
-                        ? filoTeslimCikis
-                        : raw;
-
+                const chosen = isFilo(r?.VehicleWorkingName) && hasVal(filoTeslimCikis) ? filoTeslimCikis : raw;
                 obj[c.label] = formatDateTimeTR(chosen);
                 continue;
             }
 
-            // Durum kolonu override (mevcut kod)
             if (c.key === "OrderStatu") {
                 const filoOp = getFiloOperationalStatus(r);
                 obj[c.label] = filoOp || getStatusStyle(raw)?.label || "—";
@@ -259,7 +273,9 @@ const exportToExcel = (rows, columns, fileName = "SEVKIYAT.xlsx", opts = { exclu
 
             const val = c.type === "dt" ? formatDateTimeTR(raw) : raw ?? "—";
             obj[c.label] = val === "" ? "—" : val;
-        }        return obj;
+        }
+
+        return obj;
     });
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -291,6 +307,10 @@ const COLUMNS = [
     { key: "TMSDespatchVehicleDate", label: "Araç Yola Çıkış", type: "dt" },
     { key: "DeliveryDate", label: "Teslim Tarihi", type: "dt" },
     { key: "TMSDespatchDeliveryTime", label: "Teslim Zamanı", type: "dt" },
+    { key: "EstimatedArrivalTime", label: "Tahmini Varış", type: "dt" },
+    { key: "TMSLoadingDocumentPrintedDate", label: "Yükleme Varış (Gerçek)", type: "dt" },
+    { key: "TMSLoadingDocumentPrintedBy", label: "Yükleme Varış Oluşturan" },
+    { key: "TrailerPlateChangeOfNumber", label: "Plaka Değişim" },
     { key: "FILO_PLAN.yukleme_varis", label: "Yükleme Varış", type: "dt" },
     { key: "FILO_PLAN.yukleme_cikis", label: "Yükleme Çıkış", type: "dt" },
     { key: "FILO_PLAN.teslim_varis", label: "Teslim Varış", type: "dt" },
@@ -321,7 +341,11 @@ const MetricCard = ({ icon, title, value, hint }) => {
                     <Typography sx={{ fontSize: 22, color: "#0f172a", fontWeight: 1100, letterSpacing: -0.6, lineHeight: 1.1 }}>
                         {value}
                     </Typography>
-                    {hint ? <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 800, mt: 0.3 }}>{hint}</Typography> : null}
+                    {hint ? (
+                        <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 800, mt: 0.3 }}>
+                            {hint}
+                        </Typography>
+                    ) : null}
                 </Box>
             </Stack>
         </Paper>
@@ -336,8 +360,12 @@ const FiloStatusBar = ({ counts }) => {
         <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: "1px solid #eef2f7", bgcolor: "#fff" }}>
             <Stack spacing={1}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between">
-                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>FİLO Operasyon Dağılımı</Typography>
-                    <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 900 }}>{total ? `Toplam ${total}` : "—"}</Typography>
+                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
+                        FİLO Operasyon Dağılımı
+                    </Typography>
+                    <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 900 }}>
+                        {total ? `Toplam ${total}` : "—"}
+                    </Typography>
                 </Stack>
 
                 {order.map((k) => {
@@ -357,7 +385,11 @@ const FiloStatusBar = ({ counts }) => {
                                 </Typography>
                             </Stack>
 
-                            <LinearProgress variant="determinate" value={pct} sx={{ height: 8, borderRadius: 999, bgcolor: st.bg }} />
+                            <LinearProgress
+                                variant="determinate"
+                                value={pct}
+                                sx={{ height: 8, borderRadius: 999, bgcolor: st.bg }}
+                            />
                         </Box>
                     );
                 })}
@@ -369,10 +401,13 @@ const FiloStatusBar = ({ counts }) => {
 /* ------------------------ ANA SAYFA ------------------------ */
 export default function CustomerTemplatePage() {
     const user = getUserFromSession();
-    const params = useParams(); // /c/:customerKey
+    const params = useParams();
     const navigate = useNavigate();
 
-    const cfg = useMemo(() => getCustomerConfig(params?.customerKey || user?.takip), [params?.customerKey, user?.takip]);
+    const cfg = useMemo(
+        () => getCustomerConfig(params?.customerKey || user?.takip),
+        [params?.customerKey, user?.takip]
+    );
 
     const [range, setRange] = useState({
         start: new Date(new Date().setDate(new Date().getDate() - 3)),
@@ -393,7 +428,6 @@ export default function CustomerTemplatePage() {
 
     const [filterOpen, setFilterOpen] = useState(false);
 
-    // Navbar user menu
     const [userMenuAnchor, setUserMenuAnchor] = useState(null);
     const userMenuOpen = Boolean(userMenuAnchor);
     const openUserMenu = (e) => setUserMenuAnchor(e.currentTarget);
@@ -405,12 +439,6 @@ export default function CustomerTemplatePage() {
         navigate("/login", { replace: true });
     };
 
-    /**
-     * ✅ ENRICH STRATEJİSİ (FİLO için) — GÜNCEL
-     * 1) seferler + sefer_detaylari (aktif)
-     * 2) eksik kalan sefer_no için tamamlanan_detaylar (arsiv)
-     *  -> artık "aktiften bir şey bulunduysa fallback çalışmıyor" problemi yok
-     */
     const fetchTemplateData = useCallback(async () => {
         if (!user?.kullanici_adi) return;
 
@@ -473,18 +501,26 @@ export default function CustomerTemplatePage() {
                     TMSDespatchDocumentNo: x.TMSDespatchDocumentNo,
                     VehicleWorkingName: x.VehicleWorkingName,
                     TMSVehicleRequestDocumentNo: x.TMSVehicleRequestDocumentNo,
+
+                    TMSLoadingDocumentPrintedDate: x.TMSLoadingDocumentPrintedDate,
+                    TMSLoadingDocumentPrintedBy: x.TMSLoadingDocumentPrintedBy,
+                    TrailerPlateChangeOfNumber: x.TrailerPlateChangeOfNumber,
+                    EstimatedArrivalTime: x.EstimatedArrivalTime,
                 }));
 
-            // ✅ Sadece FİLO için Supabase2 enrich
             const filoRows = filteredBase.filter((r) => isFilo(r.VehicleWorkingName) && r.TMSDespatchDocumentNo);
-            const seferNos = Array.from(new Set(filoRows.map((r) => String(r.TMSDespatchDocumentNo).trim()).filter(Boolean)));
+            const seferNos = Array.from(
+                new Set(filoRows.map((r) => String(r.TMSDespatchDocumentNo).trim()).filter(Boolean))
+            );
 
             const buildEnrichedRowsWithPlan = (planByKey, planBySefer) => {
                 const enriched = filteredBase.map((r) => {
                     if (!isFilo(r.VehicleWorkingName) || !r.TMSDespatchDocumentNo) return r;
 
                     const seferNo = String(r.TMSDespatchDocumentNo).trim();
-                    const key = `${seferNo}|${normalizeName(r.PickupAddressCode)}|${normalizeName(r.DeliveryAddressCode)}`;
+                    const key = `${seferNo}|${normalizeName(r.PickupAddressCode)}|${normalizeName(
+                        r.DeliveryAddressCode
+                    )}`;
 
                     return {
                         ...r,
@@ -497,7 +533,6 @@ export default function CustomerTemplatePage() {
                 setLastUpdated(new Date());
             };
 
-            // ✅ GÜNCEL ENRICH: aktif + eksik kalanlar için tamamlanan
             if (seferNos.length > 0) {
                 const planByKey = new Map();
                 const planBySefer = new Map();
@@ -527,7 +562,6 @@ export default function CustomerTemplatePage() {
                 const buildKey = (seferNo, yuklemeNoktasi, teslimNoktasi) =>
                     `${seferNo}|${normalizeName(yuklemeNoktasi)}|${normalizeName(teslimNoktasi)}`;
 
-                // 1) AKTİF: seferler -> sefer_detaylari
                 const { data: seferlerList, error: seferlerErr } = await supabase2
                     .from("seferler")
                     .select("id,sefer_no")
@@ -545,13 +579,17 @@ export default function CustomerTemplatePage() {
                 if (seferIds.length > 0) {
                     const { data: seferDetaylari, error: detayErr } = await supabase2
                         .from("sefer_detaylari")
-                        .select("sefer_id,yukleme_noktasi,teslim_noktasi,yukleme_varis,yukleme_cikis,teslim_varis,teslim_cikis,nokta_sirasi")
+                        .select(
+                            "sefer_id,yukleme_noktasi,teslim_noktasi,yukleme_varis,yukleme_cikis,teslim_varis,teslim_cikis,nokta_sirasi"
+                        )
                         .in("sefer_id", seferIds);
 
                     if (detayErr) console.warn("supabase sefer_detaylari error:", detayErr);
 
                     const seferNoById = new Map();
-                    for (const [no, id] of seferIdByNo.entries()) seferNoById.set(String(id), String(no));
+                    for (const [no, id] of seferIdByNo.entries()) {
+                        seferNoById.set(String(id), String(no));
+                    }
 
                     for (const d of seferDetaylari || []) {
                         const sid = d?.sefer_id;
@@ -569,13 +607,14 @@ export default function CustomerTemplatePage() {
                     }
                 }
 
-                // 2) TAMAMLANAN: aktifte bulunamayan sefer_no’lar için
                 const missingSeferNos = seferNos.filter((no) => !seferIdByNo.has(String(no).trim()));
 
                 if (missingSeferNos.length > 0) {
                     const { data: doneDetaylar, error: doneErr } = await supabase2
                         .from("tamamlanan_detaylar")
-                        .select("sefer_no,yukleme_noktasi,teslim_noktasi,yukleme_varis,yukleme_cikis,teslim_varis,teslim_cikis,nokta_sirasi")
+                        .select(
+                            "sefer_no,yukleme_noktasi,teslim_noktasi,yukleme_varis,yukleme_cikis,teslim_varis,teslim_cikis,nokta_sirasi"
+                        )
                         .in("sefer_no", missingSeferNos);
 
                     if (doneErr) console.warn("supabase tamamlanan_detaylar error:", doneErr);
@@ -597,7 +636,6 @@ export default function CustomerTemplatePage() {
                 return;
             }
 
-            // filo yoksa / sefer yoksa
             setRows(filteredBase);
             setLastUpdated(new Date());
         } catch (e) {
@@ -616,7 +654,6 @@ export default function CustomerTemplatePage() {
         }
     }, [range, user, cfg]);
 
-    // ✅ İSTEK: tabloda BOS ile başlayan seferler görünmesin
     const visibleRows = useMemo(() => {
         const query = normalizeName(q);
 
@@ -662,12 +699,12 @@ export default function CustomerTemplatePage() {
         setSelectedRow(r);
         setDetailOpen(true);
     };
+
     const closeDetail = () => {
         setDetailOpen(false);
         setSelectedRow(null);
     };
 
-    // ✅ Filo kolonları renderCell ile (valueGetter crash fix)
     const gridColumns = useMemo(() => {
         const baseCols = [
             { field: "CustomerOrderNumber", headerName: "Sipariş No", width: 150 },
@@ -683,11 +720,18 @@ export default function CustomerTemplatePage() {
                     const isS = isSpot(v);
                     const bg = isF ? "#f0f9ff" : isS ? "#fff7ed" : "#f1f5f9";
                     const c = isF ? "#0369a1" : isS ? "#c2410c" : "#475569";
+
                     return (
                         <Chip
                             size="small"
                             label={String(v || "—")}
-                            sx={{ bgcolor: bg, color: c, fontWeight: 950, borderRadius: 2, border: `1px solid ${c}20` }}
+                            sx={{
+                                bgcolor: bg,
+                                color: c,
+                                fontWeight: 950,
+                                borderRadius: 2,
+                                border: `1px solid ${c}20`,
+                            }}
                         />
                     );
                 },
@@ -700,6 +744,7 @@ export default function CustomerTemplatePage() {
                 renderCell: (params) => {
                     const r = params.row;
                     const filoOp = getFiloOperationalStatus(r);
+
                     if (filoOp) {
                         const st2 = getFiloOperationalChipStyle(filoOp);
                         return (
@@ -707,7 +752,13 @@ export default function CustomerTemplatePage() {
                                 <Chip
                                     size="small"
                                     label={filoOp}
-                                    sx={{ bgcolor: st2.bg, color: st2.color, fontWeight: 1000, borderRadius: 2, border: `1px solid ${st2.color}20` }}
+                                    sx={{
+                                        bgcolor: st2.bg,
+                                        color: st2.color,
+                                        fontWeight: 1000,
+                                        borderRadius: 2,
+                                        border: `1px solid ${st2.color}20`,
+                                    }}
                                 />
                             </Tooltip>
                         );
@@ -718,7 +769,13 @@ export default function CustomerTemplatePage() {
                         <Chip
                             size="small"
                             label={st.label}
-                            sx={{ bgcolor: st.bg, color: st.color, fontWeight: 1000, borderRadius: 2, border: `1px solid ${st.color}20` }}
+                            sx={{
+                                bgcolor: st.bg,
+                                color: st.color,
+                                fontWeight: 1000,
+                                borderRadius: 2,
+                                border: `1px solid ${st.color}20`,
+                            }}
                         />
                     );
                 },
@@ -729,7 +786,12 @@ export default function CustomerTemplatePage() {
             { field: "DeliveryAddressCode", headerName: "Teslim Nokta", width: 140 },
             { field: "DeliveryCityName", headerName: "Teslim İl", width: 130 },
             { field: "DeliveryCountyName", headerName: "Teslim İlçe", width: 140 },
-            { field: "PickupDate", headerName: "Yükleme Tarihi", width: 170, valueFormatter: (p) => formatDateTimeTR(p?.value) },
+            {
+                field: "PickupDate",
+                headerName: "Yükleme Tarihi",
+                width: 170,
+                valueFormatter: (p) => formatDateTimeTR(p?.value),
+            },
             {
                 field: "DeliveryDate",
                 headerName: "Teslim Tarihi",
@@ -740,14 +802,42 @@ export default function CustomerTemplatePage() {
                     const fallback = r?.DeliveryDate;
                     const filoTeslimCikis = r?.FILO_PLAN?.teslim_cikis;
 
-                    // ✅ FİLO ise: Teslim Tarihi = Teslim Çıkış (varsa)
-                    const val = isFilo(r?.VehicleWorkingName) && hasVal(filoTeslimCikis)
-                        ? filoTeslimCikis
-                        : fallback;
+                    const val =
+                        isFilo(r?.VehicleWorkingName) && hasVal(filoTeslimCikis)
+                            ? filoTeslimCikis
+                            : fallback;
 
                     return formatDateTimeTR(val);
                 },
-            },            { field: "TMSDespatchCreatedDate", headerName: "Sefer Açılış", width: 180, valueFormatter: (p) => formatDateTimeTR(p?.value) },
+            },
+            {
+                field: "TMSDespatchCreatedDate",
+                headerName: "Sefer Açılış",
+                width: 180,
+                valueFormatter: (p) => formatDateTimeTR(p?.value),
+            },
+            {
+                field: "EstimatedArrivalTime",
+                headerName: "Tahmini Varış",
+                width: 180,
+                valueFormatter: (p) => formatDateTimeTR(p?.value),
+            },
+            {
+                field: "TMSLoadingDocumentPrintedDate",
+                headerName: "Yükleme Varış (Gerçek)",
+                width: 180,
+                valueFormatter: (p) => formatDateTimeTR(p?.value),
+            },
+            {
+                field: "TMSLoadingDocumentPrintedBy",
+                headerName: "Yükleme Varış Oluşturan",
+                width: 200,
+            },
+            {
+                field: "TrailerPlateChangeOfNumber",
+                headerName: "Plaka Değişim",
+                width: 150,
+            },
         ];
 
         const filoCols = [
@@ -793,7 +883,6 @@ export default function CustomerTemplatePage() {
 
     return (
         <Box sx={{ minHeight: "100vh", bgcolor: "#f6f8fb", pb: 6 }}>
-            {/* NAVBAR */}
             <Box
                 sx={{
                     position: "sticky",
@@ -822,8 +911,12 @@ export default function CustomerTemplatePage() {
                                 F
                             </Box>
                             <Box>
-                                <Typography sx={{ fontWeight: 1100, color: "#0f172a", lineHeight: 1.1 }}>Flowline</Typography>
-                                <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>{cfg.key ? `${cfg.key} paneli` : "Sevkiyat takip"}</Typography>
+                                <Typography sx={{ fontWeight: 1100, color: "#0f172a", lineHeight: 1.1 }}>
+                                    Flowline
+                                </Typography>
+                                <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>
+                                    {cfg.key ? `${cfg.key} paneli` : "Sevkiyat takip"}
+                                </Typography>
                             </Box>
                         </Stack>
 
@@ -843,7 +936,11 @@ export default function CustomerTemplatePage() {
                             <Button
                                 onClick={openUserMenu}
                                 variant="outlined"
-                                startIcon={<Avatar sx={{ width: 22, height: 22, fontSize: 12, bgcolor: "#0f172a" }}>{avatarText}</Avatar>}
+                                startIcon={
+                                    <Avatar sx={{ width: 22, height: 22, fontSize: 12, bgcolor: "#0f172a" }}>
+                                        {avatarText}
+                                    </Avatar>
+                                }
                                 endIcon={<AccountCircleRounded />}
                                 sx={{
                                     borderRadius: 999,
@@ -875,8 +972,12 @@ export default function CustomerTemplatePage() {
                                 }}
                             >
                                 <Box sx={{ px: 2, py: 1.4, bgcolor: "#f8fafc", borderBottom: "1px solid #eef2f7" }}>
-                                    <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 14 }}>{userName}</Typography>
-                                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>{userSub ? `Takip: ${userSub}` : "—"}</Typography>
+                                    <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 14 }}>
+                                        {userName}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>
+                                        {userSub ? `Takip: ${userSub}` : "—"}
+                                    </Typography>
                                 </Box>
 
                                 <MenuItem onClick={handleLogout}>
@@ -891,7 +992,6 @@ export default function CustomerTemplatePage() {
                 </Container>
             </Box>
 
-            {/* SAYFA HEADER */}
             <Box
                 sx={{
                     position: "sticky",
@@ -903,19 +1003,47 @@ export default function CustomerTemplatePage() {
                 }}
             >
                 <Container maxWidth="xl" sx={{ py: 1.6 }}>
-                    <Stack direction={{ xs: "column", md: "row" }} spacing={1.2} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between">
+                    <Stack
+                        direction={{ xs: "column", md: "row" }}
+                        spacing={1.2}
+                        alignItems={{ xs: "stretch", md: "center" }}
+                        justifyContent="space-between"
+                    >
                         <Stack spacing={0.3}>
                             <Stack direction="row" spacing={1} alignItems="center">
                                 <DescriptionRounded sx={{ color: "#3b82f6" }} />
-                                <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 18, letterSpacing: -0.4 }}>{cfg.title}</Typography>
-                                <Chip size="small" label="Sevkiyat Takip" sx={{ bgcolor: "#fff", border: "1px solid #eef2f7", color: "#334155", fontWeight: 900, borderRadius: 2 }} />
+                                <Typography
+                                    sx={{
+                                        fontWeight: 1100,
+                                        color: "#0f172a",
+                                        fontSize: 18,
+                                        letterSpacing: -0.4,
+                                    }}
+                                >
+                                    {cfg.title}
+                                </Typography>
+                                <Chip
+                                    size="small"
+                                    label="Sevkiyat Takip"
+                                    sx={{
+                                        bgcolor: "#fff",
+                                        border: "1px solid #eef2f7",
+                                        color: "#334155",
+                                        fontWeight: 900,
+                                        borderRadius: 2,
+                                    }}
+                                />
                             </Stack>
                             <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 800 }}>
                                 Son güncelleme: {lastUpdated ? formatDateTimeTR(lastUpdated.toISOString()) : "—"}
                             </Typography>
                         </Stack>
 
-                        <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }}>
+                        <Stack
+                            direction={{ xs: "column", md: "row" }}
+                            spacing={1}
+                            alignItems={{ xs: "stretch", md: "center" }}
+                        >
                             <Stack direction="row" spacing={1} alignItems="center">
                                 <Typography variant="caption" sx={{ color: "#94a3b8", fontWeight: 900 }}>
                                     Başlangıç
@@ -924,7 +1052,16 @@ export default function CustomerTemplatePage() {
                                     type="date"
                                     value={dateInputValue(range.start)}
                                     onChange={(e) => setRange((p) => ({ ...p, start: new Date(e.target.value) }))}
-                                    style={{ border: "1px solid #e8edf4", borderRadius: 12, padding: "8px 10px", fontWeight: 900, color: "#0f172a", outline: "none", background: "#fff", height: 36 }}
+                                    style={{
+                                        border: "1px solid #e8edf4",
+                                        borderRadius: 12,
+                                        padding: "8px 10px",
+                                        fontWeight: 900,
+                                        color: "#0f172a",
+                                        outline: "none",
+                                        background: "#fff",
+                                        height: 36,
+                                    }}
                                 />
                             </Stack>
 
@@ -936,7 +1073,16 @@ export default function CustomerTemplatePage() {
                                     type="date"
                                     value={dateInputValue(range.end)}
                                     onChange={(e) => setRange((p) => ({ ...p, end: new Date(e.target.value) }))}
-                                    style={{ border: "1px solid #e8edf4", borderRadius: 12, padding: "8px 10px", fontWeight: 900, color: "#0f172a", outline: "none", background: "#fff", height: 36 }}
+                                    style={{
+                                        border: "1px solid #e8edf4",
+                                        borderRadius: 12,
+                                        padding: "8px 10px",
+                                        fontWeight: 900,
+                                        color: "#0f172a",
+                                        outline: "none",
+                                        background: "#fff",
+                                        height: 36,
+                                    }}
                                 />
                             </Stack>
 
@@ -966,25 +1112,43 @@ export default function CustomerTemplatePage() {
 
             <Container maxWidth="xl" sx={{ mt: 2.4 }}>
                 <Stack spacing={1.5}>
-                    {/* KPI */}
                     <Stack direction={{ xs: "column", lg: "row" }} spacing={1.5}>
                         <Box sx={{ flex: 1 }}>
-                            <MetricCard icon={<BarChartRounded sx={{ color: "#0f172a" }} />} title="Görünen Kayıt" value={dashboard.total} hint="Arama + filtre sonrası" />
+                            <MetricCard
+                                icon={<BarChartRounded sx={{ color: "#0f172a" }} />}
+                                title="Görünen Kayıt"
+                                value={dashboard.total}
+                                hint="Arama + filtre sonrası"
+                            />
                         </Box>
                         <Box sx={{ flex: 1 }}>
-                            <MetricCard icon={<LocalShippingRounded sx={{ color: "#0369a1" }} />} title="FİLO" value={dashboard.filoCount} hint="Çalışma tipi FİLO" />
+                            <MetricCard
+                                icon={<LocalShippingRounded sx={{ color: "#0369a1" }} />}
+                                title="FİLO"
+                                value={dashboard.filoCount}
+                                hint="Çalışma tipi FİLO"
+                            />
                         </Box>
                         <Box sx={{ flex: 1 }}>
-                            <MetricCard icon={<LocalShippingRounded sx={{ color: "#c2410c" }} />} title="SPOT" value={dashboard.spotCount} hint="Çalışma tipi SPOT" />
+                            <MetricCard
+                                icon={<LocalShippingRounded sx={{ color: "#c2410c" }} />}
+                                title="SPOT"
+                                value={dashboard.spotCount}
+                                hint="Çalışma tipi SPOT"
+                            />
                         </Box>
                         <Box sx={{ flex: 1 }}>
-                            <MetricCard icon={<Inventory2Rounded sx={{ color: "#6d28d9" }} />} title="Unique Sefer" value={dashboard.seferCount} hint="TMSDespatchDocumentNo" />
+                            <MetricCard
+                                icon={<Inventory2Rounded sx={{ color: "#6d28d9" }} />}
+                                title="Unique Sefer"
+                                value={dashboard.seferCount}
+                                hint="TMSDespatchDocumentNo"
+                            />
                         </Box>
                     </Stack>
 
                     <FiloStatusBar counts={dashboard.filoOpCounts} />
 
-                    {/* Toolbar */}
                     <Paper elevation={0} sx={{ p: 1.2, borderRadius: 4, border: "1px solid #eef2f7", bgcolor: "#fff" }}>
                         <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems="center">
                             <TextField
@@ -1040,7 +1204,13 @@ export default function CustomerTemplatePage() {
                                     label="Filtreler"
                                     clickable
                                     onClick={() => setFilterOpen(true)}
-                                    sx={{ fontWeight: 900, borderRadius: 2, bgcolor: "#fff", color: "#0f172a", border: "1px solid #e8edf4" }}
+                                    sx={{
+                                        fontWeight: 900,
+                                        borderRadius: 2,
+                                        bgcolor: "#fff",
+                                        color: "#0f172a",
+                                        border: "1px solid #e8edf4",
+                                    }}
                                 />
                                 <Chip
                                     label="Temizle"
@@ -1049,13 +1219,18 @@ export default function CustomerTemplatePage() {
                                         setQ("");
                                         setMode("ALL");
                                     }}
-                                    sx={{ fontWeight: 900, borderRadius: 2, bgcolor: "#fff", color: "#0f172a", border: "1px solid #e8edf4" }}
+                                    sx={{
+                                        fontWeight: 900,
+                                        borderRadius: 2,
+                                        bgcolor: "#fff",
+                                        color: "#0f172a",
+                                        border: "1px solid #e8edf4",
+                                    }}
                                 />
                             </Stack>
                         </Stack>
                     </Paper>
 
-                    {/* Content */}
                     {err ? (
                         <Alert severity="error" sx={{ borderRadius: 3 }}>
                             {err}
@@ -1067,26 +1242,45 @@ export default function CustomerTemplatePage() {
                                 <Skeleton variant="rounded" height={44} />
                                 <Skeleton variant="rounded" height={44} />
                                 <Skeleton variant="rounded" height={44} />
-                                <Typography sx={{ mt: 1, color: "#64748b", fontWeight: 900 }}>Veriler yükleniyor…</Typography>
+                                <Typography sx={{ mt: 1, color: "#64748b", fontWeight: 900 }}>
+                                    Veriler yükleniyor…
+                                </Typography>
                             </Stack>
                         </Paper>
                     ) : rows.length === 0 && !searched ? (
-                        <Paper elevation={0} sx={{ borderRadius: 4, border: "1px dashed #dbe3ef", bgcolor: "#fff", p: 5, textAlign: "center" }}>
+                        <Paper
+                            elevation={0}
+                            sx={{ borderRadius: 4, border: "1px dashed #dbe3ef", bgcolor: "#fff", p: 5, textAlign: "center" }}
+                        >
                             <Inventory2Rounded sx={{ fontSize: 70, color: "#e8edf4", mb: 1 }} />
-                            <Typography sx={{ fontWeight: 1100, color: "#0f172a", mb: 1 }}>Başlamak için tarih aralığını seç</Typography>
-                            <Typography sx={{ color: "#64748b", fontWeight: 800 }}>Üstten “Yenile” butonuna bas.</Typography>
+                            <Typography sx={{ fontWeight: 1100, color: "#0f172a", mb: 1 }}>
+                                Başlamak için tarih aralığını seç
+                            </Typography>
+                            <Typography sx={{ color: "#64748b", fontWeight: 800 }}>
+                                Üstten “Yenile” butonuna bas.
+                            </Typography>
                         </Paper>
                     ) : visibleRows.length === 0 ? (
-                        <Paper elevation={0} sx={{ borderRadius: 4, border: "1px dashed #dbe3ef", bgcolor: "#fff", p: 5, textAlign: "center" }}>
+                        <Paper
+                            elevation={0}
+                            sx={{ borderRadius: 4, border: "1px dashed #dbe3ef", bgcolor: "#fff", p: 5, textAlign: "center" }}
+                        >
                             <Inventory2Rounded sx={{ fontSize: 70, color: "#e8edf4", mb: 1 }} />
-                            <Typography sx={{ fontWeight: 1100, color: "#0f172a", mb: 1 }}>Kayıt Bulunamadı</Typography>
-                            <Typography sx={{ color: "#64748b", fontWeight: 800 }}>Aramayı/filtreleri temizleyip tekrar deneyebilirsin.</Typography>
+                            <Typography sx={{ fontWeight: 1100, color: "#0f172a", mb: 1 }}>
+                                Kayıt Bulunamadı
+                            </Typography>
+                            <Typography sx={{ color: "#64748b", fontWeight: 800 }}>
+                                Aramayı/filtreleri temizleyip tekrar deneyebilirsin.
+                            </Typography>
                         </Paper>
                     ) : (
                         <Paper elevation={0} sx={{ borderRadius: 4, border: "1px solid #eef2f7", bgcolor: "#fff", overflow: "hidden" }}>
                             <Box sx={{ height: "70vh" }}>
                                 <DataGrid
-                                    rows={visibleRows.map((r, idx) => ({ id: r.TMSOrderId || `${r.TMSDespatchDocumentNo || "row"}-${idx}`, ...r }))}
+                                    rows={visibleRows.map((r, idx) => ({
+                                        id: r.TMSOrderId || `${r.TMSDespatchDocumentNo || "row"}-${idx}`,
+                                        ...r,
+                                    }))}
                                     columns={gridColumns}
                                     disableRowSelectionOnClick
                                     onRowClick={(params) => openDetail(params.row)}
@@ -1094,11 +1288,23 @@ export default function CustomerTemplatePage() {
                                     initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
                                     sx={{
                                         border: "none",
-                                        "& .MuiDataGrid-columnHeaders": { bgcolor: "#fff", borderBottom: "1px solid #eef2f7" },
-                                        "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 1000, letterSpacing: "0.06rem", textTransform: "uppercase", fontSize: "0.72rem", color: "#64748b" },
+                                        "& .MuiDataGrid-columnHeaders": {
+                                            bgcolor: "#fff",
+                                            borderBottom: "1px solid #eef2f7",
+                                        },
+                                        "& .MuiDataGrid-columnHeaderTitle": {
+                                            fontWeight: 1000,
+                                            letterSpacing: "0.06rem",
+                                            textTransform: "uppercase",
+                                            fontSize: "0.72rem",
+                                            color: "#64748b",
+                                        },
                                         "& .MuiDataGrid-row": { borderBottom: "1px solid #f1f5f9" },
                                         "& .MuiDataGrid-row:hover": { bgcolor: "#f8fafc", cursor: "pointer" },
-                                        "& .MuiDataGrid-cell": { color: "#0f172a", borderBottom: "1px solid #f1f5f9" },
+                                        "& .MuiDataGrid-cell": {
+                                            color: "#0f172a",
+                                            borderBottom: "1px solid #f1f5f9",
+                                        },
                                     }}
                                 />
                             </Box>
@@ -1107,7 +1313,6 @@ export default function CustomerTemplatePage() {
                 </Stack>
             </Container>
 
-            {/* FILTER DRAWER */}
             <Drawer
                 anchor="right"
                 open={filterOpen}
@@ -1118,7 +1323,9 @@ export default function CustomerTemplatePage() {
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Box>
                             <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 16 }}>Filtreler</Typography>
-                            <Typography sx={{ color: "#64748b", fontWeight: 800, fontSize: 12 }}>Detay filtreler için alan.</Typography>
+                            <Typography sx={{ color: "#64748b", fontWeight: 800, fontSize: 12 }}>
+                                Detay filtreler için alan.
+                            </Typography>
                         </Box>
                         <IconButton onClick={() => setFilterOpen(false)}>
                             <CloseRounded />
@@ -1128,25 +1335,50 @@ export default function CustomerTemplatePage() {
                     <Divider sx={{ my: 1.6 }} />
 
                     <Stack spacing={1.2}>
-                        <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>Tarih Aralığı</Typography>
+                        <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
+                            Tarih Aralığı
+                        </Typography>
 
                         <Stack direction="row" spacing={1}>
                             <Box sx={{ flex: 1 }}>
-                                <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 900, mb: 0.5 }}>Başlangıç</Typography>
+                                <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 900, mb: 0.5 }}>
+                                    Başlangıç
+                                </Typography>
                                 <input
                                     type="date"
                                     value={dateInputValue(range.start)}
                                     onChange={(e) => setRange((p) => ({ ...p, start: new Date(e.target.value) }))}
-                                    style={{ width: "100%", border: "1px solid #e8edf4", borderRadius: 12, padding: "10px 10px", fontWeight: 900, color: "#0f172a", outline: "none", background: "#fff" }}
+                                    style={{
+                                        width: "100%",
+                                        border: "1px solid #e8edf4",
+                                        borderRadius: 12,
+                                        padding: "10px 10px",
+                                        fontWeight: 900,
+                                        color: "#0f172a",
+                                        outline: "none",
+                                        background: "#fff",
+                                    }}
                                 />
                             </Box>
+
                             <Box sx={{ flex: 1 }}>
-                                <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 900, mb: 0.5 }}>Bitiş</Typography>
+                                <Typography sx={{ fontSize: 12, color: "#94a3b8", fontWeight: 900, mb: 0.5 }}>
+                                    Bitiş
+                                </Typography>
                                 <input
                                     type="date"
                                     value={dateInputValue(range.end)}
                                     onChange={(e) => setRange((p) => ({ ...p, end: new Date(e.target.value) }))}
-                                    style={{ width: "100%", border: "1px solid #e8edf4", borderRadius: 12, padding: "10px 10px", fontWeight: 900, color: "#0f172a", outline: "none", background: "#fff" }}
+                                    style={{
+                                        width: "100%",
+                                        border: "1px solid #e8edf4",
+                                        borderRadius: 12,
+                                        padding: "10px 10px",
+                                        fontWeight: 900,
+                                        color: "#0f172a",
+                                        outline: "none",
+                                        background: "#fff",
+                                    }}
                                 />
                             </Box>
                         </Stack>
@@ -1167,6 +1399,7 @@ export default function CustomerTemplatePage() {
                             >
                                 Yenile
                             </Button>
+
                             <Button
                                 fullWidth
                                 variant="outlined"
@@ -1184,7 +1417,6 @@ export default function CustomerTemplatePage() {
                 </Box>
             </Drawer>
 
-            {/* DETAIL DRAWER */}
             <Drawer
                 anchor="right"
                 open={detailOpen}
@@ -1194,8 +1426,12 @@ export default function CustomerTemplatePage() {
                 <Box sx={{ p: 2.2 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Box>
-                            <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 16 }}>Sevkiyat Detayı</Typography>
-                            <Typography sx={{ color: "#64748b", fontWeight: 800, fontSize: 12 }}>Satıra tıklayarak açıldı</Typography>
+                            <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 16 }}>
+                                Sevkiyat Detayı
+                            </Typography>
+                            <Typography sx={{ color: "#64748b", fontWeight: 800, fontSize: 12 }}>
+                                Satıra tıklayarak açıldı
+                            </Typography>
                         </Box>
                         <IconButton onClick={closeDetail}>
                             <CloseRounded />
@@ -1208,39 +1444,91 @@ export default function CustomerTemplatePage() {
                         <Typography sx={{ color: "#64748b", fontWeight: 800 }}>—</Typography>
                     ) : (
                         <Stack spacing={1.2}>
-                            <Chip size="small" label={`Sipariş: ${selectedRow.CustomerOrderNumber || "—"}`} sx={{ bgcolor: "#f8fafc", border: "1px solid #e8edf4", fontWeight: 900, borderRadius: 2 }} />
-                            <Chip size="small" label={`Sefer: ${selectedRow.TMSDespatchDocumentNo || "—"}`} sx={{ bgcolor: "#f8fafc", border: "1px solid #e8edf4", fontWeight: 900, borderRadius: 2 }} />
-                            <Chip size="small" label={`Proje: ${selectedRow.ProjectName || "—"}`} sx={{ bgcolor: "#f8fafc", border: "1px solid #e8edf4", fontWeight: 900, borderRadius: 2 }} />
+                            <Chip
+                                size="small"
+                                label={`Sipariş: ${selectedRow.CustomerOrderNumber || "—"}`}
+                                sx={{ bgcolor: "#f8fafc", border: "1px solid #e8edf4", fontWeight: 900, borderRadius: 2 }}
+                            />
+                            <Chip
+                                size="small"
+                                label={`Sefer: ${selectedRow.TMSDespatchDocumentNo || "—"}`}
+                                sx={{ bgcolor: "#f8fafc", border: "1px solid #e8edf4", fontWeight: 900, borderRadius: 2 }}
+                            />
+                            <Chip
+                                size="small"
+                                label={`Proje: ${selectedRow.ProjectName || "—"}`}
+                                sx={{ bgcolor: "#f8fafc", border: "1px solid #e8edf4", fontWeight: 900, borderRadius: 2 }}
+                            />
+
                             <Typography sx={{ color: "#64748b", fontWeight: 900, fontSize: 12 }}>
                                 Yükleme: {selectedRow.PickupAddressCode || "—"} | Teslim: {selectedRow.DeliveryAddressCode || "—"}
                             </Typography>
 
+                            <Paper elevation={0} sx={{ p: 1.4, borderRadius: 3, border: "1px solid #eef2f7", bgcolor: "#fff" }}>
+                                <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 13, mb: 1 }}>
+                                    Geç Tedarik Hesabı
+                                </Typography>
+
+                                <Stack spacing={0.8}>
+                                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
+                                        Yükleme Noktasına Geliş Zamanı: {formatDateTimeTR(selectedRow.TMSLoadingDocumentPrintedDate)}
+                                    </Typography>
+
+                                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
+                                        Oluşturan Kullanıcı: {selectedRow.TMSLoadingDocumentPrintedBy || "—"}
+                                    </Typography>
+                                </Stack>
+                            </Paper>
+
                             {isFilo(selectedRow.VehicleWorkingName) ? (
                                 <Paper elevation={0} sx={{ p: 1.4, borderRadius: 3, border: "1px solid #eef2f7", bgcolor: "#fff" }}>
-                                    <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 13, mb: 1 }}>FİLO Zamanları</Typography>
+                                    <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 13, mb: 1 }}>
+                                        FİLO Zamanları
+                                    </Typography>
 
-                                    <Stack spacing={0.6}>
+                                    <Stack spacing={0.7}>
                                         <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
-                                            Yükleme Varış: <span style={{ color: "#0f172a" }}>{formatDateTimeTR(selectedRow?.FILO_PLAN?.yukleme_varis)}</span>
+                                            Yükleme Varış: {formatDateTimeTR(selectedRow?.FILO_PLAN?.yukleme_varis)}
                                         </Typography>
                                         <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
-                                            Yükleme Çıkış: <span style={{ color: "#0f172a" }}>{formatDateTimeTR(selectedRow?.FILO_PLAN?.yukleme_cikis)}</span>
+                                            Yükleme Çıkış: {formatDateTimeTR(selectedRow?.FILO_PLAN?.yukleme_cikis)}
                                         </Typography>
                                         <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
-                                            Teslim Varış: <span style={{ color: "#0f172a" }}>{formatDateTimeTR(selectedRow?.FILO_PLAN?.teslim_varis)}</span>
+                                            Teslim Varış: {formatDateTimeTR(selectedRow?.FILO_PLAN?.teslim_varis)}
                                         </Typography>
                                         <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
-                                            Teslim Çıkış: <span style={{ color: "#0f172a" }}>{formatDateTimeTR(selectedRow?.FILO_PLAN?.teslim_cikis)}</span>
-                                        </Typography>
-
-                                        <Divider sx={{ my: 0.8 }} />
-
-                                        <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
-                                            Operasyon Durumu: <span style={{ color: "#0f172a" }}>{getFiloOperationalStatus(selectedRow) || "BELİRSİZ"}</span>
+                                            Teslim Çıkış: {formatDateTimeTR(selectedRow?.FILO_PLAN?.teslim_cikis)}
                                         </Typography>
                                     </Stack>
                                 </Paper>
                             ) : null}
+
+                            <Paper elevation={0} sx={{ p: 1.4, borderRadius: 3, border: "1px solid #eef2f7", bgcolor: "#fff" }}>
+                                <Typography sx={{ fontWeight: 1100, color: "#0f172a", fontSize: 13, mb: 1 }}>
+                                    Genel Bilgiler
+                                </Typography>
+
+                                <Stack spacing={0.7}>
+                                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
+                                        Durum: {getFiloOperationalStatus(selectedRow) || getStatusStyle(selectedRow.OrderStatu).label}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
+                                        Çalışma Tipi: {selectedRow.VehicleWorkingName || "—"}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
+                                        Araç Tipi: {selectedRow.VehicleTypeName || "—"}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
+                                        Yükleme Tarihi: {formatDateTimeTR(selectedRow.PickupDate)}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
+                                        Tahmini Varış: {formatDateTimeTR(selectedRow.EstimatedArrivalTime)}
+                                    </Typography>
+                                    <Typography sx={{ fontSize: 12, color: "#64748b", fontWeight: 900 }}>
+                                        Plaka Değişim Sayısı: {selectedRow.TrailerPlateChangeOfNumber ?? "—"}
+                                    </Typography>
+                                </Stack>
+                            </Paper>
                         </Stack>
                     )}
                 </Box>
