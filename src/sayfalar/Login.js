@@ -93,28 +93,23 @@ export default function Login() {
     const handleLogin = async () => {
         setBusy(true);
         try {
-            const ka = (kullaniciAdi || "").trim();
+            const ka = (kullaniciAdi || "").trim().toLowerCase();
             const pw = (sifre || "").trim();
+
             if (!ka || !pw) throw new Error("Lütfen tüm alanları doldurun.");
 
-            const { data, error } = await supabase
-                .from("kullanicilar")
-                .select("*")
-                .eq("kullanici_adi", ka)
-                .eq("sifre", pw)
-                .maybeSingle();
+            if (ka !== "admin" || pw !== "admin") {
+                throw new Error("Kullanıcı adı veya şifre hatalı.");
+            }
 
-            if (error) throw error;
-            if (!data) throw new Error("Kullanıcı bulunamadı veya şifre yanlış.");
-            if (data.onayli === false) throw new Error("Hesabınız onay bekliyor.");
+            const fakeUser = {
+                kullanici_adi: "admin",
+                rol: "admin",
+                ad_soyad: "Admin",
+                login_at: new Date().toISOString(),
+            };
 
-            setUserToSession({ ...data, login_at: new Date().toISOString() });
-
-            // ✅ Login sonrası eksun/bunge özel yönlendirme GERİ EKLENDİ
-            const ka2 = String(data.kullanici_adi).trim().toLowerCase();
-            if (ka2 === "eksun") return navigate("/c/eksun", { replace: true });
-            if (ka2 === "bunge") return navigate("/c/bunge", { replace: true });
-
+            setUserToSession(fakeUser);
             navigate(redirectTo, { replace: true });
         } catch (e) {
             setToast({
@@ -126,7 +121,6 @@ export default function Login() {
             setBusy(false);
         }
     };
-
     return (
         <Box
             sx={{
