@@ -58,35 +58,38 @@ const truncateToMinute = (d) => {
     return x;
 };
 
-const isGecTedarik = (estimatedArrivalTime, loadingDate) => {
-    const eta = truncateToMinute(parseTRDateTime(estimatedArrivalTime));
-    const loading = truncateToMinute(parseTRDateTime(loadingDate));
-    if (!eta || !loading) return false;
-    return loading.getTime() > eta.getTime();
+const isGecTedarik = (pickupDate, loadingDate) => {
+    const yuklemeTarihi = truncateToMinute(parseTRDateTime(pickupDate));
+    const noktayaGelis = truncateToMinute(parseTRDateTime(loadingDate));
+
+    if (!yuklemeTarihi || !noktayaGelis) return false;
+
+    const farkSaat = (noktayaGelis.getTime() - yuklemeTarihi.getTime()) / (1000 * 60 * 60);
+    return farkSaat >= 30;
 };
 
-const dakikaGecikme = (estimatedArrivalTime, loadingDate) => {
-    const eta = truncateToMinute(parseTRDateTime(estimatedArrivalTime));
-    const loading = truncateToMinute(parseTRDateTime(loadingDate));
-    if (!eta || !loading) return null;
+const dakikaGecikme = (pickupDate, loadingDate) => {
+    const yuklemeTarihi = truncateToMinute(parseTRDateTime(pickupDate));
+    const noktayaGelis = truncateToMinute(parseTRDateTime(loadingDate));
+    if (!yuklemeTarihi || !noktayaGelis) return null;
 
-    const diffMs = loading.getTime() - eta.getTime();
+    const diffMs = noktayaGelis.getTime() - yuklemeTarihi.getTime() - (30 * 60 * 60 * 1000);
     return diffMs > 0 ? Math.floor(diffMs / 60000) : 0;
 };
-const yuklemeGelisZamanDurumu = (estimatedArrivalTime, loadingDate) => {
-    const eta = parseTRDateTime(estimatedArrivalTime);
-    const loading = parseTRDateTime(loadingDate);
+const yuklemeGelisZamanDurumu = (pickupDate, loadingDate) => {
+    const yuklemeTarihi = parseTRDateTime(pickupDate);
+    const noktayaGelis = parseTRDateTime(loadingDate);
 
-    if (!eta || !loading) {
+    if (!yuklemeTarihi || !noktayaGelis) {
         return { label: "Tarih yok", color: "#64748b", lateMinutes: null };
     }
 
-    const late = isGecTedarik(estimatedArrivalTime, loadingDate);
+    const late = isGecTedarik(pickupDate, loadingDate);
 
     return {
-        label: late ? "Geç Tedarik" : "Zamanında",
+        label: late ? "Yüklemeye Geciken" : "Zamanında",
         color: late ? "#F87171" : "#34D399",
-        lateMinutes: late ? dakikaGecikme(estimatedArrivalTime, loadingDate) : 0,
+        lateMinutes: late ? dakikaGecikme(pickupDate, loadingDate) : 0,
     };
 };
 const dakikaToSaatDakika = (mins) => {
@@ -567,7 +570,7 @@ function SeferKarti({ item, idx, sekme, excelTarihleriSeferBazli, printsLoading,
     const key = seferNoNormalizeEt(seferNo);
     const excelKaydi = key ? excelTarihleriSeferBazli?.[key] : null;
     const zaman = yuklemeGelisZamanDurumu(
-        item?.EstimatedArrivalTime,
+        item?.PickupDate,
         item?.TMSLoadingDocumentPrintedDate
     );
     const lateText = zaman?.lateMinutes > 0 ? `+${dakikaToSaatDakika(zaman.lateMinutes)}` : null;
@@ -744,7 +747,7 @@ export default function ProjeSatiri({
         return list.filter(it =>
             it?.EstimatedArrivalTime &&
             it?.TMSLoadingDocumentPrintedDate &&
-            isGecTedarik(it?.EstimatedArrivalTime, it?.TMSLoadingDocumentPrintedDate)
+            isGecTedarik(it?.PickupDate, it?.TMSLoadingDocumentPrintedDate)
         ).length;
     }, [altDetaylar]);
 
@@ -768,12 +771,12 @@ export default function ProjeSatiri({
     const siraliAltDetaylar = useMemo(() => {
         const list = Array.isArray(altDetaylar) ? [...altDetaylar] : [];
         list.sort((a, b) => {
-            const aLate = isGecTedarik(a?.EstimatedArrivalTime, a?.TMSLoadingDocumentPrintedDate);
-            const bLate = isGecTedarik(b?.EstimatedArrivalTime, b?.TMSLoadingDocumentPrintedDate);
+            const aLate = isGecTedarik(a?.PickupDate, a?.TMSLoadingDocumentPrintedDate);
+            const bLate = isGecTedarik(b?.PickupDate, b?.TMSLoadingDocumentPrintedDate);
             if (aLate !== bLate) return aLate ? -1 : 1;
             if (aLate && bLate) {
-                const aMin = dakikaGecikme(a?.EstimatedArrivalTime, a?.TMSLoadingDocumentPrintedDate) ?? 0;
-                const bMin = dakikaGecikme(b?.EstimatedArrivalTime, b?.TMSLoadingDocumentPrintedDate) ?? 0;
+                const aMin = dakikaGecikme(a?.PickupDate, a?.TMSLoadingDocumentPrintedDate) ?? 0;
+                const bMin = dakikaGecikme(b?.PickupDate, b?.TMSLoadingDocumentPrintedDate) ?? 0;
                 if (aMin !== bMin) return bMin - aMin;
             }
             return (parseTRDateTime(b?.EstimatedArrivalTime)?.getTime?.() ?? 0) - (parseTRDateTime(a?.EstimatedArrivalTime)?.getTime?.() ?? 0);
@@ -902,7 +905,7 @@ export default function ProjeSatiri({
                             />
                             <MetricPill
                                 icon={<MdErrorOutline size={14} />}
-                                label="Yüklemeye Gecikme"
+                                label="Geç Tedarik"
                                 value={printsLoading ? "..." : gecTedarikSayisi}
                                 color={printsLoading ? "#64748B" : gecTedarikSayisi > 0 ? "#F87171" : "#64748B"}
                                 isDark={isDark}

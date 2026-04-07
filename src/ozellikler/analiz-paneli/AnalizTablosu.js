@@ -60,18 +60,14 @@ const formatDateTimeTR = (v) => {
     return new Intl.DateTimeFormat("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(d);
 };
 
-const truncateToMinute = (d) => {
-    if (!(d instanceof Date) || Number.isNaN(d.getTime())) return null;
-    const x = new Date(d);
-    x.setSeconds(0, 0);
-    return x;
-};
+const isGecTedarik = (pickupDate, arrivalDate) => {
+    const yukleme = parseTRDateTime(pickupDate);
+    const varis = parseTRDateTime(arrivalDate);
 
-const isGecTedarik = (estimatedArrivalTime, loadingDate) => {
-    const eta = truncateToMinute(parseTRDateTime(estimatedArrivalTime));
-    const loading = truncateToMinute(parseTRDateTime(loadingDate));
-    if (!eta || !loading) return false;
-    return loading.getTime() > eta.getTime();
+    if (!yukleme || !varis) return false;
+
+    const farkSaat = (varis.getTime() - yukleme.getTime()) / (1000 * 60 * 60);
+    return farkSaat >= 30;
 };
 const pickColumn = (rowObj, possibleNames) => {
     const keys = Object.keys(rowObj || {});
@@ -543,9 +539,7 @@ export default function AnalizTablosu({
             const isFilo = vw === norm("FİLO") || vw === norm(" -ZMAL") || vw === norm("MODERN AMBALAJ FİLO");
             if (isFilo) s.filo.add(despKey); else s.spot.add(despKey);
             if (booleanCevir(item.IsPrint)) s.sho_b.add(despKey); else s.sho_bm.add(despKey);
-            if (isGecTedarik(item.EstimatedArrivalTime, item.TMSLoadingDocumentPrintedDate)) {
-                s.gec_tedarik.add(despKey);
-            }
+            if (isGecTedarik(item.PickupDate, item.TMSLoadingDocumentPrintedDate)) s.gec_tedarik.add(despKey);
         });
 
         return stats;
@@ -597,6 +591,7 @@ export default function AnalizTablosu({
     /* ── Excel export ────────────────────────────────────────────────────── */
     const bolgeyiExceleAktar = () => {
         const toSet = (v) => (v instanceof Set ? v : new Set(Array.isArray(v) ? v : []));
+
         const colLetter = (n) => {
             let s = "", x = n + 1;
             while (x > 0) {
@@ -677,42 +672,39 @@ export default function AnalizTablosu({
             return fill("FFEF4444");
         };
 
-        const TALEP_GELMEDI = "TALEP GELMEDİ";
-
-        const zamanindaVarisOraniFrom = (plan, ted, gec) => {
+        const zamanindaOraniHesapla = (plan, ted, gec) => {
             const p0 = Number(plan) || 0;
             const t0 = Number(ted) || 0;
             const g0 = Number(gec) || 0;
 
-            if (p0 <= 0) return TALEP_GELMEDI;
-            if (t0 <= 0) return "TEDARİK YOK";
+            // 🔥 kritik değişiklik
+            if (p0 <= 0) return "TALEP YOK";
 
-            return Math.max(0, Math.min(100, Math.round(((Math.max(0, t0 - g0)) / t0) * 100)));
+            if (t0 <= 0) return 0;
+
+            return Math.max(
+                0,
+                Math.min(100, Math.round(((Math.max(0, t0 - g0)) / t0) * 100))
+            );
         };
-
-        const tedarikOraniFrom = (plan, ted, iptal = 0) => {
+        const tedarikOraniHesapla = (plan, ted) => {
             const p0 = Number(plan) || 0;
             const t0 = Number(ted) || 0;
-            const i0 = Number(iptal) || 0;
-            const netPlan = Math.max(0, p0 - i0);
-
-            if (p0 <= 0) return TALEP_GELMEDI;
-            if (netPlan <= 0) return "PLAN YOK";
-
-            return Math.max(0, Math.min(100, Math.round((t0 / netPlan) * 100)));
+            if (p0 <= 0) return "TALEP YOK";
+            return Math.max(0, Math.min(100, Math.round((t0 / p0) * 100)));
         };
 
         const headers = [
             "PROJE",
             "TALEP",
             "TEDARİK",
-            "TEDARİK EDİLMEYEN",
-            "YÜKLEMEYE GECİKENLER",
+            "EDİLMEYEN",
+            "GEÇ TEDARİK",
             "SPOT",
             "FİLO",
             "SHÖ VAR",
             "SHÖ YOK",
-            "YÜKLEMEYE ZAMANINDA VARIŞ ORANI (%)",
+            "ZAMANINDA ORANI (%)",
             "TEDARİK ORANI (%)",
         ];
 
@@ -735,38 +727,30 @@ export default function AnalizTablosu({
                     "PROJE": projeAdi,
                     "TALEP": plan,
                     "TEDARİK": ted,
-                    "TEDARİK EDİLMEYEN": edilmeyen,
-                    "YÜKLEMEYE GECİKENLER": gecTedarik,
+                    "EDİLMEYEN": edilmeyen,
+                    "GEÇ TEDARİK": gecTedarik,
                     "SPOT": spot,
                     "FİLO": filo,
                     "SHÖ VAR": shoVar,
                     "SHÖ YOK": shoYok,
-                    "YÜKLEMEYE ZAMANINDA VARIŞ ORANI (%)": zamanindaVarisOraniFrom(plan, ted, gecTedarik),
-                    "TEDARİK ORANI (%)": tedarikOraniFrom(plan, ted, iptal),
+                    "ZAMANINDA ORANI (%)": zamanindaOraniHesapla(plan, ted, gecTedarik),
+                    "TEDARİK ORANI (%)": tedarikOraniHesapla(plan, ted),
                 };
             });
 
-        const applySheetStyling = (
-            ws,
-            dataRowCount,
-            customCols = null,
-            perfColNames = [
-                "YÜKLEMEYE ZAMANINDA VARIŞ ORANI (%)",
-                "TEDARİK ORANI (%)",
-            ]
-        ) => {
+        const applySheetStyling = (ws, dataRowCount, customCols = null) => {
             ws["!cols"] = customCols || [
-                { wch: 46 },
-                { wch: 10 },
-                { wch: 10 },
-                { wch: 18 },
-                { wch: 18 },
-                { wch: 10 },
-                { wch: 10 },
-                { wch: 10 },
-                { wch: 10 },
-                { wch: 22 },
-                { wch: 16 },
+                { wch: 46 }, // PROJE
+                { wch: 10 }, // TALEP
+                { wch: 10 }, // TEDARİK
+                { wch: 12 }, // EDİLMEYEN
+                { wch: 12 }, // GEÇ TEDARİK
+                { wch: 10 }, // SPOT
+                { wch: 10 }, // FİLO
+                { wch: 10 }, // SHÖ VAR
+                { wch: 10 }, // SHÖ YOK
+                { wch: 18 }, // ZAMANINDA ORANI
+                { wch: 16 }, // TEDARİK ORANI
             ];
 
             ws["!freeze"] = { xSplit: 0, ySplit: 4 };
@@ -779,10 +763,7 @@ export default function AnalizTablosu({
             for (let c = 0; c < colCount; c++) {
                 setCellStyle(ws, `${colLetter(c)}1`, metaStyleDark);
                 setCellStyle(ws, `${colLetter(c)}2`, metaStyleSoft);
-                setCellStyle(ws, `${colLetter(c)}3`, {
-                    fill: fill("FFFFFFFF"),
-                    border: borderAll,
-                });
+                setCellStyle(ws, `${colLetter(c)}3`, { fill: fill("FFFFFFFF"), border: borderAll });
                 setCellStyle(ws, `${colLetter(c)}4`, headerStyle);
             }
 
@@ -791,10 +772,9 @@ export default function AnalizTablosu({
                 localHeaders.push(ws[`${colLetter(c)}4`]?.v);
             }
 
-            const lateColIndex = localHeaders.indexOf("YÜKLEMEYE GECİKENLER");
-            const perfColIndexes = perfColNames
-                .map((name) => localHeaders.indexOf(name))
-                .filter((idx) => idx >= 0);
+            const lateColIndex = localHeaders.indexOf("GEÇ TEDARİK");
+            const zamanindaColIndex = localHeaders.indexOf("ZAMANINDA ORANI (%)");
+            const tedarikColIndex = localHeaders.indexOf("TEDARİK ORANI (%)");
 
             for (let r = 5; r <= 4 + dataRowCount; r++) {
                 const zebra = (r - 5) % 2 === 1 ? rowFillB : rowFillA;
@@ -809,7 +789,12 @@ export default function AnalizTablosu({
                         font: font(false, "FF0F172A"),
                     });
 
-                    if (c >= 1 && !perfColIndexes.includes(c) && ws[addr]) {
+                    if (
+                        c >= 1 &&
+                        c !== zamanindaColIndex &&
+                        c !== tedarikColIndex &&
+                        ws[addr]
+                    ) {
                         ws[addr].z = "#,##0";
                     }
 
@@ -822,25 +807,15 @@ export default function AnalizTablosu({
                         });
                     }
 
-                    if (perfColIndexes.includes(c) && ws[addr]) {
+                    if ((c === zamanindaColIndex || c === tedarikColIndex) && ws[addr]) {
                         const v = ws[addr].v;
-
                         if (typeof v !== "number") {
-                            const isTalepGelmedi =
-                                String(v || "").toUpperCase() === TALEP_GELMEDI;
-
-                            const specialFill = isTalepGelmedi ? fill("FFE0F2FE") : zebra;
-                            const specialFont = isTalepGelmedi
-                                ? font(true, "FF0369A1")
-                                : font(true, "FF64748B");
-
                             setCellStyle(ws, addr, {
-                                fill: specialFill,
+                                fill: zebra,
                                 border: borderAll,
                                 alignment: align("center"),
-                                font: specialFont,
+                                font: font(true, "FF64748B"),
                             });
-
                             delete ws[addr].z;
                         } else {
                             setCellStyle(ws, addr, {
@@ -873,8 +848,8 @@ export default function AnalizTablosu({
                 (acc, r) => {
                     acc.TALEP += Number(r["TALEP"] || 0);
                     acc.TEDARİK += Number(r["TEDARİK"] || 0);
-                    acc.EDİLMEYEN += Number(r["TEDARİK EDİLMEYEN"] || 0);
-                    acc.GEC += Number(r["YÜKLEMEYE GECİKENLER"] || 0);
+                    acc.EDİLMEYEN += Number(r["EDİLMEYEN"] || 0);
+                    acc.GEC += Number(r["GEÇ TEDARİK"] || 0);
                     acc.SPOT += Number(r["SPOT"] || 0);
                     acc.FILO += Number(r["FİLO"] || 0);
                     acc.SHO_VAR += Number(r["SHÖ VAR"] || 0);
@@ -893,6 +868,9 @@ export default function AnalizTablosu({
                 }
             );
 
+            const toplamZamanindaOrani = zamanindaOraniHesapla(totals.TEDARİK, totals.GEC);
+            const toplamTedarikOrani = tedarikOraniHesapla(totals.TALEP, totals.TEDARİK);
+
             aoa.push(blank);
             aoa.push([
                 "TOPLAM",
@@ -904,20 +882,17 @@ export default function AnalizTablosu({
                 totals.FILO,
                 totals.SHO_VAR,
                 totals.SHO_YOK,
-                zamanindaVarisOraniFrom(totals.TALEP, totals.TEDARİK, totals.GEC),
-                tedarikOraniFrom(totals.TALEP, totals.TEDARİK, 0),
+                toplamZamanindaOrani,
+                toplamTedarikOrani,
             ]);
 
             const ws = XLSX.utils.aoa_to_sheet(aoa);
             applySheetStyling(ws, rows.length);
 
             const totalRowIdx = 4 + rows.length + 2;
-            const perfColIndexes = [
-                headers.indexOf("YÜKLEMEYE ZAMANINDA VARIŞ ORANI (%)"),
-                headers.indexOf("TEDARİK ORANI (%)"),
-            ].filter((idx) => idx >= 0);
-
-            const lateColIndex = headers.indexOf("YÜKLEMEYE GECİKENLER");
+            const lateColIndex = headers.indexOf("GEÇ TEDARİK");
+            const zamanindaColIndex = headers.indexOf("ZAMANINDA ORANI (%)");
+            const tedarikColIndex = headers.indexOf("TEDARİK ORANI (%)");
 
             for (let c = 0; c < headers.length; c++) {
                 const addr = `${colLetter(c)}${totalRowIdx}`;
@@ -930,7 +905,7 @@ export default function AnalizTablosu({
                     border: borderAll,
                 });
 
-                if (c >= 1 && !perfColIndexes.includes(c)) {
+                if (c >= 1 && c !== zamanindaColIndex && c !== tedarikColIndex) {
                     ws[addr].z = "#,##0";
                 }
 
@@ -941,9 +916,8 @@ export default function AnalizTablosu({
                     });
                 }
 
-                if (perfColIndexes.includes(c)) {
+                if (c === zamanindaColIndex || c === tedarikColIndex) {
                     const v = ws[addr].v;
-
                     if (typeof v === "number") {
                         setCellStyle(ws, addr, {
                             fill: perfFill(v),
@@ -951,18 +925,6 @@ export default function AnalizTablosu({
                         });
                         ws[addr].z = '0"%"';
                     } else {
-                        const isTalepGelmedi =
-                            String(v || "").toUpperCase() === TALEP_GELMEDI;
-
-                        setCellStyle(ws, addr, {
-                            fill: isTalepGelmedi ? fill("FFE0F2FE") : fill("FF0F172A"),
-                            font: isTalepGelmedi
-                                ? font(true, "FF0369A1")
-                                : font(true, "FFFFFFFF"),
-                            alignment: align("center"),
-                            border: borderAll,
-                        });
-
                         delete ws[addr].z;
                     }
                 }
@@ -981,9 +943,7 @@ export default function AnalizTablosu({
 
         const tumProjelerListesi = Array.from(
             new Set(
-                Object.values(regionsMap || {}).flatMap((arr) =>
-                    Array.isArray(arr) ? arr : []
-                )
+                Object.values(regionsMap || {}).flatMap((arr) => (Array.isArray(arr) ? arr : []))
             )
         ).sort((a, b) => String(a).localeCompare(String(b), "tr"));
 
@@ -996,23 +956,21 @@ export default function AnalizTablosu({
                 "PROJE",
                 "TALEP",
                 "TEDARİK",
-                "TEDARİK EDİLMEYEN",
-                "YÜKLEMEYE ZAMANINDA VARIŞ ORANI (%)",
+                "EDİLMEYEN",
+                "ZAMANINDA ORANI (%)",
                 "TEDARİK ORANI (%)",
                 "GRAFİK",
             ];
 
             const sorted = [...rows].sort((a, b) => {
                 const ap =
-                    typeof a["YÜKLEMEYE ZAMANINDA VARIŞ ORANI (%)"] === "number"
-                        ? a["YÜKLEMEYE ZAMANINDA VARIŞ ORANI (%)"]
+                    typeof a["ZAMANINDA ORANI (%)"] === "number"
+                        ? a["ZAMANINDA ORANI (%)"]
                         : -1;
-
                 const bp =
-                    typeof b["YÜKLEMEYE ZAMANINDA VARIŞ ORANI (%)"] === "number"
-                        ? b["YÜKLEMEYE ZAMANINDA VARIŞ ORANI (%)"]
+                    typeof b["ZAMANINDA ORANI (%)"] === "number"
+                        ? b["ZAMANINDA ORANI (%)"]
                         : -1;
-
                 return bp !== ap ? bp - ap : (b["TALEP"] || 0) - (a["TALEP"] || 0);
             });
 
@@ -1031,8 +989,8 @@ export default function AnalizTablosu({
                     r["PROJE"],
                     r["TALEP"],
                     r["TEDARİK"],
-                    r["TEDARİK EDİLMEYEN"],
-                    r["YÜKLEMEYE ZAMANINDA VARIŞ ORANI (%)"],
+                    r["EDİLMEYEN"],
+                    r["ZAMANINDA ORANI (%)"],
                     r["TEDARİK ORANI (%)"],
                     "",
                 ])
@@ -1044,21 +1002,18 @@ export default function AnalizTablosu({
                 { wch: 46 },
                 { wch: 10 },
                 { wch: 10 },
+                { wch: 12 },
                 { wch: 18 },
-                { wch: 22 },
                 { wch: 16 },
                 { wch: 34 },
             ];
 
-            applySheetStyling(ws, sorted.length, ws["!cols"], [
-                "YÜKLEMEYE ZAMANINDA VARIŞ ORANI (%)",
-                "TEDARİK ORANI (%)",
-            ]);
+            applySheetStyling(ws, sorted.length, ws["!cols"]);
 
             for (let r = 5; r <= 4 + sorted.length; r++) {
                 const barCell = `G${r}`;
-                ws[barCell] = ws[barCell] || { t: "s", v: "" };
-                ws[barCell].f = `IF(E${r}="${TALEP_GELMEDI}","",IF(E${r}="TEDARİK YOK","",REPT("█",ROUND(E${r}/5,0))&REPT("░",20-ROUND(E${r}/5,0))))`;
+                ws[barCell] = ws[barCell] || {};
+                ws[barCell].f = `IF(E${r}="TEDARİK YOK","",REPT("█",ROUND(E${r}/5,0))&REPT("░",20-ROUND(E${r}/5,0)))`;
                 ws[barCell].s = {
                     font: { name: "Consolas", bold: true, color: { rgb: "FF0F172A" } },
                     alignment: { vertical: "center", horizontal: "left", wrapText: true },
@@ -1192,10 +1147,10 @@ export default function AnalizTablosu({
                                 isDark={isDark}
                             />
                             <KPICard
-                                title="Yüklemeye Gecikenler"
+                                title="Geç Tedarik"
                                 value={kpi.gec}
                                 accentColor={AMBER}
-                                icon={<MdWarning />}
+                                icon={<TbClockHour4 />}
                                 isDark={isDark}
                             />
                             <KPICard
