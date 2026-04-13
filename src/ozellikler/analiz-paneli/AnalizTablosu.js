@@ -18,6 +18,8 @@ import { saveAs } from "file-saver";
 
 import ProjeSatiri from "./bilesenler/ProjeSatiri";
 import { metniNormalizeEt as norm, seferNoNormalizeEt } from "../yardimcilar/metin";
+import { BASE_URL } from "../yardimcilar/sabitler";
+import { supabase } from "../../supabaseClient";
 import { Root, Wide } from "../stiller/stilBilesenleri";
 
 /* ─── yardımcılar ────────────────────────────────────────────────────────── */
@@ -482,6 +484,8 @@ export default function AnalizTablosu({
     regionsMap = {},
     vehicleMap = {},
     vehicleLoading = false,
+    range,
+    userId,
 }) {
     const theme = useTheme();
     const isDark = theme.palette.mode === "dark";
@@ -508,6 +512,7 @@ export default function AnalizTablosu({
     const [excelOkunuyor, setExcelOkunuyor] = useState(false);
     const [excelUyari, setExcelUyari] = useState("");
     const [detayExcelYukleniyor, setDetayExcelYukleniyor] = useState(false);
+    const [kaydediliyor, setKaydediliyor] = useState(false);
 
     const exceldenTarihleriIceriAl = async () => {
         try {
@@ -699,6 +704,8 @@ export default function AnalizTablosu({
                 const edilmeyen = Math.max(0, plan - (ted + iptal));
                 const gec = s.gec_tedarik?.size ?? 0;
                 const zamaninda = Math.max(0, ted - gec);
+                const zamaninda_oran =
+                    plan > 0 ? Math.round((zamaninda / plan) * 100) : 0;
                 const yuzde = plan > 0 ? Math.max(0, Math.min(100, Math.round((zamaninda / plan) * 100))) : 0;
 
                 return {
@@ -752,6 +759,152 @@ export default function AnalizTablosu({
         return sum;
     }, [satirlar]);
 
+    const handleTabloyuKaydet = async () => {
+        try {
+            const tumKayitVarMi = Object.keys(regionsMap || {}).some((bolge) => {
+                const bolgeListesi = regionsMap?.[bolge] || [];
+                return bolgeListesi.some((projeAdi) => {
+                    const s = islenmisVeri[norm(projeAdi)];
+                    return (s?.plan?.size ?? 0) > 0;
+                });
+            });
+
+            if (!tumKayitVarMi) {
+                setExcelUyari("Kaydedilecek tablo verisi bulunamadı.");
+                return;
+            }
+            setKaydediliyor(true);
+            setExcelUyari("");
+
+            const now = new Date().toISOString();
+            const tumBolgeSatirlari = Object.keys(regionsMap || {}).flatMap((bolge) => {
+                const bolgeListesi = regionsMap?.[bolge] || [];
+
+                return bolgeListesi
+                    .map((projeAdi) => {
+                        const s = islenmisVeri[norm(projeAdi)] || {
+                            plan: new Set(),
+                            ted: new Set(),
+                            iptal: new Set(),
+                            filo: new Set(),
+                            spot: new Set(),
+                            sho_b: new Set(),
+                            sho_bm: new Set(),
+                            gec_tedarik: new Set(),
+                        };
+
+                        const plan = s.plan?.size ?? 0;
+                        const ted = s.ted?.size ?? 0;
+                        const iptal = s.iptal?.size ?? 0;
+                        const edilmeyen = Math.max(0, plan - (ted + iptal));
+                        const gec = s.gec_tedarik?.size ?? 0;
+                        const zamaninda = Math.max(0, ted - gec);
+                        const zamaninda_oran =
+                            plan > 0 ? Math.round((zamaninda / plan) * 100) : 0;
+
+                        return {
+                            bolge_adi: bolge,
+                            proje_adi: projeAdi,
+                            talep: plan,
+                            tedarik: ted,
+                            edilmeyen,
+                            zamaninda,
+                            zamaninda_oran,
+                            gec,
+                            spot: s.spot?.size ?? 0,
+                            filo: s.filo?.size ?? 0,
+                            sho_var: s.sho_b?.size ?? 0,
+                            sho_yok: s.sho_bm?.size ?? 0,
+                            cekilen_tarih: now,
+                        };
+                    })
+                    .filter((r) => r.talep > 0);
+            });
+
+            const tumOzet = tumBolgeSatirlari.reduce(
+                (acc, r) => {
+                    acc.plan += r.talep;
+                    acc.ted += r.tedarik;
+                    acc.edilmeyen += r.edilmeyen;
+                    acc.zamaninda += r.zamaninda;
+                    acc.gec += r.gec;
+                    acc.spot += r.spot;
+                    acc.filo += r.filo;
+                    acc.sho_var += r.sho_var;
+                    acc.sho_yok += r.sho_yok;
+                    return acc;
+                },
+                {
+                    plan: 0,
+                    ted: 0,
+                    edilmeyen: 0,
+                    zamaninda: 0,
+                    gec: 0,
+                    spot: 0,
+                    filo: 0,
+                    sho_var: 0,
+                    sho_yok: 0,
+                }
+            );
+
+            tumOzet.zamaninda_oran =
+                tumOzet.plan > 0
+                    ? Math.max(0, Math.min(100, Math.round((tumOzet.zamaninda / tumOzet.plan) * 100)))
+                    : 0;
+
+            const { data: ustKayit, error: ustKayitError } = await supabase
+                .from("analiz_kayitlari")
+                .insert([
+                    {
+                        user_id: userId,
+                        baslangic_tarihi: range?.start ? new Date(range.start).toISOString() : null,
+                        bitis_tarihi: range?.end ? new Date(range.end).toISOString() : null,
+                        cekilen_tarih: now,
+                        secili_bolge: "TUM_BOLGELER",
+                        filtreler_json: {
+                            arama,
+                            sirala,
+                            sadeceGecikenler,
+                            sadeceTedarikEdilmeyenler,
+                        },
+                        ozet_json: tumOzet,                    },
+                ])
+                .select()
+                .single();
+
+            if (ustKayitError) throw ustKayitError;
+
+
+            const { error: detayError } = await supabase
+                .from("analiz_kayit_detaylari")
+                .insert(
+                    tumBolgeSatirlari.map((r) => ({
+                        kayit_id: ustKayit.id,
+                        bolge_adi: r.bolge_adi,
+                        proje_adi: r.proje_adi,
+                        talep: r.talep,
+                        tedarik: r.tedarik,
+                        edilmeyen: r.edilmeyen,
+                        zamaninda: r.zamaninda,
+                        zamaninda_oran: r.zamaninda_oran,
+                        gec: r.gec,
+                        spot: r.spot,
+                        filo: r.filo,
+                        sho_var: r.sho_var,
+                        sho_yok: r.sho_yok,
+                        cekilen_tarih: r.cekilen_tarih,
+                    }))
+            );
+            if (detayError) throw detayError;
+
+            setExcelUyari("Tablo başarıyla kaydedildi.");
+        } catch (err) {
+            console.error("Tablo kaydetme hatası:", err);
+            setExcelUyari(err?.message || "Tablo kaydedilemedi.");
+        } finally {
+            setKaydediliyor(false);
+        }
+    };
     const perfC = perfColor(kpi.perf);
     const excelCount = Object.keys(excelTarihleriSeferBazli || {}).length;
 
@@ -775,6 +928,9 @@ export default function AnalizTablosu({
                     const edilmeyen = Math.max(0, plan - (ted + iptal));
                     const gec = s.gec_tedarik?.size ?? 0;
                     const zamaninda = Math.max(0, ted - gec);
+
+                    const zamaninda_oran =
+                        plan > 0 ? Math.round((zamaninda / plan) * 100) : 0;
                     const yuzde = plan > 0 ? Math.max(0, Math.min(100, Math.round((zamaninda / plan) * 100))) : 0;
                     return {
                         name: projeAdi, plan, ted, edilmeyen, iptal,
@@ -1857,6 +2013,18 @@ export default function AnalizTablosu({
                                 >
                                     <MdInfoOutline size={16} />
                                 </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Mevcut tabloyu kaydet">
+                                <Box>
+                                    <GlassButton
+                                        icon={<MdInsertDriveFile size={15} />}
+                                        label="Tabloyu Kaydet"
+                                        onClick={handleTabloyuKaydet}
+                                        loading={kaydediliyor}
+                                        accent={"#2563EB"}
+                                        isDark={isDark}
+                                    />
+                                </Box>
                             </Tooltip>
                         </Stack>
 
