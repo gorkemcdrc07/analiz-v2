@@ -22,6 +22,8 @@ import {
     MdLocalShipping,
     MdInfoOutline,
     MdHistory,
+    MdCheckCircle,
+    MdErrorOutline,
 } from "react-icons/md";
 import { formatDateTR } from "../yardimcilar/tarihIslemleri";
 
@@ -29,32 +31,60 @@ const Transition = React.forwardRef(function Transition(props, ref) {
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-// --- HELPER FUNCTIONS (Parse & Diff unchanged) ---
+/* ─── yardımcılar ────────────────────────────────────────────────────────── */
 const parseTRDateTime = (v) => {
-    if (!v) return null;
-    if (v instanceof Date && !isNaN(v.getTime())) return v;
-    const s = String(v).trim();
-    const m = s.match(
-        /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/
+    if (!v || v === "---") return null;
+    if (v instanceof Date && !Number.isNaN(v.getTime())) return v;
+
+    const s0 = String(v).trim();
+    if (!s0) return null;
+
+    const isoFix = (s) => {
+        const m = s.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(\.(\d+))?([Zz]|([+-]\d{2}:\d{2}))?$/);
+        if (!m) return s;
+        const ms3 = m[3] ? (m[3] + "000").slice(0, 3) : "";
+        return `${m[1]}${ms3 ? "." + ms3 : ""}${m[4] || ""}`;
+    };
+
+    const s = isoFix(s0);
+
+    const mTR = s.match(
+        /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/
     );
-    if (m) {
-        return new Date(
-            Number(m[3]),
-            Number(m[2]) - 1,
-            Number(m[1]),
-            Number(m[4] ?? 0),
-            Number(m[5] ?? 0),
-            Number(m[6] ?? 0)
+    if (mTR) {
+        const d = new Date(
+            +mTR[3],
+            +mTR[2] - 1,
+            +mTR[1],
+            +mTR[4] ?? 0,
+            +mTR[5] ?? 0,
+            +mTR[6] ?? 0
         );
+        return Number.isNaN(d.getTime()) ? null : d;
     }
+
+    const mYMD = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+    if (mYMD) {
+        const d = new Date(
+            +mYMD[1],
+            +mYMD[2] - 1,
+            +mYMD[3],
+            +mYMD[4],
+            +mYMD[5],
+            +mYMD[6] ?? 0
+        );
+        return Number.isNaN(d.getTime()) ? null : d;
+    }
+
     const d2 = new Date(s);
-    return isNaN(d2.getTime()) ? null : d2;
+    return Number.isNaN(d2.getTime()) ? null : d2;
 };
 
 const diffHuman = (from, to) => {
     const a = parseTRDateTime(from);
     const b = parseTRDateTime(to);
     if (!a || !b) return null;
+
     const ms = b.getTime() - a.getTime();
     const abs = Math.abs(ms);
     const totalMinutes = Math.floor(abs / 60000);
@@ -62,6 +92,7 @@ const diffHuman = (from, to) => {
     const hours = Math.floor((totalMinutes - days * 60 * 24) / 60);
     const mins = totalMinutes % 60;
     const sign = ms < 0 ? "-" : "";
+
     if (days > 0) return `${sign}${days}g ${hours}s`;
     if (hours > 0) return `${sign}${hours}s ${mins}dk`;
     return `${sign}${mins}dk`;
@@ -75,8 +106,17 @@ const pickField = (item, candidates) => {
     return null;
 };
 
-// --- MODERN THEME-AWARE STYLED COMPONENTS ---
+const isGecTedarik = (pickupDate, loadingDate) => {
+    const yuklemeTarihi = parseTRDateTime(pickupDate);
+    const noktayaGelis = parseTRDateTime(loadingDate);
 
+    if (!yuklemeTarihi || !noktayaGelis) return false;
+
+    const farkSaat = (noktayaGelis.getTime() - yuklemeTarihi.getTime()) / (1000 * 60 * 60);
+    return farkSaat >= 30;
+};
+
+/* ─── styled component'ler ──────────────────────────────────────────────── */
 const StyledDialog = styled(Dialog)(({ theme }) => ({
     "& .MuiPaper-root": {
         borderRadius: "24px",
@@ -126,23 +166,34 @@ const LocationLabel = styled(Typography)(({ theme }) => ({
     marginBottom: "2px",
 }));
 
+/* ─── ana bileşen ───────────────────────────────────────────────────────── */
 export default function DetayPaneli({ type, data, onClose }) {
     const theme = useTheme();
     const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
 
-    // Veri Filtreleme (Kısa versiyon)
     const getFilteredData = () => {
         switch (type) {
             case "spot":
-                return { title: "Spot Araç Planlama", list: data.filter((o) => Number(o.OrderStatu) === 3) };
+                return {
+                    title: "Spot Araç Planlama",
+                    list: data.filter((o) => Number(o.OrderStatu) === 3),
+                };
             case "filo":
-                return { title: "Filo Araç Planlama", list: data.filter((o) => Number(o.OrderStatu) === 90) };
+                return {
+                    title: "Filo Araç Planlama",
+                    list: data.filter((o) => Number(o.OrderStatu) === 90),
+                };
             case "tedarik":
-                return { title: "Tedarik Edilenler", list: data.filter((o) => o.TMSDespatchDocumentNo?.startsWith("SFR")) };
+                return {
+                    title: "Tedarik Edilenler",
+                    list: data.filter((o) => o.TMSDespatchDocumentNo?.startsWith("SFR")),
+                };
             case "tedarik_edilmeyen":
                 return {
                     title: "Bekleyen Talepler",
-                    list: data.filter((o) => !o.TMSDespatchDocumentNo && o.TMSVehicleRequestDocumentNo?.startsWith("VP")),
+                    list: data.filter(
+                        (o) => !o.TMSDespatchDocumentNo && o.TMSVehicleRequestDocumentNo?.startsWith("VP")
+                    ),
                 };
             default:
                 return { title: "Detay Listesi", list: [] };
@@ -242,12 +293,26 @@ export default function DetayPaneli({ type, data, onClose }) {
                 >
                     {filtered.length > 0 ? (
                         filtered.map((item, idx) => {
-                            const diff = diffHuman(
-                                pickField(item, ["EstimatedArrivalTime", "estimatedArrivalTime"]),
-                                pickField(item, ["TMSLoadingDocumentPrintedDate", "tmsLoadingDocumentPrintedDate"])
-                            );
+                            const pickupDate = pickField(item, [
+                                "PickupDate",
+                                "pickupDate",
+                                "OrderDate",
+                                "orderDate",
+                            ]);
 
+                            const loadingDate = pickField(item, [
+                                "TMSLoadingDocumentPrintedDate",
+                                "tmsLoadingDocumentPrintedDate",
+                            ]);
+
+                            const eta = pickField(item, [
+                                "EstimatedArrivalTime",
+                                "estimatedArrivalTime",
+                            ]);
+
+                            const diff = diffHuman(eta, loadingDate);
                             const hasDespatch = Boolean(item.TMSDespatchDocumentNo);
+                            const gecTedarik = isGecTedarik(pickupDate, loadingDate);
 
                             const chipBg = hasDespatch
                                 ? (theme.palette.mode === "light"
@@ -258,6 +323,26 @@ export default function DetayPaneli({ type, data, onClose }) {
                                     : alpha("#f97316", 0.18));
 
                             const chipColor = hasDespatch ? "#15803d" : "#c2410c";
+
+                            const statusBg = gecTedarik
+                                ? (theme.palette.mode === "light"
+                                    ? "#fee2e2"
+                                    : alpha("#ef4444", 0.18))
+                                : (theme.palette.mode === "light"
+                                    ? "#dcfce7"
+                                    : alpha("#22c55e", 0.18));
+
+                            const statusColor = gecTedarik ? "#dc2626" : "#16a34a";
+
+                            const diffBg = gecTedarik
+                                ? alpha("#ef4444", theme.palette.mode === "light" ? 0.08 : 0.18)
+                                : alpha(theme.palette.primary.main, theme.palette.mode === "light" ? 0.08 : 0.18);
+
+                            const diffBorder = gecTedarik
+                                ? alpha("#ef4444", theme.palette.mode === "light" ? 0.16 : 0.28)
+                                : alpha(theme.palette.primary.main, theme.palette.mode === "light" ? 0.12 : 0.22);
+
+                            const diffColor = gecTedarik ? "#ef4444" : theme.palette.primary.main;
 
                             return (
                                 <DetailCard key={idx} elevation={0}>
@@ -287,7 +372,8 @@ export default function DetayPaneli({ type, data, onClose }) {
                                                         fontSize: "0.9rem",
                                                     }}
                                                 >
-                                                    {item.CurrentAccountTitle?.substring(0, 30) || "Mü�Yteri Belirtilmemi�Y"}...
+                                                    {(item.CurrentAccountTitle || "Müşteri Belirtilmemiş").substring(0, 30)}
+                                                    {(item.CurrentAccountTitle || "").length > 30 ? "..." : ""}
                                                 </Typography>
 
                                                 <Typography
@@ -302,18 +388,40 @@ export default function DetayPaneli({ type, data, onClose }) {
                                             </Box>
                                         </Stack>
 
-                                        <Chip
-                                            label={item.TMSDespatchDocumentNo || "BEKLEMEDE"}
-                                            size="small"
-                                            sx={{
-                                                fontWeight: 700,
-                                                fontSize: "0.65rem",
-                                                borderRadius: "8px",
-                                                bgcolor: chipBg,
-                                                color: theme.palette.mode === "light" ? chipColor : theme.palette.text.primary,
-                                                border: `1px solid ${alpha(theme.palette.common.white, theme.palette.mode === "light" ? 0 : 0.08)}`,
-                                            }}
-                                        />
+                                        <Stack direction="row" spacing={0.75} alignItems="center">
+                                            <Chip
+                                                label={gecTedarik ? "Geç Tedarik" : "Zamanında"}
+                                                size="small"
+                                                icon={gecTedarik ? <MdErrorOutline size={14} /> : <MdCheckCircle size={14} />}
+                                                sx={{
+                                                    fontWeight: 800,
+                                                    fontSize: "0.65rem",
+                                                    borderRadius: "8px",
+                                                    bgcolor: statusBg,
+                                                    color: theme.palette.mode === "light" ? statusColor : theme.palette.text.primary,
+                                                    border: `1px solid ${alpha(
+                                                        gecTedarik ? "#ef4444" : "#22c55e",
+                                                        theme.palette.mode === "light" ? 0.18 : 0.24
+                                                    )}`,
+                                                }}
+                                            />
+
+                                            <Chip
+                                                label={item.TMSDespatchDocumentNo || "BEKLEMEDE"}
+                                                size="small"
+                                                sx={{
+                                                    fontWeight: 700,
+                                                    fontSize: "0.65rem",
+                                                    borderRadius: "8px",
+                                                    bgcolor: chipBg,
+                                                    color: theme.palette.mode === "light" ? chipColor : theme.palette.text.primary,
+                                                    border: `1px solid ${alpha(
+                                                        theme.palette.common.white,
+                                                        theme.palette.mode === "light" ? 0 : 0.08
+                                                    )}`,
+                                                }}
+                                            />
+                                        </Stack>
                                     </Stack>
 
                                     <Box
@@ -328,7 +436,7 @@ export default function DetayPaneli({ type, data, onClose }) {
                                         }}
                                     >
                                         <Box>
-                                            <LocationLabel>Y�oKLEME</LocationLabel>
+                                            <LocationLabel>Yükleme</LocationLabel>
                                             <Typography
                                                 sx={{
                                                     fontWeight: 700,
@@ -340,12 +448,18 @@ export default function DetayPaneli({ type, data, onClose }) {
                                             </Typography>
                                         </Box>
 
-                                        <Box sx={{ display: "flex", alignItems: "center", color: alpha(theme.palette.text.secondary, 0.7) }}>
+                                        <Box
+                                            sx={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                color: alpha(theme.palette.text.secondary, 0.7),
+                                            }}
+                                        >
                                             <MdLocalShipping size={16} />
                                         </Box>
 
                                         <Box sx={{ textAlign: "right" }}>
-                                            <LocationLabel>TESLİMAT</LocationLabel>
+                                            <LocationLabel>Teslimat</LocationLabel>
                                             <Typography
                                                 sx={{
                                                     fontWeight: 700,
@@ -358,8 +472,13 @@ export default function DetayPaneli({ type, data, onClose }) {
                                         </Box>
                                     </Box>
 
-                                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                        <Stack direction="row" spacing={1} alignItems="center" sx={{ color: theme.palette.text.secondary }}>
+                                    <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+                                        <Stack
+                                            direction="row"
+                                            spacing={1}
+                                            alignItems="center"
+                                            sx={{ color: theme.palette.text.secondary }}
+                                        >
                                             <MdDateRange size={14} />
                                             <Typography sx={{ fontSize: "0.75rem", fontWeight: 600 }}>
                                                 {formatDateTR(item.OrderDate || item.PickupDate)}
@@ -372,16 +491,18 @@ export default function DetayPaneli({ type, data, onClose }) {
                                                 spacing={0.5}
                                                 alignItems="center"
                                                 sx={{
-                                                    color: theme.palette.primary.main,
-                                                    bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "light" ? 0.08 : 0.18),
+                                                    color: diffColor,
+                                                    bgcolor: diffBg,
                                                     px: 1,
                                                     py: 0.2,
                                                     borderRadius: "6px",
-                                                    border: `1px solid ${alpha(theme.palette.primary.main, theme.palette.mode === "light" ? 0.12 : 0.22)}`,
+                                                    border: `1px solid ${diffBorder}`,
                                                 }}
                                             >
                                                 <MdHistory size={12} />
-                                                <Typography sx={{ fontSize: "0.7rem", fontWeight: 800 }}>{diff}</Typography>
+                                                <Typography sx={{ fontSize: "0.7rem", fontWeight: 800 }}>
+                                                    {diff}
+                                                </Typography>
                                             </Stack>
                                         )}
                                     </Stack>
