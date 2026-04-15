@@ -139,6 +139,13 @@ const perfHex = (p) => {
     return "#ef4444";
 };
 
+const perfFill = (p) => {
+    const hex = perfHex(p).replace("#", "").toUpperCase();
+    return {
+        fgColor: { rgb: hex }
+    };
+};
+
 /* ─── Animasyonlu sayı ──────────────────────────────────────────────────── */
 function AnimatedNumber({ value, suffix = "", prefix = "", duration = 1.2 }) {
     const [display, setDisplay] = useState(0);
@@ -504,7 +511,7 @@ export default function AnalizTablosu({
     }, [regionsMap, bolgeler, seciliBolge]);
 
     const [arama, setArama] = useState("");
-    const [sirala, setSirala] = useState("perf");
+    const [sirala, setSirala] = useState("zamansiz");
     const [sadeceGecikenler, setSadeceGecikenler] = useState(false);
     const [sadeceTedarikEdilmeyenler, setSadeceTedarikEdilmeyenler] = useState(false);
     const [excelTarihleriSeferBazli, setExcelTarihleriSeferBazli] = useState({});
@@ -728,13 +735,24 @@ export default function AnalizTablosu({
             .filter((r) => (sadeceGecikenler ? r.gec > 0 : true))
             .filter((r) => (sadeceTedarikEdilmeyenler ? r.edilmeyen > 0 : true));
 
-        return [...base].sort((a, b) => {
-            if (sadeceGecikenler) return b.gec - a.gec;
-            if (sadeceTedarikEdilmeyenler) return b.edilmeyen - a.edilmeyen;
-            if (sirala === "plan") return b.plan - a.plan;
-            if (sirala === "late") return b.gec - a.gec;
-            return b.yuzde - a.yuzde;
-        });
+        return [...base]
+            .sort((a, b) => {
+                const aZamansiz = a.edilmeyen + a.gec;
+                const bZamansiz = b.edilmeyen + b.gec;
+
+                // 👉 TALEP YOK en alta
+                if (a.plan === 0 && b.plan > 0) return 1;
+                if (b.plan === 0 && a.plan > 0) return -1;
+
+                // 👉 1. zamanında oranı (yüksek iyi)
+                if (b.yuzde !== a.yuzde) return b.yuzde - a.yuzde;
+
+                // 👉 2. zamansız (düşük iyi)
+                if (aZamansiz !== bZamansiz) return aZamansiz - bZamansiz;
+
+                // 👉 3. tedarik (yüksek iyi)
+                return b.ted - a.ted;
+            });
     }, [seciliBolge, islenmisVeri, arama, sirala, sadeceGecikenler, sadeceTedarikEdilmeyenler, regionsMap]);
 
     const kpi = useMemo(() => {
@@ -1496,6 +1514,19 @@ export default function AnalizTablosu({
             fgColor: { rgb },
         });
 
+        const zamansizPerfFill = (n) => {
+            const v = Number(n) || 0;
+
+            if (v === 0) return null; // hiç boyama (en iyi durum)
+
+            if (v >= 15) return fill("FFEF4444"); // koyu kırmızı (çok kötü)
+            if (v >= 10) return fill("FFF87171"); // orta kırmızı
+            if (v >= 7) return fill("FFFCA5A5"); // açık kırmızı
+            if (v >= 4) return fill("FFFECACA"); // daha açık
+            if (v >= 1) return fill("FFFEE2E2"); // çok hafif
+
+            return null;
+        };
         const borderAll = {
             top: { style: "thin", color: { rgb: "FFE5E7EB" } },
             bottom: { style: "thin", color: { rgb: "FFE5E7EB" } },
@@ -1540,16 +1571,6 @@ export default function AnalizTablosu({
             return fill("FF60A5FA");
         };
 
-        const perfFill = (p) => {
-            const v = Number(p) || 0;
-            if (v >= 95) return fill("FF16A34A");
-            if (v >= 90) return fill("FF10B981");
-            if (v >= 80) return fill("FF3B82F6");
-            if (v >= 70) return fill("FFF59E0B");
-            if (v >= 50) return fill("FFF97316");
-            return fill("FFEF4444");
-        };
-
         const zamanindaOraniHesapla = (plan, ted, gec) => {
             const p0 = Number(plan) || 0;
             const t0 = Number(ted) || 0;
@@ -1569,49 +1590,90 @@ export default function AnalizTablosu({
             "PROJE",
             "TALEP",
             "TEDARİK",
-            "EDİLMEYEN",
-            "GEÇ TEDARİK",
             "SPOT",
             "FİLO",
-            "SHÖ VAR",
-            "SHÖ YOK",
+            "SHÖ ORANI (%)",
+            "TEDARİK EDİLMEYEN",
+            "GEÇ TEDARİK",
+            "ZAMANSIZ TOPLAM",
             "ZAMANINDA ORANI (%)",
         ];
         const wb = XLSX.utils.book_new();
 
+        const shoOraniHesapla = (shoVar, tedarik) => {
+            if (!tedarik || tedarik <= 0) return 0;
+            return Math.round((shoVar / tedarik) * 100);
+        };
+
         const buildRowsFromProjectList = (projeListesi) =>
-            (projeListesi || []).map((projeAdi) => {
-                const raw = islenmisVeri[norm(projeAdi)] || {};
-                const plan = toSet(raw.plan).size;
-                const ted = toSet(raw.ted).size;
-                const iptal = toSet(raw.iptal).size;
-                const spot = toSet(raw.spot).size;
-                const filo = toSet(raw.filo).size;
-                const shoVar = toSet(raw.sho_b).size;
-                const shoYok = toSet(raw.sho_bm).size;
-                const gecTedarik = toSet(raw.gec_tedarik).size;
-                const edilmeyen = Math.max(0, plan - (ted + iptal));
+            (projeListesi || [])
+                .map((projeAdi) => {
+                    const raw = islenmisVeri[norm(projeAdi)] || {};
+                    const plan = toSet(raw.plan).size;
+                    const ted = toSet(raw.ted).size;
+                    const iptal = toSet(raw.iptal).size;
+                    const spot = toSet(raw.spot).size;
+                    const filo = toSet(raw.filo).size;
+                    const shoVar = toSet(raw.sho_b).size;
+                    const gec = toSet(raw.gec_tedarik).size;
 
-                return {
-                    PROJE: projeAdi,
-                    TALEP: plan,
-                    TEDARİK: ted,
-                    EDİLMEYEN: edilmeyen,
-                    "GEÇ TEDARİK": gecTedarik,
-                    SPOT: spot,
-                    FİLO: filo,
-                    "SHÖ VAR": shoVar,
-                    "SHÖ YOK": shoYok,
-                    "ZAMANINDA ORANI (%)": zamanindaOraniHesapla(plan, ted, gecTedarik),
-                };
-            });
+                    const tedarikEdilmeyen = Math.max(0, plan - (ted + iptal));
+                    const zamansizToplam = tedarikEdilmeyen + gec;
+                    const shoOrani = shoOraniHesapla(shoVar, ted);
+                    const zamanindaOran = zamanindaOraniHesapla(plan, ted, gec);
 
+                    return {
+                        PROJE: projeAdi,
+                        TALEP: plan,
+                        TEDARİK: ted,
+                        SPOT: spot,
+                        "FİLO": filo,
+                        "SHÖ ORANI (%)": shoOrani,
+                        "TEDARİK EDİLMEYEN": tedarikEdilmeyen,
+                        "GEÇ TEDARİK": gec,
+                        "ZAMANSIZ TOPLAM": zamansizToplam,
+                        "ZAMANINDA ORANI (%)": zamanindaOran,
+                    };
+                })
+                .sort((a, b) => {
+                    const aVal = a["ZAMANINDA ORANI (%)"];
+                    const bVal = b["ZAMANINDA ORANI (%)"];
+
+                    const aTalepYok = aVal === "TALEP YOK";
+                    const bTalepYok = bVal === "TALEP YOK";
+
+                    if (aTalepYok && !bTalepYok) return 1;
+                    if (!aTalepYok && bTalepYok) return -1;
+
+                    if (!aTalepYok && !bTalepYok) {
+                        const aPerf = Number(aVal || 0);
+                        const bPerf = Number(bVal || 0);
+                        if (bPerf !== aPerf) return bPerf - aPerf;
+                    }
+
+                    const aZamansiz = Number(a["ZAMANSIZ TOPLAM"] || 0);
+                    const bZamansiz = Number(b["ZAMANSIZ TOPLAM"] || 0);
+                    if (aZamansiz !== bZamansiz) return aZamansiz - bZamansiz;
+
+                    const aPlan = Number(a.TALEP || 0);
+                    const bPlan = Number(b.TALEP || 0);
+                    if (bPlan !== aPlan) return bPlan - aPlan;
+
+                    return String(a.PROJE || "").localeCompare(String(b.PROJE || ""), "tr");
+                });
         const applySheetStyling = (ws, dataRowCount, customCols = null) => {
             ws["!cols"] = customCols || [
-                { wch: 46 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
-                { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 18 }, { wch: 16 },
+                { wch: 46 }, // PROJE
+                { wch: 10 }, // TALEP
+                { wch: 10 }, // TEDARİK
+                { wch: 10 }, // SPOT
+                { wch: 10 }, // FİLO
+                { wch: 14 }, // SHÖ ORANI (%)
+                { wch: 18 }, // TEDARİK EDİLMEYEN
+                { wch: 12 }, // GEÇ TEDARİK
+                { wch: 14 }, // ZAMANSIZ TOPLAM
+                { wch: 18 }, // ZAMANINDA ORANI (%)
             ];
-
             ws["!freeze"] = { xSplit: 0, ySplit: 4 };
             ws["!autofilter"] = {
                 ref: `A4:${colLetter((ws["!cols"]?.length || headers.length) - 1)}4`,
@@ -1631,8 +1693,10 @@ export default function AnalizTablosu({
                 localHeaders.push(ws[`${colLetter(c)}4`]?.v);
             }
 
-            const lateColIndex = localHeaders.indexOf("GEÇ TEDARİK");
+            const zamansizToplamColIndex = localHeaders.indexOf("ZAMANSIZ TOPLAM");
+            const shoOraniColIndex = localHeaders.indexOf("SHÖ ORANI (%)");
             const zamanindaColIndex = localHeaders.indexOf("ZAMANINDA ORANI (%)");
+
             for (let r = 5; r <= 4 + dataRowCount; r++) {
                 const zebra = (r - 5) % 2 === 1 ? rowFillB : rowFillA;
 
@@ -1646,19 +1710,52 @@ export default function AnalizTablosu({
                         font: font(false, "FF0F172A"),
                     });
 
-                    if (c >= 1 && c !== zamanindaColIndex && ws[addr]) {
+                    if (c >= 1 && c !== shoOraniColIndex && c !== zamanindaColIndex && ws[addr]) {
                         ws[addr].z = "#,##0";
                     }
 
-                    if (c === lateColIndex && ws[addr]) {
-                        setCellStyle(ws, addr, {
-                            fill: lateFill(ws[addr].v ?? 0),
-                            font: font(true, "FFFFFFFF"),
-                            alignment: align("center"),
-                            border: borderAll,
-                        });
+                    if (c === zamansizToplamColIndex && ws[addr]) {
+                        const v = Number(ws[addr].v || 0);
+                        const renk = zamansizPerfFill(v);
+
+                        if (renk) {
+                            setCellStyle(ws, addr, {
+                                fill: renk,
+                                font: font(true, "FFB91C1C"),
+                                alignment: align("center"),
+                                border: borderAll,
+                            });
+                        } else {
+                            setCellStyle(ws, addr, {
+                                fill: zebra,
+                                font: font(true, "FF0F172A"),
+                                alignment: align("center"),
+                                border: borderAll,
+                            });
+                        }
+                    }
+                    // SHÖ ORANI: yüzde formatı var ama renk yok
+                    if (c === shoOraniColIndex && ws[addr]) {
+                        const v = ws[addr].v;
+                        if (typeof v === "number") {
+                            setCellStyle(ws, addr, {
+                                fill: zebra,
+                                border: borderAll,
+                                alignment: align("center"),
+                                font: font(false, "FF0F172A"),
+                            });
+                            ws[addr].z = '0"%"';
+                        } else {
+                            setCellStyle(ws, addr, {
+                                fill: zebra,
+                                border: borderAll,
+                                alignment: align("center"),
+                                font: font(false, "FF64748B"),
+                            });
+                        }
                     }
 
+                    // ZAMANINDA ORANI: renkli
                     if (c === zamanindaColIndex && ws[addr]) {
                         const v = ws[addr].v;
                         if (typeof v !== "number") {
@@ -1699,43 +1796,53 @@ export default function AnalizTablosu({
             const totals = rows.reduce(
                 (acc, r) => {
                     acc.TALEP += Number(r.TALEP || 0);
-                    acc.TEDARİK += Number(r.TEDARİK || 0);
-                    acc.EDİLMEYEN += Number(r.EDİLMEYEN || 0);
-                    acc.GEC += Number(r["GEÇ TEDARİK"] || 0);
                     acc.SPOT += Number(r.SPOT || 0);
-                    acc.FILO += Number(r.FİLO || 0);
-                    acc.SHO_VAR += Number(r["SHÖ VAR"] || 0);
-                    acc.SHO_YOK += Number(r["SHÖ YOK"] || 0);
+                    acc.FILO += Number(r["FİLO"] || 0);
+                    acc.TEDARIK_EDILMEYEN += Number(r["TEDARİK EDİLMEYEN"] || 0);
+                    acc.GEC += Number(r["GEÇ TEDARİK"] || 0);
+                    acc.ZAMANSIZ += Number(r["ZAMANSIZ TOPLAM"] || 0);
+
                     return acc;
                 },
                 {
                     TALEP: 0,
-                    TEDARİK: 0,
-                    EDİLMEYEN: 0,
-                    GEC: 0,
                     SPOT: 0,
                     FILO: 0,
-                    SHO_VAR: 0,
-                    SHO_YOK: 0,
+                    TEDARIK_EDILMEYEN: 0,
+                    GEC: 0,
+                    ZAMANSIZ: 0,
                 }
             );
 
-            const toplamZamanindaOrani = zamanindaOraniHesapla(
-                totals.TALEP,
-                totals.TEDARİK,
-                totals.GEC
+            const toplamTed = Math.max(
+                0,
+                totals.TALEP - totals.TEDARIK_EDILMEYEN
             );
+
+            const toplamShoVar = rows.reduce(
+                (sum, r) => sum + Math.round((Number(r["SHÖ ORANI (%)"] || 0) * Math.max(Number(r.TALEP || 0), 0)) / 100),
+                0
+            );
+
+            const toplamShoOrani =
+                toplamTed > 0 ? Math.round((toplamShoVar / toplamTed) * 100) : 0;
+
+            const toplamZamanindaOran =
+                totals.TALEP > 0
+                    ? Math.round(((toplamTed - totals.GEC) / totals.TALEP) * 100)
+                    : 0;
+
             aoa.push([
                 "TOPLAM",
                 totals.TALEP,
-                totals.TEDARİK,
-                totals.EDİLMEYEN,
-                totals.GEC,
+                toplamTed,
                 totals.SPOT,
                 totals.FILO,
-                totals.SHO_VAR,
-                totals.SHO_YOK,
-                toplamZamanindaOrani,
+                toplamShoOrani,
+                totals.TEDARIK_EDILMEYEN,
+                totals.GEC,
+                totals.ZAMANSIZ,
+                toplamZamanindaOran,
             ]);
             const ws = XLSX.utils.aoa_to_sheet(aoa);
             applySheetStyling(ws, rows.length);
@@ -2137,6 +2244,7 @@ export default function AnalizTablosu({
                                     <MenuItem value="perf">Performansa Göre</MenuItem>
                                     <MenuItem value="plan">Talebe Göre</MenuItem>
                                     <MenuItem value="late">Geç Tedarike Göre</MenuItem>
+                                    <MenuItem value="zamansiz">Zamansız Toplama Göre</MenuItem>
                                 </Select>
 
                                 <FilterChip
