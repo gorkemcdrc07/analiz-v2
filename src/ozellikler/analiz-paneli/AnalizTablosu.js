@@ -672,11 +672,28 @@ export default function AnalizTablosu({
 
             s.ted.add(despKey);
 
+            const FILO_WORKING_TYPE_NAMES = new Set([
+                norm("FİLO"),
+                norm("ÖZMAL"),
+                norm("MİKRO DDS"),
+                norm("KONTEYNER FİLO"),
+                norm("DDS ÖZMAL"),
+                norm("MODERN AMBALAJ FİLO"),
+                norm("ES GLOBAL FİLO"),
+                norm("FRİGO ÖZMAL"),
+                norm("FRİGO KİRALIK"),
+                norm("DENTAŞ ESKİŞEHİR KİRALIK"),
+                norm("HAYAT KİMYA KİRALIK"),
+                norm("PEPSİ KİRALIK"),
+                norm("DENTAŞ ÇORLU KİRALIK"),
+                norm("KİPAŞ KİRALIK"),
+            ]);
+
             const vw = norm(item.VehicleWorkingName);
-            const isFilo = vw === norm("FİLO") || vw === norm(" -ZMAL") || vw === norm("MODERN AMBALAJ FİLO");
+            const isFilo = FILO_WORKING_TYPE_NAMES.has(vw);
+
             if (isFilo) s.filo.add(despKey);
             else s.spot.add(despKey);
-
             if (booleanCevir(item.IsPrint)) s.sho_b.add(despKey);
             else s.sho_bm.add(despKey);
 
