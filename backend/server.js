@@ -7,6 +7,9 @@ const cron = require("node-cron");
 const fs = require("fs");
 const path = require("path");
 
+// Render ortamında PORT değişkeni gelir. Lokalde 3001 kullanır.
+const PORT = process.env.PORT || 3001;
+
 dotenv.config();
 
 const app = express();
@@ -124,6 +127,31 @@ const statusClass = (r) => {
     if (s === "Yükleme Tarihi Yok") return "bw";
 
     return "bn";
+};
+
+// Yeni hesap mantığı:
+// - Durum = Zamanında veya Geç Tedarik ise tedarik edilmiş sayılır.
+// - Durum = Yükleme Tarihi Yok ise sefer no olsa bile tedarik edilmedi sayılır.
+// - Talep = ilgili proje için rapora giren toplam satır sayısı.
+const hesaplaOzet = (summary = {}, rows = []) => {
+    const talep = rows.length;
+
+    const tedarik = rows.filter((r) => {
+        const s = statusText(r);
+        return s === "Zamanında" || s === "Geç Tedarik";
+    }).length;
+
+    const gec_tedarik = rows.filter((r) => statusText(r) === "Geç Tedarik").length;
+
+    const edilmeyen = rows.filter((r) => statusText(r) === "Yükleme Tarihi Yok").length;
+
+    return {
+        ...summary,
+        talep,
+        tedarik,
+        edilmeyen,
+        gec_tedarik,
+    };
 };
 
 const perfStyle = (p) => {
@@ -264,11 +292,13 @@ const buildGlobalKpi = (summaries, bolge) => {
 /* ─── Proje Bloku ───────────────────────────────────── */
 
 const buildProjeBlock = (summary, rows, dotColor) => {
-    const p = Number(summary.talep || 0);
-    const t = Number(summary.tedarik || 0);
-    const ed = Number(summary.edilmeyen || 0);
-    const gec = Number(summary.gec_tedarik || 0);
-    const sho = Number(summary.sho_basilan || 0);
+    const ozet = hesaplaOzet(summary, rows);
+
+    const p = Number(ozet.talep || 0);
+    const t = Number(ozet.tedarik || 0);
+    const ed = Number(ozet.edilmeyen || 0);
+    const gec = Number(ozet.gec_tedarik || 0);
+    const sho = Number(ozet.sho_basilan || 0);
     const zam = Math.max(0, t - gec);
     const oran = p > 0 ? Math.max(0, Math.min(100, Math.round((zam / p) * 100))) : 0;
     const ps = perfStyle(oran);
@@ -358,7 +388,13 @@ const buildProjeBlock = (summary, rows, dotColor) => {
 /* ─── HTML Oluştur ───────────────────────────────────── */
 
 const buildHtml = (summaries, data, bolge) => {
-    const bloklar = summaries
+    const guncelSummaries = summaries.map((s) => {
+        const key = String(s.proje || "").trim().toLowerCase();
+        const rows = data.filter((r) => String(r.proje || "").trim().toLowerCase() === key);
+        return hesaplaOzet(s, rows);
+    });
+
+    const bloklar = guncelSummaries
         .map((s, i) => {
             const key = String(s.proje || "").trim().toLowerCase();
             const rows = data.filter((r) => String(r.proje || "").trim().toLowerCase() === key);
@@ -378,7 +414,7 @@ const buildHtml = (summaries, data, bolge) => {
     </div>
     <div class="hd">${escapeHtml(formatDateLong(new Date()))}<br>30 saat kural&#305; baz al&#305;n&#305;r</div>
   </div>
-  ${buildGlobalKpi(summaries, bolge)}
+  ${buildGlobalKpi(guncelSummaries, bolge)}
   ${bloklar}
   <div class="footer">
     <span>Odak Lojistik Operasyon Sistemi &middot; Otomatik oluşturulmuştur</span>
@@ -495,6 +531,7 @@ app.get("/", (_, res) => {
 
 app.post("/send-analiz-mail", async (req, res) => {
     console.log("📩 GELEN BODY:", req.body);
+
     try {
         const { mailPayload, bolge } = req.body;
 
@@ -548,7 +585,7 @@ const otomatikAnalizMailGonder = async () => {
     }
 };
 
-// TEST: Her dakika çalışır
+// Her gün 10:00 ve 17:00'da çalışır.
 cron.schedule(
     "0 10,17 * * *",
     async () => {
@@ -558,6 +595,7 @@ cron.schedule(
         timezone: "Europe/Istanbul",
     }
 );
-app.listen(3001, () => {
-    console.log("Backend çalışıyor: http://localhost:3001");
+
+app.listen(PORT, () => {
+    console.log(`Backend çalışıyor: http://localhost:${PORT}`);
 });
