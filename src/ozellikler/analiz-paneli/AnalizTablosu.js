@@ -18,10 +18,10 @@ import { saveAs } from "file-saver";
 
 import ProjeSatiri from "./bilesenler/ProjeSatiri";
 import { metniNormalizeEt as norm, seferNoNormalizeEt } from "../yardimcilar/metin";
+import { altDetaylariOlustur } from "../yardimcilar/veriKurallari";
 import { BASE_URL } from "../yardimcilar/sabitler";
 import { supabase } from "../../supabaseClient";
 import { Root, Wide } from "../stiller/stilBilesenleri";
-
 /* ─── yardımcılar ────────────────────────────────────────────────────────── */
 const mergeKeepFilled = (prev, next) => {
     const out = { ...(prev || {}) };
@@ -520,7 +520,7 @@ export default function AnalizTablosu({
     const [excelUyari, setExcelUyari] = useState("");
     const [detayExcelYukleniyor, setDetayExcelYukleniyor] = useState(false);
     const [kaydediliyor, setKaydediliyor] = useState(false);
-
+    const [mailGonderiliyor, setMailGonderiliyor] = useState(false);
     const exceldenTarihleriIceriAl = async () => {
         try {
             const input = document.createElement("input");
@@ -902,13 +902,13 @@ export default function AnalizTablosu({
                             sadeceGecikenler,
                             sadeceTedarikEdilmeyenler,
                         },
-                        ozet_json: tumOzet,                    },
+                        ozet_json: tumOzet,
+                    },
                 ])
                 .select()
                 .single();
 
             if (ustKayitError) throw ustKayitError;
-
 
             const { error: detayError } = await supabase
                 .from("analiz_kayit_detaylari")
@@ -929,7 +929,7 @@ export default function AnalizTablosu({
                         sho_yok: r.sho_yok,
                         cekilen_tarih: r.cekilen_tarih,
                     }))
-            );
+                );
             if (detayError) throw detayError;
 
             setExcelUyari("Tablo başarıyla kaydedildi.");
@@ -938,6 +938,242 @@ export default function AnalizTablosu({
             setExcelUyari(err?.message || "Tablo kaydedilemedi.");
         } finally {
             setKaydediliyor(false);
+        }
+    };
+
+    const handleSendMail = async () => {
+        try {
+            setMailGonderiliyor(true);
+            setExcelUyari("");
+
+            const mailLinks = JSON.parse(localStorage.getItem("app_mail_links_v1") || "{}");
+
+            if (!mailLinks || Object.keys(mailLinks).length === 0) {
+                setExcelUyari("Mail bağlantısı bulunamadı.");
+                return;
+            }
+
+            const q = norm(arama);
+
+            const tumDetaySeferler = Object.keys(regionsMap || {}).flatMap((bolge) => {
+                const bolgeProjeleri = regionsMap?.[bolge] || [];
+
+                return bolgeProjeleri.flatMap((projeAdi) => {
+                    const detaylar = altDetaylariOlustur(projeAdi, data);
+
+                    return (detaylar || [])
+                        .map((item) => {
+                            const service = norm(item.ServiceName);
+                            const inScope =
+                                service === norm("YURTİÇİ FTL HİZMETLERİ") ||
+                                service === norm("FİLO DIŞ YÜK YÖNETİMİ") ||
+                                service === norm("YURTİÇİ FRİGO HİZMETLERİ");
+
+                            if (!inScope) return null;
+
+                            const rawDespNo = (item.TMSDespatchDocumentNo || "").toString().trim();
+                            const despKey = seferNoNormalizeEt(rawDespNo);
+                            const reqNo = (item.TMSVehicleRequestDocumentNo || "").toString().trim();
+
+                            // BOS olanları alma
+                            if (rawDespNo.toLocaleUpperCase("tr-TR").startsWith("BOS")) return null;
+                            if (reqNo.toLocaleUpperCase("tr-TR").startsWith("BOS")) return null;
+
+                            // İptal alma
+                            if (sayiCevir(item.OrderStatu) === 200) return null;
+
+                            // Sefer no varsa SFR olsun, yoksa talep no ile planlanmamış kayıt olarak yine gelsin
+                            const hasValidSeferNo = !!(despKey && despKey.startsWith("SFR"));
+                            const hasTalepNo = !!reqNo;
+
+                            if (!hasValidSeferNo && !hasTalepNo) return null;
+
+                            const pickup = parseTRDateTime(item.PickupDate);
+                            const arrival = parseTRDateTime(item.TMSLoadingDocumentPrintedDate);
+                            const hasLoadingDate = !!arrival;
+
+                            const gecMi =
+                                hasValidSeferNo && hasLoadingDate
+                                    ? isGecTedarik(item.PickupDate, item.TMSLoadingDocumentPrintedDate)
+                                    : false;
+
+                            const farkSaat =
+                                pickup && arrival
+                                    ? Number(((arrival.getTime() - pickup.getTime()) / (1000 * 60 * 60)).toFixed(1))
+                                    : null;
+
+                            let durumText = "Tarih Yok";
+                            if (!hasValidSeferNo) {
+                                durumText = "Planlanmadı";
+                            } else if (!hasLoadingDate) {
+                                durumText = "Yükleme Tarihi Yok";
+                            } else if (gecMi) {
+                                durumText = "Geç Tedarik";
+                            } else {
+                                durumText = "Zamanında";
+                            }
+
+                            return {
+                                bolge,
+                                proje: projeAdi,
+                                seferNo: hasValidSeferNo ? (item.TMSDespatchDocumentNo || "-") : "Planlanmadı",
+                                talepNo: item.TMSVehicleRequestDocumentNo || "-",
+                                musteri: item.CurrentAccountTitle || "-",
+
+                                yuklemeIl: item.PickupCityName || "-",
+                                yuklemeIlce: item.PickupCountyName || "-",
+
+                                teslimIl: item.DeliveryCityName || "-",
+                                teslimIlce: item.DeliveryCountyName || "-",
+
+                                // ✅ EKLE BURAYA
+                                yuklemeNoktasi:
+                                    item.PickupAddressCode ||
+                                    item.PickupCurrentAccountTitle ||
+                                    item.PickupAddress ||
+                                    "-",
+
+                                teslimNoktasi:
+                                    item.DeliveryAddressCode ||
+                                    item.DeliveryCurrentAccountTitle ||
+                                    item.DeliveryAddress ||
+                                    "-",
+                                yuklemeTarihi: formatDateTimeTR(item.PickupDate),
+                                yuklemeyeGelis: hasLoadingDate ? formatDateTimeTR(item.TMSLoadingDocumentPrintedDate) : "-",
+                                farkSaat,
+                                gecTedarik: gecMi ? "Evet" : "Hayır",
+                                durumText,
+                                hasValidSeferNo,
+                                hasLoadingDate,
+                                aracTipi: item.VehicleWorkingName || "-",
+                            };                        })
+                        .filter(Boolean);
+                });
+            })
+                .filter((r) => (q ? norm(r.proje).includes(q) : true))
+                .filter((r) => (sadeceGecikenler ? r.gecTedarik === "Evet" : true));
+
+            const mailPayload = Object.entries(mailLinks)
+                .map(([email, projeKeys]) => {
+                    const bagliProjeler = (projeKeys || [])
+                        .map((key) => {
+                            const parts = String(key).split("::");
+                            return {
+                                bolge: parts[0] || null,
+                                proje: parts[1] || null,
+                            };
+                        })
+                        .filter((x) => x.bolge && x.proje);
+
+                    let detaylar = tumDetaySeferler.filter((row) =>
+                        bagliProjeler.some(
+                            (p) => p.bolge === row.bolge && p.proje === row.proje
+                        )
+                    );
+
+                    if (sadeceTedarikEdilmeyenler) {
+                        const ilgiliProjeler = bagliProjeler.filter((p) => {
+                            const s = islenmisVeri[norm(p.proje)] || {
+                                plan: new Set(),
+                                ted: new Set(),
+                                iptal: new Set(),
+                            };
+
+                            const plan = s.plan?.size ?? 0;
+                            const ted = s.ted?.size ?? 0;
+                            const iptal = s.iptal?.size ?? 0;
+                            const edilmeyen = Math.max(0, plan - (ted + iptal));
+
+                            return edilmeyen > 0;
+                        });
+
+                        detaylar = detaylar.filter((row) =>
+                            ilgiliProjeler.some(
+                                (p) => p.bolge === row.bolge && p.proje === row.proje
+                            )
+                        );
+                    }
+
+                    return {
+                        email,
+                        projeler: bagliProjeler.map((x) => `${x.proje} (${x.bolge})`),
+                        data: detaylar,
+
+                        summaries: bagliProjeler.map((p) => {
+                            const s = islenmisVeri[norm(p.proje)] || {
+                                plan: new Set(),
+                                ted: new Set(),
+                                iptal: new Set(),
+                                filo: new Set(),
+                                spot: new Set(),
+                                sho_b: new Set(),
+                                sho_bm: new Set(),
+                                gec_tedarik: new Set(),
+                            };
+
+                            const plan = s.plan?.size ?? 0;
+                            const ted = s.ted?.size ?? 0;
+                            const iptal = s.iptal?.size ?? 0;
+
+                            const edilmeyen = Math.max(0, plan - (ted + iptal));
+                            const gec = s.gec_tedarik?.size ?? 0;
+                            const zamaninda = Math.max(0, ted - gec);
+
+                            const oran =
+                                plan > 0
+                                    ? Math.max(0, Math.min(100, Math.round((zamaninda / plan) * 100)))
+                                    : 0;
+
+                            return {
+                                bolge: p.bolge,
+                                proje: p.proje,
+                                talep: plan,
+                                tedarik: ted,
+                                edilmeyen,
+                                filo: s.filo?.size ?? 0,
+                                spot: s.spot?.size ?? 0,
+                                sho_basilan: s.sho_b?.size ?? 0,
+                                sho_basilmayan: s.sho_bm?.size ?? 0,
+                                gec_tedarik: gec,
+                                oran,
+                            };
+                        }),
+                    };
+                })
+                .filter((item) => item.data.length > 0);
+
+            if (mailPayload.length === 0) {
+                setExcelUyari("Mevcut şartlara uygun gönderilecek detay sefer verisi bulunamadı.");
+                return;
+            }
+
+            const res = await fetch("http://localhost:3001/send-analiz-mail", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    bolge: seciliBolge,
+                    range: {
+                        start: range?.start ? new Date(range.start).toISOString() : null,
+                        end: range?.end ? new Date(range.end).toISOString() : null,
+                    },
+                    mailPayload,
+                }),
+            });
+
+            const result = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+                throw new Error(result?.message || "Mail gönderimi başarısız.");
+            }
+
+            setExcelUyari("Mevcut şartlara uygun detay sefer bilgileri ilgili mail adreslerine gönderildi.");
+        } catch (err) {
+            console.error("Mail gönderme hatası:", err);
+            setExcelUyari(err?.message || "Mail gönderilemedi.");
+        } finally {
+            setMailGonderiliyor(false);
         }
     };
     const perfC = perfColor(kpi.perf);
@@ -2141,13 +2377,24 @@ export default function AnalizTablosu({
                             <Tooltip title="Mevcut tabloyu kaydet">
                                 <Box>
                                     <GlassButton
-                                        icon={<MdInsertDriveFile size={15} />}
+                                        icon={<MdInsertDriveFile />}
                                         label="Tabloyu Kaydet"
                                         onClick={handleTabloyuKaydet}
                                         loading={kaydediliyor}
-                                        accent={"#2563EB"}
+                                        accent="#818CF8"
                                         isDark={isDark}
                                     />
+
+                                    <GlassButton
+                                        icon={<MdTrendingUp />}
+                                        label="Sefer Bilgilerini Gönder"
+                                        onClick={handleSendMail}
+                                        loading={mailGonderiliyor}
+                                        accent="#22c55e"
+                                        isDark={isDark}
+
+                                    />
+
                                 </Box>
                             </Tooltip>
                         </Stack>

@@ -5,11 +5,6 @@ import {
     AppBar,
     Toolbar,
     Typography,
-    Drawer,
-    List,
-    ListItemButton,
-    ListItemIcon,
-    ListItemText,
     Divider,
     IconButton,
     Avatar,
@@ -23,7 +18,6 @@ import {
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import {
-    MenuRounded as MenuIcon,
     HomeRounded as HomeIcon,
     ReceiptLongRounded as ReceiptLongIcon,
     DarkModeRounded as DarkModeIcon,
@@ -36,7 +30,6 @@ import {
 
 import DetayPaneli from "./DetayPaneli";
 
-const DRAWER_WIDTH = 260;
 const LS_KEY = "app_oturum_kullanici";
 
 const getUserFromSession = () => {
@@ -59,7 +52,6 @@ export default function Layout({ mode, setMode }) {
     const [endDate, setEndDate] = useState(new Date());
     const [detailType, setDetailType] = useState(null);
     const [detailOpen, setDetailOpen] = useState(false);
-    const [sidebarOpen, setSidebarOpen] = useState(true);
     const [profileAnchor, setProfileAnchor] = useState(null);
 
     const user = useMemo(() => getUserFromSession(), []);
@@ -90,6 +82,11 @@ export default function Layout({ mode, setMode }) {
         return routes[location.pathname] || "Genel Bakış";
     }, [location.pathname]);
 
+    const navItems = [
+        { label: "Bölge & Proje Ekle", path: "/", icon: <HomeIcon fontSize="small" /> },
+        { label: "Sipariş Analiz", path: "/siparis-analiz", icon: <ReceiptLongIcon fontSize="small" /> },
+        { label: "Tedarik Analiz", path: "/backend-veri", icon: <StorageIcon fontSize="small" /> },
+    ];
     const isDark = theme.palette.mode === "dark";
     const borderColor = isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.06)";
     const glassEffect = {
@@ -101,7 +98,6 @@ export default function Layout({ mode, setMode }) {
         <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: isDark ? "#020617" : "#fbfcfd" }}>
             <GlobalStyles
                 styles={{
-                    ".MuiDrawer-paper": { transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important" },
                     "::-webkit-scrollbar": { width: "6px" },
                     "::-webkit-scrollbar-thumb": {
                         bgcolor: alpha(theme.palette.primary.main, 0.2),
@@ -115,44 +111,112 @@ export default function Layout({ mode, setMode }) {
                 position="fixed"
                 elevation={0}
                 sx={{
-                    width: sidebarOpen ? `calc(100% - ${DRAWER_WIDTH}px)` : "100%",
-                    ml: sidebarOpen ? `${DRAWER_WIDTH}px` : 0,
+                    width: "100%",
+                    ml: 0,
                     ...glassEffect,
                     borderBottom: `1px solid ${borderColor}`,
                     color: "text.primary",
                     zIndex: (t) => t.zIndex.drawer + 1,
                 }}
             >
-                <Toolbar sx={{ justifyContent: "space-between", height: 64, px: 3 }}>
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                        <IconButton
-                            onClick={() => setSidebarOpen((p) => !p)}
-                            size="small"
-                            sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04), borderRadius: "10px" }}
-                        >
-                            <MenuIcon fontSize="small" color="primary" />
-                        </IconButton>
+                <Toolbar
+                    sx={{
+                        justifyContent: "space-between",
+                        minHeight: 72,
+                        px: { xs: 2, md: 3 },
+                        gap: 2,
+                    }}
+                >
+                    <Stack direction="row" alignItems="center" spacing={3} sx={{ minWidth: 0, flex: 1 }}>
+                        <Stack direction="row" alignItems="center" spacing={1.2} sx={{ mr: 1 }}>
+                            <TimelineRounded sx={{ color: "primary.main", fontSize: 28 }} />
+                            <Stack spacing={-0.5}>
+                                <Typography
+                                    variant="caption"
+                                    sx={{
+                                        fontWeight: 800,
+                                        color: "primary.main",
+                                        letterSpacing: "1px",
+                                        textTransform: "uppercase",
+                                        fontSize: 9,
+                                        lineHeight: 1.2,
+                                    }}
+                                >
+                                    {screenTitle}
+                                </Typography>
+                                <Typography
+                                    variant="h6"
+                                    sx={{
+                                        fontWeight: 900,
+                                        letterSpacing: "-0.5px",
+                                        fontSize: "1.1rem",
+                                        lineHeight: 1.2,
+                                    }}
+                                >
+                                    Flowline<span style={{ color: theme.palette.primary.main }}>.</span>
+                                </Typography>
+                            </Stack>
+                        </Stack>
 
-                        <Stack spacing={-0.5}>
-                            <Typography
-                                variant="caption"
-                                sx={{
-                                    fontWeight: 800,
-                                    color: "primary.main",
-                                    letterSpacing: "1px",
-                                    textTransform: "uppercase",
-                                    fontSize: 9,
-                                }}
-                            >
-                                {screenTitle}
-                            </Typography>
-                            <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: "-0.5px", fontSize: "1.1rem" }}>
-                                Flowline<span style={{ color: theme.palette.primary.main }}>.</span>
-                            </Typography>
+                        <Stack
+                            direction="row"
+                            spacing={1}
+                            alignItems="center"
+                            sx={{
+                                display: { xs: "none", md: "flex" },
+                                flexWrap: "wrap",
+                            }}
+                        >
+                            {navItems.map((item) => {
+                                const active = location.pathname === item.path;
+
+                                return (
+                                    <Box
+                                        key={item.label}
+                                        onClick={() =>
+                                            item.external ? window.open(item.path, "_blank") : navigate(item.path)
+                                        }
+                                        sx={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 0.8,
+                                            px: 1.6,
+                                            py: 1,
+                                            borderRadius: "12px",
+                                            cursor: "pointer",
+                                            fontWeight: active ? 800 : 700,
+                                            fontSize: "0.86rem",
+                                            color: active ? "primary.main" : "text.secondary",
+                                            bgcolor: active ? alpha(theme.palette.primary.main, 0.08) : "transparent",
+                                            border: "1px solid",
+                                            borderColor: active
+                                                ? alpha(theme.palette.primary.main, 0.14)
+                                                : "transparent",
+                                            transition: "all 0.2s ease",
+                                            whiteSpace: "nowrap",
+                                            "&:hover": {
+                                                bgcolor: alpha(theme.palette.primary.main, 0.06),
+                                                color: "primary.main",
+                                            },
+                                        }}
+                                    >
+                                        <Box
+                                            sx={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                color: active ? "primary.main" : "inherit",
+                                            }}
+                                        >
+                                            {item.icon}
+                                        </Box>
+                                        <Box component="span">{item.label}</Box>
+                                    </Box>
+                                );
+                            })}
                         </Stack>
                     </Stack>
 
-                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                    <Stack direction="row" alignItems="center" spacing={1.5} sx={{ flexShrink: 0 }}>
                         <IconButton
                             size="small"
                             onClick={() => setMode(isDark ? "light" : "dark")}
@@ -194,118 +258,64 @@ export default function Layout({ mode, setMode }) {
                         </Stack>
                     </Stack>
                 </Toolbar>
+
+                {/* Mobil menu */}
+                <Box
+                    sx={{
+                        display: { xs: "flex", md: "none" },
+                        gap: 1,
+                        px: 2,
+                        pb: 1.5,
+                        overflowX: "auto",
+                        "::-webkit-scrollbar": { display: "none" },
+                    }}
+                >
+                    {navItems.map((item) => {
+                        const active = location.pathname === item.path;
+
+                        return (
+                            <Box
+                                key={item.label}
+                                onClick={() =>
+                                    item.external ? window.open(item.path, "_blank") : navigate(item.path)
+                                }
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 0.8,
+                                    px: 1.4,
+                                    py: 0.9,
+                                    borderRadius: "12px",
+                                    cursor: "pointer",
+                                    fontWeight: active ? 800 : 700,
+                                    fontSize: "0.82rem",
+                                    color: active ? "primary.main" : "text.secondary",
+                                    bgcolor: active ? alpha(theme.palette.primary.main, 0.08) : "transparent",
+                                    border: "1px solid",
+                                    borderColor: active ? alpha(theme.palette.primary.main, 0.14) : borderColor,
+                                    whiteSpace: "nowrap",
+                                    flexShrink: 0,
+                                }}
+                            >
+                                {item.icon}
+                                <Box component="span">{item.label}</Box>
+                            </Box>
+                        );
+                    })}
+                </Box>
             </AppBar>
-
-            {/* SIDEBAR */}
-            <Drawer
-                variant="persistent"
-                open={sidebarOpen}
-                sx={{
-                    width: sidebarOpen ? DRAWER_WIDTH : 0, // ✅ kapalıyken yer kaplamasın
-                    flexShrink: 0,
-                    "& .MuiDrawer-paper": {
-                        width: sidebarOpen ? DRAWER_WIDTH : 0, // ✅ kapalıyken yer kaplamasın
-                        bgcolor: isDark ? "#020617" : "#ffffff",
-                        borderRight: sidebarOpen ? `1px solid ${borderColor}` : "none",
-                        boxSizing: "border-box",
-                        overflowX: "hidden",
-                    },
-                }}
-            >
-                <Box sx={{ p: 3, height: 64, display: "flex", alignItems: "center" }}>
-                    <TimelineRounded sx={{ color: "primary.main", mr: 1, fontSize: 28 }} />
-                    <Typography variant="h5" sx={{ fontWeight: 900, letterSpacing: "-1px" }}>
-                        Flowline
-                    </Typography>
-                </Box>
-
-                <Box sx={{ px: 2, py: 2 }}>
-                    <Typography
-                        sx={{
-                            px: 1.5,
-                            mb: 1,
-                            fontWeight: 800,
-                            fontSize: 10,
-                            color: "text.secondary",
-                            textTransform: "uppercase",
-                            letterSpacing: 1.5,
-                        }}
-                    >
-                        Ana Navigasyon
-                    </Typography>
-
-                    <List spacing={0.5}>
-                        {[
-                            { label: "Bölge & Proje Ekle", path: "/", icon: <HomeIcon /> },
-                            { label: "Sipariş Analiz", path: "/siparis-analiz", icon: <ReceiptLongIcon /> },
-                            { label: "Tedarik Analiz", path: "/backend-veri", icon: <StorageIcon /> },
-                            { label: "Tahmin", path: "/tahmin", icon: <ShowChartIcon />, external: true },
-                        ].map((item) => {
-                            const active = location.pathname === item.path;
-                            return (
-                                <ListItemButton
-                                    key={item.label}
-                                    onClick={() => (item.external ? window.open(item.path, "_blank") : navigate(item.path))}
-                                    sx={{
-                                        borderRadius: "12px",
-                                        mb: 0.8,
-                                        py: 1.2,
-                                        bgcolor: active ? alpha(theme.palette.primary.main, 0.06) : "transparent",
-                                        border: "1px solid",
-                                        borderColor: active ? alpha(theme.palette.primary.main, 0.1) : "transparent",
-                                        "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.04) },
-                                        transition: "all 0.2s",
-                                    }}
-                                >
-                                    <ListItemIcon sx={{ minWidth: 38, color: active ? "primary.main" : "text.secondary" }}>
-                                        {item.icon}
-                                    </ListItemIcon>
-                                    <ListItemText
-                                        primary={item.label}
-                                        primaryTypographyProps={{
-                                            fontWeight: active ? 800 : 600,
-                                            fontSize: "0.88rem",
-                                            color: active ? "primary.main" : "text.primary",
-                                        }}
-                                    />
-                                    {active && <Box sx={{ width: 5, height: 5, bgcolor: "primary.main", borderRadius: "50%" }} />}
-                                </ListItemButton>
-                            );
-                        })}
-                    </List>
-                </Box>
-
-                <Box sx={{ mt: "auto", p: 3 }}>
-                    <Box
-                        sx={{
-                            p: 2,
-                            borderRadius: "16px",
-                            bgcolor: isDark ? alpha(theme.palette.primary.main, 0.03) : alpha(theme.palette.primary.main, 0.05),
-                            border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-                            textAlign: "center",
-                        }}
-                    >
-                        <Typography variant="caption" sx={{ fontWeight: 900, color: "primary.main", display: "block" }}>
-                            Sistem Durumu
-                        </Typography>
-                        <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>
-                            Tüm servisler aktif
-                        </Typography>
-                    </Box>
-                </Box>
-            </Drawer>
 
             {/* ANA İÇERİK AREA */}
             <Box
                 component="main"
                 sx={{
                     flexGrow: 1,
+                    width: "100%",
+                    ml: 0,
                     transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-                    width: sidebarOpen ? `calc(100% - ${DRAWER_WIDTH}px)` : "100%",
-                    ml: sidebarOpen ? `${DRAWER_WIDTH}px` : 0,
                 }}
             >
-                <Box sx={{ height: 64 }} />
+                <Box sx={{ height: { xs: 120, md: 72 } }} />
                 <Container
                     maxWidth={false}
                     sx={{
