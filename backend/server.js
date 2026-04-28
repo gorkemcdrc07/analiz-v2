@@ -550,7 +550,7 @@ const otomatikAnalizMailGonder = async () => {
 
 // TEST: Her dakika çalışır
 cron.schedule(
-    "0 10,17 * * *"
+    "0 10,17 * * *",
     async () => {
         await otomatikAnalizMailGonder();
     },
@@ -558,7 +558,6 @@ cron.schedule(
         timezone: "Europe/Istanbul",
     }
 );
-
 app.listen(3001, () => {
     console.log("Backend çalışıyor: http://localhost:3001");
 });
