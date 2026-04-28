@@ -179,7 +179,7 @@ const CSS = `
 @page{size:A4 landscape;margin:8mm 6mm;}
 *{box-sizing:border-box;}
 body{margin:0;background:#eef3f8;font-family:Arial,Helvetica,sans-serif;color:#0f172a;}
-.wrap{padding:14px;}
+.wrap{padding:8px;}
 .hero{background:#0f172a;border-radius:16px;padding:18px 22px;margin-bottom:13px;display:flex;justify-content:space-between;align-items:flex-end;}
 .hb{font-size:9px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#93c5fd;margin-bottom:4px;}
 .ht{font-size:22px;font-weight:900;color:#fff;letter-spacing:-.03em;}
@@ -215,7 +215,7 @@ body{margin:0;background:#eef3f8;font-family:Arial,Helvetica,sans-serif;color:#0
 .psperf .lp{font-size:7px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-bottom:2px;}
 .psperf .vp{font-size:18px;font-weight:900;line-height:1;}
 .psperf-bar{flex:1;}
-.stcard{background:#fff;border:1px solid #e2e8f0;border-radius:11px;overflow:hidden;margin-bottom:13px;}
+.stcard{background:#fff;border:1px solid #e2e8f0;border-radius:11px;overflow:visible;margin-bottom:13px;}
 .sth{padding:7px 13px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;}
 .sth span{font-size:8px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#64748b;}
 .scnt{font-size:8px;background:#e2e8f0;color:#475569;border-radius:999px;padding:2px 8px;font-weight:700;}
@@ -239,6 +239,14 @@ tbody tr:nth-child(even) td{background:#f8fafc;}
 .fp{color:#15803d;font-weight:800;}
 .fz{color:#94a3b8;}
 .footer{margin-top:8px;display:flex;justify-content:space-between;font-size:8px;color:#94a3b8;padding:0 2px;}
+.pdiv,
+.pozet,
+.sth{break-inside:avoid;page-break-inside:avoid;}
+.stcard{break-inside:auto;page-break-inside:auto;}
+thead{display:table-header-group;}
+tfoot{display:table-footer-group;}
+tr{break-inside:avoid;page-break-inside:avoid;}
+tbody td{break-inside:avoid;page-break-inside:avoid;}
 `;
 
 /* ─── Global KPI ───────────────────────────────────── */
@@ -313,7 +321,47 @@ const buildProjeBlock = (summary, rows, dotColor) => {
             ? `<div class="ps kp-a"><div class="l">Ge&ccedil; Tedarik</div><div class="v">${gec}</div></div>`
             : `<div class="ps kp-n"><div class="l">Ge&ccedil; Tedarik</div><div class="v">&mdash;</div></div>`;
 
-    const rowsHtml = rows
+    const siraliRows = [...rows].sort((a, b) => {
+        const seferA = String(a?.seferNo || "").trim();
+        const seferB = String(b?.seferNo || "").trim();
+
+        const durumA = statusText(a);
+        const durumB = statusText(b);
+
+        const grup = (r, sefer, durum) => {
+            const planlanmadi =
+                sefer.toLocaleLowerCase("tr-TR") === "planlanmadı";
+
+            // 1. Planlanmadı + Yükleme Tarihi Yok
+            if (planlanmadi && durum === "Yükleme Tarihi Yok") {
+                return 1;
+            }
+
+            // 2. Sefer no var + Zamanında
+            if (!planlanmadi && durum === "Zamanında") {
+                return 2;
+            }
+
+            // 3. Sefer no var + Geç Tedarik
+            if (!planlanmadi && durum === "Geç Tedarik") {
+                return 3;
+            }
+
+            // 4. Diğerleri
+            return 4;
+        };
+
+        const gA = grup(a, seferA, durumA);
+        const gB = grup(b, seferB, durumB);
+
+        if (gA !== gB) {
+            return gA - gB;
+        }
+
+        return seferA.localeCompare(seferB, "tr-TR");
+    });
+
+    const rowsHtml = siraliRows
         .map((r) => {
             const sc = statusClass(r);
             const st = statusText(r);
