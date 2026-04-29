@@ -20,7 +20,6 @@ import {
     Tooltip,
     Tabs,
     Tab,
-    Badge,
 } from "@mui/material";
 import { useTheme, alpha } from "@mui/material/styles";
 import {
@@ -31,15 +30,17 @@ import {
     SearchRounded,
     RestartAltRounded,
     RocketLaunchRounded,
-    SettingsSuggestRounded,
     MailOutlineRounded,
     PersonAddAltRounded,
     FolderSpecialRounded,
-    DoneAllRounded,
     EmailRounded,
     CheckCircleRounded,
     AutoAwesomeRounded,
     ArrowOutwardRounded,
+    AdminPanelSettingsRounded,
+    EditRounded,
+    SaveRounded,
+    CloseRounded,
 } from "@mui/icons-material";
 import { motion } from "framer-motion";
 
@@ -57,6 +58,7 @@ const fadeUp = {
 
 function GlowCard({ children, sx = {}, noPadding = false }) {
     const theme = useTheme();
+
     return (
         <Box
             component={motion.div}
@@ -93,7 +95,6 @@ function GlowCard({ children, sx = {}, noPadding = false }) {
 }
 
 function StatPill({ icon: Icon, label, value, color }) {
-    const theme = useTheme();
     return (
         <GlowCard sx={{ p: 2.25 }}>
             <Stack direction="row" spacing={1.75} alignItems="center">
@@ -107,11 +108,11 @@ function StatPill({ icon: Icon, label, value, color }) {
                         background: `linear-gradient(135deg, ${alpha(color, 0.22)}, ${alpha(color, 0.08)})`,
                         border: "1px solid",
                         borderColor: alpha(color, 0.18),
-                        boxShadow: `inset 0 1px 0 ${alpha("#fff", 0.18)}`,
                     }}
                 >
                     <Icon sx={{ color, fontSize: 24 }} />
                 </Box>
+
                 <Box>
                     <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1.05, letterSpacing: -0.5 }}>
                         {value}
@@ -149,15 +150,18 @@ function SectionTitle({ eyebrow, title, subtitle, action }) {
                         {eyebrow}
                     </Typography>
                 )}
+
                 <Typography variant="h5" sx={{ fontWeight: 900, letterSpacing: -0.8 }}>
                     {title}
                 </Typography>
+
                 {subtitle && (
                     <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.6 }}>
                         {subtitle}
                     </Typography>
                 )}
             </Box>
+
             {action}
         </Stack>
     );
@@ -182,9 +186,15 @@ export default function Anasayfa() {
     const [newProjectName, setNewProjectName] = useState("");
     const [search, setSearch] = useState("");
     const [globalSearch, setGlobalSearch] = useState("");
+
     const [mailInput, setMailInput] = useState("");
+    const [mailRecipients, setMailRecipients] = useState([]);
+    const [managerEmail, setManagerEmail] = useState("");
+
     const [selectedProjects, setSelectedProjects] = useState([]);
     const [activeMailTab, setActiveMailTab] = useState(0);
+    const [editingLinkId, setEditingLinkId] = useState(null);
+
     const [toast, setToast] = useState({ open: false, msg: "", severity: "success" });
 
     useEffect(() => {
@@ -207,22 +217,30 @@ export default function Anasayfa() {
     const filteredProjects = useMemo(() => {
         const list = regionsMap[selectedRegion] || [];
         const q = search.trim().toLowerCase();
+
         return q ? list.filter((p) => p.toLowerCase().includes(q)) : list;
     }, [regionsMap, selectedRegion, search]);
 
     const allProjects = useMemo(() => {
         const all = [];
+
         for (const [region, projects] of Object.entries(regionsMap)) {
-            for (const p of projects || []) all.push({ region, project: p });
+            for (const p of projects || []) {
+                all.push({ region, project: p });
+            }
         }
+
         return all;
     }, [regionsMap]);
 
     const globalResults = useMemo(() => {
         const q = globalSearch.trim().toLowerCase();
+
         if (!q) return [];
-        return allProjects.filter(({ project, region }) =>
-            project.toLowerCase().includes(q) || region.toLowerCase().includes(q)
+
+        return allProjects.filter(
+            ({ project, region }) =>
+                project.toLowerCase().includes(q) || region.toLowerCase().includes(q)
         );
     }, [allProjects, globalSearch]);
 
@@ -230,9 +248,19 @@ export default function Anasayfa() {
 
     const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
+    const clearMailForm = () => {
+        setMailInput("");
+        setMailRecipients([]);
+        setManagerEmail("");
+        setSelectedProjects([]);
+        setEditingLinkId(null);
+    };
+
     const handleAddRegion = () => {
         const key = newRegionName.trim().toUpperCase();
+
         if (!key || regionsMap[key]) return;
+
         setRegionsMap((p) => ({ ...p, [key]: [] }));
         setNewRegionName("");
         setSelectedRegion(key);
@@ -241,17 +269,29 @@ export default function Anasayfa() {
 
     const handleDeleteRegion = (name, e) => {
         e.stopPropagation();
+
         const next = { ...regionsMap };
         delete next[name];
+
         setRegionsMap(next);
-        if (selectedRegion === name) setSelectedRegion(Object.keys(next)[0] || "");
+
+        if (selectedRegion === name) {
+            setSelectedRegion(Object.keys(next)[0] || "");
+        }
+
         setToast({ open: true, msg: `Bölge silindi: ${name}`, severity: "info" });
     };
 
     const handleAddProject = () => {
         const pName = newProjectName.trim();
+
         if (!pName || !selectedRegion || (regionsMap[selectedRegion] || []).includes(pName)) return;
-        setRegionsMap((p) => ({ ...p, [selectedRegion]: [...(p[selectedRegion] || []), pName] }));
+
+        setRegionsMap((p) => ({
+            ...p,
+            [selectedRegion]: [...(p[selectedRegion] || []), pName],
+        }));
+
         setNewProjectName("");
         setToast({ open: true, msg: `Proje eklendi: ${pName}`, severity: "success" });
     };
@@ -261,6 +301,9 @@ export default function Anasayfa() {
             ...p,
             [selectedRegion]: (p[selectedRegion] || []).filter((x) => x !== projName),
         }));
+
+        setSelectedProjects((prev) => prev.filter((key) => key !== `${selectedRegion}::${projName}`));
+
         setToast({ open: true, msg: `Proje silindi: ${projName}`, severity: "info" });
     };
 
@@ -270,45 +313,166 @@ export default function Anasayfa() {
         );
     };
 
-    const handleBindMail = () => {
+    const handleAddMailRecipient = () => {
         const email = mailInput.trim().toLowerCase();
+
         if (!isValidEmail(email)) {
             setToast({ open: true, msg: "Geçerli bir e-posta adresi girin.", severity: "error" });
             return;
         }
-        if (selectedProjects.length === 0) {
-            setToast({ open: true, msg: "En az bir proje seçin.", severity: "warning" });
+
+        if (mailRecipients.includes(email)) {
+            setToast({ open: true, msg: "Bu e-posta zaten eklendi.", severity: "warning" });
             return;
         }
-        setMailLinks((prev) => {
-            const existing = prev[email] || [];
-            const merged = Array.from(new Set([...existing, ...selectedProjects]));
-            return { ...prev, [email]: merged };
-        });
-        setToast({ open: true, msg: `${selectedProjects.length} proje ${email} adresine bağlandı.`, severity: "success" });
+
+        setMailRecipients((prev) => [...prev, email]);
+
+        if (!managerEmail) {
+            setManagerEmail(email);
+        }
+
         setMailInput("");
-        setSelectedProjects([]);
     };
 
-    const handleUnbindProject = (email, projKey) => {
+    const handleRemoveMailRecipient = (email) => {
+        const remaining = mailRecipients.filter((x) => x !== email);
+
+        setMailRecipients(remaining);
+
+        if (managerEmail === email) {
+            setManagerEmail(remaining[0] || "");
+        }
+    };
+
+    const buildMailLinkPayload = () => ({
+        managerEmail,
+        ccEmails: mailRecipients.filter((email) => email !== managerEmail),
+        projects: selectedProjects,
+    });
+
+    const validateMailLinkForm = () => {
+        if (mailRecipients.length === 0) {
+            setToast({ open: true, msg: "En az bir e-posta adresi ekleyin.", severity: "warning" });
+            return false;
+        }
+
+        if (!managerEmail) {
+            setToast({ open: true, msg: "Bir yönetici/asıl alıcı seçin.", severity: "warning" });
+            return false;
+        }
+
+        if (selectedProjects.length === 0) {
+            setToast({ open: true, msg: "En az bir proje seçin.", severity: "warning" });
+            return false;
+        }
+
+        return true;
+    };
+
+    const handleBindMail = () => {
+        if (!validateMailLinkForm()) return;
+
+        const id = `${managerEmail}-${Date.now()}`;
+
+        setMailLinks((prev) => ({
+            ...prev,
+            [id]: buildMailLinkPayload(),
+        }));
+
+        setToast({
+            open: true,
+            msg: `${selectedProjects.length} proje ${managerEmail} yöneticisine bağlandı.`,
+            severity: "success",
+        });
+
+        clearMailForm();
+    };
+
+    const handleStartEditLink = (id, link) => {
+        setEditingLinkId(id);
+        setMailRecipients([link.managerEmail, ...(link.ccEmails || [])]);
+        setManagerEmail(link.managerEmail);
+        setSelectedProjects(link.projects || []);
+        setActiveMailTab(0);
+
+        setToast({
+            open: true,
+            msg: "Bağlantı düzenleme modunda açıldı.",
+            severity: "info",
+        });
+    };
+
+    const handleUpdateLink = () => {
+        if (!editingLinkId) return;
+        if (!validateMailLinkForm()) return;
+
+        setMailLinks((prev) => ({
+            ...prev,
+            [editingLinkId]: buildMailLinkPayload(),
+        }));
+
+        setToast({
+            open: true,
+            msg: "Bağlantı güncellendi.",
+            severity: "success",
+        });
+
+        clearMailForm();
+    };
+
+    const handleCancelEditLink = () => {
+        clearMailForm();
+
+        setToast({
+            open: true,
+            msg: "Düzenleme iptal edildi.",
+            severity: "info",
+        });
+    };
+
+    const handleUnbindProject = (linkId, projKey) => {
         setMailLinks((prev) => {
-            const filtered = (prev[email] || []).filter((k) => k !== projKey);
-            if (filtered.length === 0) {
+            const link = prev[linkId];
+
+            if (!link) return prev;
+
+            const filteredProjects = (link.projects || []).filter((k) => k !== projKey);
+
+            if (filteredProjects.length === 0) {
                 const next = { ...prev };
-                delete next[email];
+                delete next[linkId];
                 return next;
             }
-            return { ...prev, [email]: filtered };
+
+            return {
+                ...prev,
+                [linkId]: {
+                    ...link,
+                    projects: filteredProjects,
+                },
+            };
         });
     };
 
-    const handleRemoveEmail = (email) => {
+    const handleRemoveEmail = (linkId) => {
+        const manager = mailLinks[linkId]?.managerEmail;
+
         setMailLinks((prev) => {
             const next = { ...prev };
-            delete next[email];
+            delete next[linkId];
             return next;
         });
-        setToast({ open: true, msg: `${email} kaldırıldı.`, severity: "info" });
+
+        if (editingLinkId === linkId) {
+            clearMailForm();
+        }
+
+        setToast({
+            open: true,
+            msg: `${manager || "Bağlantı"} kaldırıldı.`,
+            severity: "info",
+        });
     };
 
     const handleReset = () => {
@@ -318,15 +482,19 @@ export default function Anasayfa() {
             setSelectedRegion(Object.keys(REGIONS_DEFAULT)[0] || "");
             setSearch("");
             setGlobalSearch("");
-            setSelectedProjects([]);
-            setMailInput("");
+            setNewRegionName("");
+            setNewProjectName("");
+            clearMailForm();
             setToast({ open: true, msg: "Varsayılana döndürüldü.", severity: "warning" });
         }
     };
 
     const handleCopyJSON = async () => {
         try {
-            await navigator.clipboard.writeText(JSON.stringify({ regions: regionsMap, mailLinks }, null, 2));
+            await navigator.clipboard.writeText(
+                JSON.stringify({ regions: regionsMap, mailLinks }, null, 2)
+            );
+
             setToast({ open: true, msg: "JSON panoya kopyalandı.", severity: "success" });
         } catch {
             setToast({ open: true, msg: "Kopyalama başarısız.", severity: "error" });
@@ -359,6 +527,7 @@ export default function Anasayfa() {
                     pointerEvents: "none",
                 }}
             />
+
             <Box
                 sx={{
                     position: "absolute",
@@ -397,6 +566,7 @@ export default function Anasayfa() {
                             >
                                 <AutoAwesomeRounded sx={{ color: "primary.main", fontSize: 30 }} />
                             </Box>
+
                             <Box>
                                 <Typography
                                     variant="h3"
@@ -409,6 +579,7 @@ export default function Anasayfa() {
                                 >
                                     Bölge & Proje Yönetimi
                                 </Typography>
+
                                 <Typography variant="body1" sx={{ color: "text.secondary", mt: 0.9, maxWidth: 700 }}>
                                     Daha modern, premium ve yönetimi kolay bir panel deneyimi.
                                 </Typography>
@@ -431,6 +602,7 @@ export default function Anasayfa() {
                             >
                                 JSON Kopyala
                             </Button>
+
                             <Tooltip title="Varsayılana döndür">
                                 <IconButton
                                     onClick={handleReset}
@@ -481,6 +653,7 @@ export default function Anasayfa() {
                             <Typography variant="overline" sx={{ color: "text.secondary", fontWeight: 900 }}>
                                 Arama Sonuçları ({globalResults.length})
                             </Typography>
+
                             <Box
                                 sx={{
                                     mt: 1.2,
@@ -512,6 +685,7 @@ export default function Anasayfa() {
                                         }}
                                     >
                                         <Typography sx={{ fontWeight: 800 }}>{item.project}</Typography>
+
                                         <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.7 }}>
                                             <Chip size="small" label={item.region} sx={{ fontWeight: 700 }} />
                                             <ArrowOutwardRounded sx={{ fontSize: 14, color: "text.secondary" }} />
@@ -581,11 +755,6 @@ export default function Anasayfa() {
                                             selectedRegion === r.name
                                                 ? alpha(theme.palette.primary.main, 0.1)
                                                 : alpha(theme.palette.common.white, theme.palette.mode === "dark" ? 0.03 : 0.5),
-                                        transition: "all .18s ease",
-                                        "&:hover": {
-                                            bgcolor: alpha(theme.palette.primary.main, 0.08),
-                                            transform: "translateX(2px)",
-                                        },
                                     }}
                                 >
                                     <ListItemText
@@ -594,7 +763,9 @@ export default function Anasayfa() {
                                         primaryTypographyProps={{ fontWeight: 900, fontSize: 14 }}
                                         secondaryTypographyProps={{ sx: { color: "text.secondary", fontSize: 12 } }}
                                     />
+
                                     <Chip label={r.count} size="small" sx={{ mr: 1, fontWeight: 800 }} />
+
                                     <IconButton size="small" onClick={(e) => handleDeleteRegion(r.name, e)}>
                                         <DeleteOutlineRounded fontSize="small" />
                                     </IconButton>
@@ -608,7 +779,14 @@ export default function Anasayfa() {
                             eyebrow="ANA ALAN"
                             title={selectedRegion ? `${selectedRegion} Projeleri` : "Projeler"}
                             subtitle="Seçili bölgedeki projeleri düzenle, ara ve yeni proje ekle."
-                            action={<Chip icon={<CheckCircleRounded />} label={`${filteredProjects.length} proje`} color="success" variant="outlined" />}
+                            action={
+                                <Chip
+                                    icon={<CheckCircleRounded />}
+                                    label={`${filteredProjects.length} proje`}
+                                    color="success"
+                                    variant="outlined"
+                                />
+                            }
                         />
 
                         <Stack spacing={2}>
@@ -644,6 +822,7 @@ export default function Anasayfa() {
                                         },
                                     }}
                                 />
+
                                 <Button
                                     variant="contained"
                                     onClick={handleAddProject}
@@ -691,6 +870,7 @@ export default function Anasayfa() {
                                                     {selectedRegion}
                                                 </Typography>
                                             </Box>
+
                                             <IconButton size="small" color="error" onClick={() => handleDeleteProject(p)}>
                                                 <DeleteOutlineRounded fontSize="small" />
                                             </IconButton>
@@ -747,7 +927,7 @@ export default function Anasayfa() {
                             },
                         }}
                     >
-                        <Tab label="Yeni Bağlantı" />
+                        <Tab label={editingLinkId ? "Bağlantıyı Düzenle" : "Yeni Bağlantı"} />
                         <Tab label={`Kayıtlı Bağlantılar (${Object.keys(mailLinks).length})`} />
                     </Tabs>
 
@@ -781,6 +961,7 @@ export default function Anasayfa() {
                                     {(regionsMap[selectedRegion] || []).map((p) => {
                                         const key = `${selectedRegion}::${p}`;
                                         const checked = selectedProjects.includes(key);
+
                                         return (
                                             <Box
                                                 key={key}
@@ -790,8 +971,12 @@ export default function Anasayfa() {
                                                     borderRadius: 3.5,
                                                     cursor: "pointer",
                                                     border: "1px solid",
-                                                    borderColor: checked ? alpha(theme.palette.secondary.main, 0.32) : alpha(theme.palette.primary.main, 0.08),
-                                                    bgcolor: checked ? alpha(theme.palette.secondary.main, 0.08) : alpha(theme.palette.common.white, theme.palette.mode === "dark" ? 0.04 : 0.72),
+                                                    borderColor: checked
+                                                        ? alpha(theme.palette.secondary.main, 0.32)
+                                                        : alpha(theme.palette.primary.main, 0.08),
+                                                    bgcolor: checked
+                                                        ? alpha(theme.palette.secondary.main, 0.08)
+                                                        : alpha(theme.palette.common.white, theme.palette.mode === "dark" ? 0.04 : 0.72),
                                                     transition: "all .18s ease",
                                                     "&:hover": { transform: "translateY(-2px)" },
                                                 }}
@@ -816,27 +1001,85 @@ export default function Anasayfa() {
                                         background: `linear-gradient(180deg, ${alpha(theme.palette.secondary.main, 0.07)}, ${alpha(theme.palette.common.white, theme.palette.mode === "dark" ? 0.03 : 0.66)})`,
                                     }}
                                 >
-                                    <Typography sx={{ fontWeight: 900, mb: 1.4 }}>E-posta ile eşleştir</Typography>
+                                    <Typography sx={{ fontWeight: 900, mb: 1.4 }}>
+                                        {editingLinkId ? "Bağlantıyı Düzenle" : "E-posta ile eşleştir"}
+                                    </Typography>
 
-                                    <TextField
-                                        fullWidth
-                                        type="email"
-                                        placeholder="ornek@sirket.com"
-                                        value={mailInput}
-                                        onChange={(e) => setMailInput(e.target.value)}
-                                        onKeyDown={(e) => e.key === "Enter" && handleBindMail()}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <MailOutlineRounded sx={{ color: "secondary.main" }} />
-                                                </InputAdornment>
-                                            ),
-                                            sx: {
+                                    {editingLinkId && (
+                                        <Alert severity="info" sx={{ mb: 2, borderRadius: 3 }}>
+                                            Düzenleme modundasın. Kaydedince mevcut bağlantı güncellenecek.
+                                        </Alert>
+                                    )}
+
+                                    <Stack direction="row" spacing={1}>
+                                        <TextField
+                                            fullWidth
+                                            type="email"
+                                            placeholder="ornek@sirket.com"
+                                            value={mailInput}
+                                            onChange={(e) => setMailInput(e.target.value)}
+                                            onKeyDown={(e) => e.key === "Enter" && handleAddMailRecipient()}
+                                            InputProps={{
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <MailOutlineRounded sx={{ color: "secondary.main" }} />
+                                                    </InputAdornment>
+                                                ),
+                                                sx: {
+                                                    borderRadius: 3.5,
+                                                    bgcolor: alpha(theme.palette.common.white, theme.palette.mode === "dark" ? 0.04 : 0.85),
+                                                },
+                                            }}
+                                        />
+
+                                        <Button
+                                            variant="outlined"
+                                            onClick={handleAddMailRecipient}
+                                            sx={{
                                                 borderRadius: 3.5,
-                                                bgcolor: alpha(theme.palette.common.white, theme.palette.mode === "dark" ? 0.04 : 0.85),
-                                            },
-                                        }}
-                                    />
+                                                fontWeight: 900,
+                                                textTransform: "none",
+                                                px: 2.5,
+                                            }}
+                                        >
+                                            Ekle
+                                        </Button>
+                                    </Stack>
+
+                                    <Box sx={{ mt: 2 }}>
+                                        <Typography variant="body2" sx={{ fontWeight: 800, mb: 1 }}>
+                                            Eklenen kişiler
+                                        </Typography>
+
+                                        <Stack direction="row" flexWrap="wrap" gap={1}>
+                                            {mailRecipients.length === 0 ? (
+                                                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                                                    Henüz e-posta eklenmedi.
+                                                </Typography>
+                                            ) : (
+                                                mailRecipients.map((email) => {
+                                                    const isManager = managerEmail === email;
+
+                                                    return (
+                                                        <Chip
+                                                            key={email}
+                                                            icon={<AdminPanelSettingsRounded />}
+                                                            label={isManager ? `${email} • Yönetici` : `${email} • SS`}
+                                                            color={isManager ? "warning" : "default"}
+                                                            variant={isManager ? "filled" : "outlined"}
+                                                            onClick={() => setManagerEmail(email)}
+                                                            onDelete={() => handleRemoveMailRecipient(email)}
+                                                            sx={{ fontWeight: 800 }}
+                                                        />
+                                                    );
+                                                })
+                                            )}
+                                        </Stack>
+
+                                        <Typography variant="caption" sx={{ color: "text.secondary", mt: 1, display: "block" }}>
+                                            Yönetici seçilen kişi asıl alıcı olur. Diğer kişiler SS/CC olarak tutulur.
+                                        </Typography>
+                                    </Box>
 
                                     <Box
                                         sx={{
@@ -851,6 +1094,7 @@ export default function Anasayfa() {
                                         <Typography variant="body2" sx={{ fontWeight: 800, mb: 1.1 }}>
                                             Seçili projeler ({selectedProjects.length})
                                         </Typography>
+
                                         <Stack direction="row" flexWrap="wrap" gap={1}>
                                             {selectedProjects.length === 0 ? (
                                                 <Typography variant="body2" sx={{ color: "text.secondary" }}>
@@ -859,6 +1103,7 @@ export default function Anasayfa() {
                                             ) : (
                                                 selectedProjects.map((key) => {
                                                     const [reg, proj] = key.split("::");
+
                                                     return (
                                                         <Chip
                                                             key={key}
@@ -875,24 +1120,44 @@ export default function Anasayfa() {
                                         </Stack>
                                     </Box>
 
-                                    <Button
-                                        fullWidth
-                                        variant="contained"
-                                        startIcon={<PersonAddAltRounded />}
-                                        onClick={handleBindMail}
-                                        disabled={!mailInput.trim() || selectedProjects.length === 0}
-                                        sx={{
-                                            mt: 2,
-                                            borderRadius: 3.5,
-                                            textTransform: "none",
-                                            fontWeight: 900,
-                                            py: 1.45,
-                                            background: "linear-gradient(135deg, #a855f7, #7c3aed)",
-                                            boxShadow: "none",
-                                        }}
-                                    >
-                                        Kaydet ve Bağla
-                                    </Button>
+                                    <Stack spacing={1.2} sx={{ mt: 2 }}>
+                                        <Button
+                                            fullWidth
+                                            variant="contained"
+                                            startIcon={editingLinkId ? <SaveRounded /> : <PersonAddAltRounded />}
+                                            onClick={editingLinkId ? handleUpdateLink : handleBindMail}
+                                            disabled={mailRecipients.length === 0 || !managerEmail || selectedProjects.length === 0}
+                                            sx={{
+                                                borderRadius: 3.5,
+                                                textTransform: "none",
+                                                fontWeight: 900,
+                                                py: 1.45,
+                                                background: editingLinkId
+                                                    ? "linear-gradient(135deg, #f59e0b, #d97706)"
+                                                    : "linear-gradient(135deg, #a855f7, #7c3aed)",
+                                                boxShadow: "none",
+                                            }}
+                                        >
+                                            {editingLinkId ? "Değişiklikleri Kaydet" : "Kaydet ve Bağla"}
+                                        </Button>
+
+                                        {editingLinkId && (
+                                            <Button
+                                                fullWidth
+                                                variant="outlined"
+                                                color="inherit"
+                                                startIcon={<CloseRounded />}
+                                                onClick={handleCancelEditLink}
+                                                sx={{
+                                                    borderRadius: 3.5,
+                                                    textTransform: "none",
+                                                    fontWeight: 900,
+                                                }}
+                                            >
+                                                Düzenlemeyi İptal Et
+                                            </Button>
+                                        )}
+                                    </Stack>
                                 </Box>
                             </Box>
                         </Box>
@@ -909,21 +1174,30 @@ export default function Anasayfa() {
                                         bgcolor: alpha(theme.palette.secondary.main, 0.03),
                                     }}
                                 >
-                                    <Typography sx={{ fontWeight: 800 }}>Henüz kayıtlı bağlantı yok.</Typography>
+                                    <Typography sx={{ fontWeight: 800 }}>
+                                        Henüz kayıtlı bağlantı yok.
+                                    </Typography>
+
                                     <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.6 }}>
                                         Yeni bağlantı sekmesinden proje ve e-posta eşleştirmesi yapabilirsin.
                                     </Typography>
                                 </Box>
                             ) : (
-                                Object.entries(mailLinks).map(([email, projects]) => (
+                                Object.entries(mailLinks).map(([id, link]) => (
                                     <Box
-                                        key={email}
+                                        key={id}
                                         sx={{
                                             p: 2.2,
                                             borderRadius: 4,
                                             border: "1px solid",
-                                            borderColor: alpha(theme.palette.secondary.main, 0.14),
-                                            background: alpha(theme.palette.common.white, theme.palette.mode === "dark" ? 0.04 : 0.76),
+                                            borderColor:
+                                                editingLinkId === id
+                                                    ? alpha(theme.palette.warning.main, 0.45)
+                                                    : alpha(theme.palette.secondary.main, 0.14),
+                                            background:
+                                                editingLinkId === id
+                                                    ? alpha(theme.palette.warning.main, 0.08)
+                                                    : alpha(theme.palette.common.white, theme.palette.mode === "dark" ? 0.04 : 0.76),
                                         }}
                                     >
                                         <Stack
@@ -937,36 +1211,64 @@ export default function Anasayfa() {
                                                     sx={{
                                                         width: 42,
                                                         height: 42,
-                                                        background: "linear-gradient(135deg, #a855f7, #7c3aed)",
+                                                        background: "linear-gradient(135deg, #f59e0b, #d97706)",
                                                         fontWeight: 900,
                                                     }}
                                                 >
-                                                    {email.slice(0, 2).toUpperCase()}
+                                                    {link.managerEmail?.slice(0, 2).toUpperCase()}
                                                 </Avatar>
+
                                                 <Box>
-                                                    <Typography sx={{ fontWeight: 900 }}>{email}</Typography>
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                        <AdminPanelSettingsRounded sx={{ color: "warning.main", fontSize: 20 }} />
+                                                        <Typography sx={{ fontWeight: 900 }}>
+                                                            {link.managerEmail}
+                                                        </Typography>
+
+                                                        {editingLinkId === id && (
+                                                            <Chip size="small" color="warning" label="Düzenleniyor" sx={{ fontWeight: 800 }} />
+                                                        )}
+                                                    </Stack>
+
                                                     <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                                                        {projects.length} proje bağlı
+                                                        Yönetici / Asıl alıcı • {link.projects?.length || 0} proje bağlı
                                                     </Typography>
+
+                                                    {link.ccEmails?.length > 0 && (
+                                                        <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
+                                                            SS: {link.ccEmails.join(", ")}
+                                                        </Typography>
+                                                    )}
                                                 </Box>
                                             </Stack>
 
-                                            <IconButton color="error" onClick={() => handleRemoveEmail(email)}>
-                                                <DeleteOutlineRounded />
-                                            </IconButton>
+                                            <Stack direction="row" spacing={1}>
+                                                <Tooltip title="Düzenle">
+                                                    <IconButton color="warning" onClick={() => handleStartEditLink(id, link)}>
+                                                        <EditRounded />
+                                                    </IconButton>
+                                                </Tooltip>
+
+                                                <Tooltip title="Sil">
+                                                    <IconButton color="error" onClick={() => handleRemoveEmail(id)}>
+                                                        <DeleteOutlineRounded />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            </Stack>
                                         </Stack>
 
                                         <Divider sx={{ my: 2, opacity: 0.18 }} />
 
                                         <Stack direction="row" flexWrap="wrap" gap={1}>
-                                            {projects.map((key) => {
+                                            {(link.projects || []).map((key) => {
                                                 const [reg, proj] = key.split("::");
+
                                                 return (
                                                     <Chip
                                                         key={key}
-                                                        avatar={<Avatar>{reg[0]}</Avatar>}
+                                                        avatar={<Avatar>{reg?.[0]}</Avatar>}
                                                         label={`${proj} • ${reg}`}
-                                                        onDelete={() => handleUnbindProject(email, key)}
+                                                        onDelete={() => handleUnbindProject(id, key)}
                                                         variant="outlined"
                                                         sx={{ borderRadius: 999, fontWeight: 700 }}
                                                     />

@@ -726,7 +726,7 @@
         {
           "bolge": "TRAKYA",
           "proje": "BUNGE LÜLEBURGAZ FTL",
-          "seferNo": "Planlanmadı",
+          "seferNo": "SFR2600070482",
           "talepNo": "VP2600074466",
           "musteri": "BUNGE GIDA SANAYİ VE TİCARET ANONİM ŞİRKETİ ",
           "yuklemeIl": "KIRKLARELİ",
@@ -739,10 +739,10 @@
           "yuklemeyeGelis": "-",
           "farkSaat": null,
           "gecTedarik": "Hayır",
-          "durumText": "Planlanmadı",
-          "hasValidSeferNo": false,
+          "durumText": "Yükleme Tarihi Yok",
+          "hasValidSeferNo": true,
           "hasLoadingDate": false,
-          "aracTipi": "-"
+          "aracTipi": "SPOT"
         },
         {
           "bolge": "TRAKYA",
@@ -789,7 +789,7 @@
         {
           "bolge": "TRAKYA",
           "proje": "BUNGE LÜLEBURGAZ FTL",
-          "seferNo": "Planlanmadı",
+          "seferNo": "SFR2600070520",
           "talepNo": "VP2600074471",
           "musteri": "BUNGE GIDA SANAYİ VE TİCARET ANONİM ŞİRKETİ ",
           "yuklemeIl": "KIRKLARELİ",
@@ -802,10 +802,10 @@
           "yuklemeyeGelis": "-",
           "farkSaat": null,
           "gecTedarik": "Hayır",
-          "durumText": "Planlanmadı",
-          "hasValidSeferNo": false,
+          "durumText": "Yükleme Tarihi Yok",
+          "hasValidSeferNo": true,
           "hasLoadingDate": false,
-          "aracTipi": "-"
+          "aracTipi": "SPOT"
         },
         {
           "bolge": "TRAKYA",
@@ -831,7 +831,7 @@
         {
           "bolge": "TRAKYA",
           "proje": "BUNGE LÜLEBURGAZ FTL",
-          "seferNo": "Planlanmadı",
+          "seferNo": "SFR2600070487",
           "talepNo": "VP2600074473",
           "musteri": "BUNGE GIDA SANAYİ VE TİCARET ANONİM ŞİRKETİ ",
           "yuklemeIl": "KIRKLARELİ",
@@ -844,10 +844,10 @@
           "yuklemeyeGelis": "-",
           "farkSaat": null,
           "gecTedarik": "Hayır",
-          "durumText": "Planlanmadı",
-          "hasValidSeferNo": false,
+          "durumText": "Yükleme Tarihi Yok",
+          "hasValidSeferNo": true,
           "hasLoadingDate": false,
-          "aracTipi": "-"
+          "aracTipi": "FİLO"
         },
         {
           "bolge": "TRAKYA",
@@ -894,7 +894,7 @@
         {
           "bolge": "TRAKYA",
           "proje": "BUNGE LÜLEBURGAZ FTL",
-          "seferNo": "Planlanmadı",
+          "seferNo": "SFR2600070494",
           "talepNo": "VP2600074478",
           "musteri": "BUNGE GIDA SANAYİ VE TİCARET ANONİM ŞİRKETİ ",
           "yuklemeIl": "KIRKLARELİ",
@@ -907,10 +907,10 @@
           "yuklemeyeGelis": "-",
           "farkSaat": null,
           "gecTedarik": "Hayır",
-          "durumText": "Planlanmadı",
-          "hasValidSeferNo": false,
+          "durumText": "Yükleme Tarihi Yok",
+          "hasValidSeferNo": true,
           "hasLoadingDate": false,
-          "aracTipi": "-"
+          "aracTipi": "FİLO"
         },
         {
           "bolge": "TRAKYA",
@@ -957,7 +957,7 @@
         {
           "bolge": "TRAKYA",
           "proje": "BUNGE LÜLEBURGAZ FTL",
-          "seferNo": "Planlanmadı",
+          "seferNo": "SFR2600070518",
           "talepNo": "VP2600074484",
           "musteri": "BUNGE GIDA SANAYİ VE TİCARET ANONİM ŞİRKETİ ",
           "yuklemeIl": "KIRKLARELİ",
@@ -970,10 +970,10 @@
           "yuklemeyeGelis": "-",
           "farkSaat": null,
           "gecTedarik": "Hayır",
-          "durumText": "Planlanmadı",
-          "hasValidSeferNo": false,
+          "durumText": "Yükleme Tarihi Yok",
+          "hasValidSeferNo": true,
           "hasLoadingDate": false,
-          "aracTipi": "-"
+          "aracTipi": "FİLO"
         },
         {
           "bolge": "TRAKYA",
@@ -1051,12 +1051,12 @@
           "yuklemeNoktasi": "BUNGE TRAKYA",
           "teslimNoktasi": "9904-KEMALPAŞA BÖLGE",
           "yuklemeTarihi": "28.04.2026 00:00",
-          "yuklemeyeGelis": "-",
-          "farkSaat": null,
+          "yuklemeyeGelis": "28.04.2026 11:34",
+          "farkSaat": 11.6,
           "gecTedarik": "Hayır",
-          "durumText": "Yükleme Tarihi Yok",
+          "durumText": "Zamanında",
           "hasValidSeferNo": true,
-          "hasLoadingDate": false,
+          "hasLoadingDate": true,
           "aracTipi": "SPOT"
         },
         {
@@ -1786,12 +1786,12 @@
           "yuklemeNoktasi": "REKA MURATLI",
           "teslimNoktasi": "BİM SAMSUN (9509)",
           "yuklemeTarihi": "28.04.2026 00:00",
-          "yuklemeyeGelis": "-",
-          "farkSaat": null,
+          "yuklemeyeGelis": "28.04.2026 09:00",
+          "farkSaat": 9,
           "gecTedarik": "Hayır",
-          "durumText": "Yükleme Tarihi Yok",
+          "durumText": "Zamanında",
           "hasValidSeferNo": true,
-          "hasLoadingDate": false,
+          "hasLoadingDate": true,
           "aracTipi": "SPOT"
         },
         {
@@ -1807,12 +1807,12 @@
           "yuklemeNoktasi": "REKA MURATLI",
           "teslimNoktasi": "BİM HASANOĞLAN-2 (9552)",
           "yuklemeTarihi": "28.04.2026 00:00",
-          "yuklemeyeGelis": "-",
-          "farkSaat": null,
+          "yuklemeyeGelis": "28.04.2026 08:00",
+          "farkSaat": 8,
           "gecTedarik": "Hayır",
-          "durumText": "Yükleme Tarihi Yok",
+          "durumText": "Zamanında",
           "hasValidSeferNo": true,
-          "hasLoadingDate": false,
+          "hasLoadingDate": true,
           "aracTipi": "SPOT"
         },
         {
@@ -1828,12 +1828,12 @@
           "yuklemeNoktasi": "REKA MURATLI",
           "teslimNoktasi": "BİM KAYSERİ-2",
           "yuklemeTarihi": "28.04.2026 00:00",
-          "yuklemeyeGelis": "-",
-          "farkSaat": null,
+          "yuklemeyeGelis": "28.04.2026 08:00",
+          "farkSaat": 8,
           "gecTedarik": "Hayır",
-          "durumText": "Yükleme Tarihi Yok",
+          "durumText": "Zamanında",
           "hasValidSeferNo": true,
-          "hasLoadingDate": false,
+          "hasLoadingDate": true,
           "aracTipi": "SPOT"
         },
         {
@@ -1849,12 +1849,12 @@
           "yuklemeNoktasi": "REKA MURATLI",
           "teslimNoktasi": "BİM KAYSERİ (9516)",
           "yuklemeTarihi": "28.04.2026 00:00",
-          "yuklemeyeGelis": "-",
-          "farkSaat": null,
+          "yuklemeyeGelis": "28.04.2026 08:00",
+          "farkSaat": 8,
           "gecTedarik": "Hayır",
-          "durumText": "Yükleme Tarihi Yok",
+          "durumText": "Zamanında",
           "hasValidSeferNo": true,
-          "hasLoadingDate": false,
+          "hasLoadingDate": true,
           "aracTipi": "SPOT"
         },
         {
@@ -1870,12 +1870,12 @@
           "yuklemeNoktasi": "REKA MURATLI",
           "teslimNoktasi": "BİM NİLÜFER (9503)",
           "yuklemeTarihi": "28.04.2026 00:00",
-          "yuklemeyeGelis": "-",
-          "farkSaat": null,
+          "yuklemeyeGelis": "28.04.2026 17:01",
+          "farkSaat": 17,
           "gecTedarik": "Hayır",
-          "durumText": "Yükleme Tarihi Yok",
+          "durumText": "Zamanında",
           "hasValidSeferNo": true,
-          "hasLoadingDate": false,
+          "hasLoadingDate": true,
           "aracTipi": "SPOT"
         },
         {
@@ -1891,12 +1891,12 @@
           "yuklemeNoktasi": "REKA MURATLI",
           "teslimNoktasi": "BİM LÜLEBURGAZ (9544)",
           "yuklemeTarihi": "28.04.2026 00:00",
-          "yuklemeyeGelis": "-",
-          "farkSaat": null,
+          "yuklemeyeGelis": "28.04.2026 08:00",
+          "farkSaat": 8,
           "gecTedarik": "Hayır",
-          "durumText": "Yükleme Tarihi Yok",
+          "durumText": "Zamanında",
           "hasValidSeferNo": true,
-          "hasLoadingDate": false,
+          "hasLoadingDate": true,
           "aracTipi": "SPOT"
         },
         {
@@ -2080,12 +2080,12 @@
           "yuklemeNoktasi": "REKA MURATLI",
           "teslimNoktasi": "BİM ESENYURT-1 (9502)",
           "yuklemeTarihi": "28.04.2026 00:00",
-          "yuklemeyeGelis": "-",
-          "farkSaat": null,
+          "yuklemeyeGelis": "28.04.2026 17:05",
+          "farkSaat": 17.1,
           "gecTedarik": "Hayır",
-          "durumText": "Yükleme Tarihi Yok",
+          "durumText": "Zamanında",
           "hasValidSeferNo": true,
-          "hasLoadingDate": false,
+          "hasLoadingDate": true,
           "aracTipi": "SPOT"
         },
         {
@@ -2136,14 +2136,14 @@
           "bolge": "TRAKYA",
           "proje": "BUNGE LÜLEBURGAZ FTL",
           "talep": 67,
-          "tedarik": 52,
-          "edilmeyen": 15,
-          "filo": 5,
-          "spot": 47,
-          "sho_basilan": 41,
-          "sho_basilmayan": 11,
+          "tedarik": 57,
+          "edilmeyen": 10,
+          "filo": 8,
+          "spot": 49,
+          "sho_basilan": 43,
+          "sho_basilmayan": 14,
           "gec_tedarik": 0,
-          "oran": 78
+          "oran": 85
         },
         {
           "bolge": "TRAKYA",
@@ -2179,8 +2179,8 @@
           "edilmeyen": 11,
           "filo": 1,
           "spot": 59,
-          "sho_basilan": 27,
-          "sho_basilmayan": 33,
+          "sho_basilan": 35,
+          "sho_basilmayan": 25,
           "gec_tedarik": 1,
           "oran": 83
         }
@@ -2188,5 +2188,5 @@
     }
   ],
   "bolge": "GEBZE",
-  "savedAt": "2026-04-28T13:10:52.554Z"
+  "savedAt": "2026-04-28T14:20:59.916Z"
 }
